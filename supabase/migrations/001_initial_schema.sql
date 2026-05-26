@@ -11,8 +11,12 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS profiles (
   id           UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name         TEXT NOT NULL DEFAULT 'Trader',
-  pin_hash     TEXT NOT NULL,
+  -- pin_len stored here for PIN pad UX (how many dots to show).
+  -- The PIN itself lives only in Supabase Auth as bcrypt password.
+  -- No pin_hash stored here — Supabase handles all hashing.
   pin_len      INT  NOT NULL DEFAULT 6,
+  status       TEXT NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending', 'approved', 'suspended')),
   lang         TEXT NOT NULL DEFAULT 'en' CHECK (lang IN ('en','zh')),
   theme        TEXT NOT NULL DEFAULT 'dark' CHECK (theme IN ('dark','light')),
   is_admin     BOOLEAN NOT NULL DEFAULT FALSE,
@@ -274,12 +278,12 @@ CREATE POLICY "journal_entries: own only"
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, name, pin_hash, pin_len)
+  INSERT INTO public.profiles (id, name, pin_len, status)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'name', 'Trader'),
-    COALESCE(NEW.raw_user_meta_data->>'pin_hash', ''),
-    COALESCE((NEW.raw_user_meta_data->>'pin_len')::int, 6)
+    COALESCE((NEW.raw_user_meta_data->>'pin_len')::int, 6),
+    'pending'   -- all new users start pending, admin must approve
   );
   RETURN NEW;
 END;
@@ -288,3 +292,42 @@ $$;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- ── Admin approval: admin can update any profile status ──────
+CREATE POLICY "profiles: admin can update status"
+  ON profiles FOR UPDATE
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE)
+  )
+  WITH CHECK (TRUE);
+
+-- ============================================================
+--  Public RPC: get_pin_len_by_email
+--  Returns pin_len for login PIN pad UX.
+--  SECURITY: returns NULL if email not found (no info leak).
+--  No password, no hash, no secret exposed.
+-- ============================================================
+CREATE OR REPLACE FUNCTION get_pin_len_by_email(p_email TEXT)
+RETURNS INT LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_user_id UUID;
+  v_pin_len INT;
+BEGIN
+  -- Look up user id from auth.users by email
+  SELECT id INTO v_user_id
+  FROM auth.users
+  WHERE LOWER(email) = LOWER(p_email)
+  LIMIT 1;
+
+  IF v_user_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  -- Get pin_len from profiles
+  SELECT pin_len INTO v_pin_len
+  FROM public.profiles
+  WHERE id = v_user_id;
+
+  RETURN COALESCE(v_pin_len, 6);
+END;
+$$;

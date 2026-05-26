@@ -3,55 +3,61 @@
 import { useState } from 'react'
 import { useRouter }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { hashPin, validatePin } from '@/lib/auth/pin'
 
 const PIN_LEN = 6
+
+function validatePin(pin: string): { valid: boolean; error?: string } {
+  if (!/^\d+$/.test(pin)) return { valid: false, error: 'PIN must be digits only' }
+  if (pin.length < 4)     return { valid: false, error: 'PIN must be at least 4 digits' }
+  if (pin.length > 8)     return { valid: false, error: 'PIN must be at most 8 digits' }
+  return { valid: true }
+}
 
 export default function RegisterPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  const [step,        setStep]        = useState<'info' | 'pin' | 'confirm'>('info')
-  const [name,        setName]        = useState('')
-  const [email,       setEmail]       = useState('')
-  const [inviteCode,  setInviteCode]  = useState('')
-  const [pin,         setPin]         = useState('')
-  const [confirmPin,  setConfirmPin]  = useState('')
-  const [activePin,   setActivePin]   = useState<'pin' | 'confirm'>('pin')
-  const [error,       setError]       = useState('')
-  const [loading,     setLoading]     = useState(false)
+  const [step,       setStep]       = useState<'info' | 'pin'>('info')
+  const [name,       setName]       = useState('')
+  const [email,      setEmail]      = useState('')
+  const [inviteCode, setInviteCode] = useState('')
+  const [pin,        setPin]        = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [pinPhase,   setPinPhase]   = useState<'set' | 'confirm'>('set')
+  const [error,      setError]      = useState('')
+  const [loading,    setLoading]    = useState(false)
 
+  // ── PIN pad ───────────────────────────────────────────────
   function pressDigit(d: number) {
-    if (activePin === 'pin') {
+    if (pinPhase === 'set') {
       if (pin.length >= PIN_LEN) return
       const next = pin + d
       setPin(next)
-      if (next.length === PIN_LEN) setActivePin('confirm')
+      if (next.length === PIN_LEN) setPinPhase('confirm')
     } else {
       if (confirmPin.length >= PIN_LEN) return
-      setConfirmPin(p => p + d)
+      const next = confirmPin + d
+      setConfirmPin(next)
+      if (next.length === PIN_LEN) setTimeout(() => submitRegistration(pin, next), 60)
     }
     setError('')
   }
 
   function pressBack() {
-    if (activePin === 'confirm' && confirmPin.length === 0) {
-      setActivePin('pin')
-      setPin(p => p.slice(0, -1))
-    } else if (activePin === 'confirm') {
-      setConfirmPin(p => p.slice(0, -1))
+    setError('')
+    if (pinPhase === 'confirm') {
+      if (confirmPin.length === 0) { setPinPhase('set'); setPin(p => p.slice(0, -1)) }
+      else setConfirmPin(p => p.slice(0, -1))
     } else {
       setPin(p => p.slice(0, -1))
     }
-    setError('')
   }
 
+  // ── Step 1: validate info + invite code ───────────────────
   async function handleInfoSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     if (!name.trim()) { setError('Please enter your name'); return }
-    if (!inviteCode.trim()) { setError('Invite code required'); return }
-
     setLoading(true)
     try {
       const res  = await fetch('/api/auth/validate-invite', {
@@ -69,21 +75,30 @@ export default function RegisterPage() {
     }
   }
 
-  async function handleRegister() {
-    if (pin !== confirmPin) { setError('PINs do not match'); setConfirmPin(''); return }
-    const { valid, error: pinErr } = validatePin(pin)
+  // ── Step 2: register — PIN is the Supabase password, raw ─
+  async function submitRegistration(finalPin: string, finalConfirm: string) {
+    if (finalPin !== finalConfirm) {
+      setError('PINs do not match')
+      setConfirmPin('')
+      setPinPhase('set')
+      setPin('')
+      return
+    }
+    const { valid, error: pinErr } = validatePin(finalPin)
     if (!valid) { setError(pinErr ?? 'Invalid PIN'); return }
 
     setLoading(true)
     setError('')
     try {
-      const pin_hash = await hashPin(pin)
-
       const { error: signUpErr } = await supabase.auth.signUp({
         email,
-        password: pin,   // password = PIN
+        password: finalPin,   // raw PIN → Supabase bcrypts it
         options: {
-          data: { name, pin_hash, pin_len: PIN_LEN },
+          data: {
+            name,
+            pin_len:  PIN_LEN,
+            status:   'pending',    // requires admin approval
+          },
         },
       })
       if (signUpErr) throw signUpErr
@@ -92,20 +107,18 @@ export default function RegisterPage() {
       await fetch('/api/auth/use-invite', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
-        body:    JSON.stringify({ code: inviteCode, email }),
+        body:    JSON.stringify({ code: inviteCode }),
       })
 
-      router.push('/dashboard')
+      router.push('/pending-approval')
     } catch (e: unknown) {
       setError((e as Error).message)
+      setPin('')
+      setConfirmPin('')
+      setPinPhase('set')
     } finally {
       setLoading(false)
     }
-  }
-
-  // Auto-submit when confirmPin is full
-  if (confirmPin.length === PIN_LEN && !loading && !error) {
-    setTimeout(handleRegister, 60)
   }
 
   // ── Render ────────────────────────────────────────────────
@@ -131,10 +144,10 @@ export default function RegisterPage() {
             </div>
             <div>
               <label className="block text-sm mb-1 text-[var(--fg)]">Invite Code</label>
-              <input value={inviteCode} onChange={e => setInviteCode(e.target.value)}
-                className="input w-full" placeholder="XXXX-XXXX" required />
+              <input value={inviteCode} onChange={e => setInviteCode(e.target.value.toUpperCase())}
+                className="input w-full font-mono tracking-wider" placeholder="XXXX-XXXX" required />
             </div>
-            {error && <p className="text-red-400 text-sm">{error}</p>}
+            {error && <p className="text-[var(--negative)] text-sm">{error}</p>}
             <button type="submit" disabled={loading} className="btn btn-primary w-full">
               {loading ? 'Checking…' : 'Continue'}
             </button>
@@ -148,22 +161,26 @@ export default function RegisterPage() {
         {step === 'pin' && (
           <div className="space-y-6">
             <p className="text-center text-sm text-[var(--muted)]">
-              {activePin === 'pin' ? `Set your ${PIN_LEN}-digit PIN` : 'Confirm your PIN'}
+              {pinPhase === 'set'
+                ? `Set a ${PIN_LEN}-digit PIN`
+                : 'Confirm your PIN'}
             </p>
 
             {/* PIN dots */}
             <div className="flex justify-center gap-3">
               {Array.from({ length: PIN_LEN }).map((_, i) => {
-                const filled = activePin === 'pin' ? i < pin.length : i < confirmPin.length
+                const active = pinPhase === 'set' ? pin : confirmPin
                 return (
                   <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all duration-150
-                    ${filled ? 'bg-[var(--accent)] border-[var(--accent)] scale-110' : 'border-[var(--border)]'}`}
+                    ${i < active.length
+                      ? 'bg-[var(--accent)] border-[var(--accent)] scale-110'
+                      : 'border-[var(--border)]'}`}
                   />
                 )
               })}
             </div>
 
-            {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+            {error && <p className="text-[var(--negative)] text-sm text-center">{error}</p>}
 
             <div className="grid grid-cols-3 gap-3">
               {[1,2,3,4,5,6,7,8,9].map(d => (

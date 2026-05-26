@@ -1,53 +1,40 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter }   from 'next/navigation'
+import { useRouter }    from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { verifyPin }    from '@/lib/auth/pin'
 
-const PIN_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+const DEFAULT_PIN_LEN = 6
 
 export default function LoginPage() {
-  const router  = useRouter()
+  const router   = useRouter()
   const supabase = createClient()
 
   const [step,    setStep]    = useState<'email' | 'pin'>('email')
   const [email,   setEmail]   = useState('')
+  const [pinLen,  setPinLen]  = useState(DEFAULT_PIN_LEN)
   const [pin,     setPin]     = useState('')
-  const [pinLen,  setPinLen]  = useState(6)
-  const [pinHash, setPinHash] = useState('')
   const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
   const emailRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { emailRef.current?.focus() }, [])
 
-  // ── Step 1: Look up account by email ──────────────────────
+  // ── Step 1: validate email exists, get pin length ─────────
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      // Sign in with magic link first to get session, then we verify PIN
-      // Strategy: use email+password where password = pin_hash
-      // We first fetch the profile to know pin_len
-      const { data, error: signInErr } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
-      })
-      if (signInErr) throw signInErr
-
-      // Fetch profile pin info via a server action / API call
-      const res  = await fetch('/api/auth/profile-pin', {
+      // Fetch pin_len from public profile lookup (length only, no secret)
+      const res  = await fetch('/api/auth/pin-len', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
         body:    JSON.stringify({ email }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Account not found')
-
-      setPinLen(json.pin_len)
-      setPinHash(json.pin_hash)
+      setPinLen(json.pin_len ?? DEFAULT_PIN_LEN)
       setStep('pin')
     } catch (e: unknown) {
       setError((e as Error).message)
@@ -56,12 +43,12 @@ export default function LoginPage() {
     }
   }
 
-  // ── Step 2: PIN entry ─────────────────────────────────────
+  // ── Step 2: PIN digits ────────────────────────────────────
   function pressDigit(d: number) {
     if (pin.length >= pinLen) return
     const next = pin + d
     setPin(next)
-    if (next.length === pinLen) setTimeout(() => handlePinSubmit(next), 60)
+    if (next.length === pinLen) setTimeout(() => submitPin(next), 60)
   }
 
   function pressBack() {
@@ -69,27 +56,37 @@ export default function LoginPage() {
     setError('')
   }
 
-  async function handlePinSubmit(enteredPin: string) {
+  // ── Step 3: sign in — PIN is the password, raw, no hashing
+  async function submitPin(enteredPin: string) {
     setError('')
     setLoading(true)
     try {
-      const ok = await verifyPin(enteredPin, pinHash)
-      if (!ok) {
-        setPin('')
-        setError('Incorrect PIN')
-        setLoading(false)
+      const { error: authErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: enteredPin,   // raw PIN → Supabase bcrypts internally
+      })
+      if (authErr) throw authErr
+
+      // Check approval status
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('email_ref', email)
+        .single()
+
+      if (profile?.status === 'pending') {
+        router.push('/pending-approval')
         return
       }
-      // PIN correct — complete sign-in via email OTP session
-      // The OTP was triggered above; now sign in properly
-      const { error: pwErr } = await supabase.auth.signInWithPassword({
-        email,
-        password: enteredPin,   // password = PIN (set during registration)
-      })
-      if (pwErr) throw pwErr
+      if (profile?.status === 'suspended') {
+        throw new Error('Account suspended. Contact admin.')
+      }
+
       router.push('/dashboard')
     } catch (e: unknown) {
-      setError((e as Error).message)
+      setError((e as Error).message === 'Invalid login credentials'
+        ? 'Incorrect PIN'
+        : (e as Error).message)
       setPin('')
     } finally {
       setLoading(false)
@@ -100,11 +97,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-[var(--accent)]">TradeOS</h1>
           <p className="text-[var(--muted)] mt-1 text-sm">
-            {step === 'email' ? 'Sign in to your account' : `Welcome back — enter your ${pinLen}-digit PIN`}
+            {step === 'email' ? 'Sign in to your account' : `Enter your ${pinLen}-digit PIN`}
           </p>
         </div>
 
@@ -122,13 +118,9 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full"
-            >
-              {loading ? 'Looking up…' : 'Continue'}
+            {error && <p className="text-[var(--negative)] text-sm">{error}</p>}
+            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+              {loading ? 'Checking…' : 'Continue'}
             </button>
             <p className="text-center text-sm text-[var(--muted)]">
               Need an account?{' '}
@@ -151,31 +143,31 @@ export default function LoginPage() {
               ))}
             </div>
 
-            {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+            {error && <p className="text-[var(--negative)] text-sm text-center">{error}</p>}
 
             {/* PIN pad */}
             <div className="grid grid-cols-3 gap-3">
               {[1,2,3,4,5,6,7,8,9].map(d => (
-                <button
-                  key={d}
-                  onClick={() => pressDigit(d)}
-                  disabled={loading}
-                  className="pin-key"
-                >
+                <button key={d} onClick={() => pressDigit(d)} disabled={loading} className="pin-key">
                   {d}
                 </button>
               ))}
-              <div /> {/* empty */}
+              <div />
               <button onClick={() => pressDigit(0)} disabled={loading} className="pin-key">0</button>
               <button onClick={pressBack} disabled={loading} className="pin-key text-[var(--muted)]">⌫</button>
             </div>
 
-            <button
-              onClick={() => { setStep('email'); setPin(''); setError('') }}
-              className="w-full text-sm text-[var(--muted)] hover:text-[var(--fg)]"
-            >
-              ← Use different account
-            </button>
+            <div className="flex justify-between text-sm">
+              <button
+                onClick={() => { setStep('email'); setPin(''); setError('') }}
+                className="text-[var(--muted)] hover:text-[var(--fg)]"
+              >
+                ← Back
+              </button>
+              <a href="/forgot-pin" className="text-[var(--muted)] hover:text-[var(--accent)]">
+                Forgot PIN?
+              </a>
+            </div>
           </div>
         )}
       </div>
