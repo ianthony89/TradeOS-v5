@@ -8,11 +8,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient()
 
-  // Get the user ID from the email
-  const { data: userData } = await supabase.auth.admin
-    ? supabase.from('profiles').select('id').limit(1)
-    : supabase.from('profiles').select('id').limit(1)  // fallback noop
-
   // Mark invite code as used (best-effort, no auth required at this point)
   await supabase
     .from('invite_codes')

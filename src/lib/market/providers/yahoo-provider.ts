@@ -11,7 +11,8 @@ import { detectAssetType } from '../asset-type'
 export class YahooProvider implements MarketDataProvider {
   // ── getQuote ───────────────────────────────────────────────
   async getQuote(symbol: string): Promise<Quote> {
-    const raw = await yahooFinance.quote(symbol, {}, { validateResult: false })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = await yahooFinance.quote(symbol) as any
 
     const marketState = (raw.marketState ?? 'CLOSED') as Quote['marketState']
 
@@ -68,7 +69,8 @@ export class YahooProvider implements MarketDataProvider {
       interval: '1d',
     })
 
-    return raw.map(r => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (raw as any[]).map(r => ({
       time:   r.date.toISOString().split('T')[0],
       open:   r.open  ?? r.close,
       high:   r.high  ?? r.close,

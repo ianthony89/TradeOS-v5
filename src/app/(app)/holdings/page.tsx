@@ -118,7 +118,7 @@ export default function HoldingsPage() {
         })))
 
         // Auto-refresh quotes after import
-        const symbols = data.map((r: { symbol_normalized: string }) => r.symbol_normalized)
+        const symbols = (data ?? []).map((r: { symbol_normalized: string }) => r.symbol_normalized)
         const qRes    = await fetch('/api/quotes', {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ symbols }),
