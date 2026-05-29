@@ -27,18 +27,21 @@ export async function GET() {
   const { data: { users } } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 })
   const emailById = new Map(users.map(u => [u.id, u.email ?? '']))
 
-  const pending = (profiles ?? [])
-    .filter(p => p.status === 'pending')
-    .map(p => ({
-      id:        p.id,
-      name:      p.name,
-      email:     emailById.get(p.id) ?? '',
-      createdAt: p.created_at,
-    }))
+  const mapUser = (p: { id: string; name: string | null; created_at: string }) => ({
+    id:        p.id,
+    name:      p.name,
+    email:     emailById.get(p.id) ?? '',
+    createdAt: p.created_at,
+  })
+
+  const rows     = profiles ?? []
+  const pending  = rows.filter(p => p.status === 'pending').map(mapUser)
+  const approved = rows.filter(p => p.status === 'approved').map(mapUser)
 
   return NextResponse.json({
     codes:         codes ?? [],
     pending,
-    approvedCount: (profiles ?? []).filter(p => p.status === 'approved').length,
+    approved,
+    approvedCount: approved.length,
   })
 }

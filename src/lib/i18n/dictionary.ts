@@ -284,6 +284,9 @@ const en: Dict = {
   admin_approving:       'Approving…',
   admin_no_pending:      'No one waiting for approval.',
   admin_approved_count:  '{n} approved',
+  admin_members_title:   'Members',
+  admin_member_approved: 'Approved',
+  admin_no_members:      'No approved members yet.',
 
   // ── Common ───────────────────────────────────────────────
   btn_save:              'Save',
@@ -576,6 +579,9 @@ const zh: Dict = {
   admin_approving:       '批准中…',
   admin_no_pending:      '没有等待审批的用户。',
   admin_approved_count:  '已批准 {n} 人',
+  admin_members_title:   '成员',
+  admin_member_approved: '已批准',
+  admin_no_members:      '还没有已批准的成员。',
 
   // ── Common ───────────────────────────────────────────────
   btn_save:              '保存',

@@ -13,7 +13,7 @@ interface InviteCode {
   used_at:    string | null
   created_at: string
 }
-interface PendingUser {
+interface Member {
   id:        string
   name:      string | null
   email:     string
@@ -26,8 +26,8 @@ export default function AdminPage() {
   const [loading,   setLoading]   = useState(true)
   const [forbidden, setForbidden] = useState(false)
   const [codes,     setCodes]     = useState<InviteCode[]>([])
-  const [pending,   setPending]   = useState<PendingUser[]>([])
-  const [approved,  setApproved]  = useState(0)
+  const [pending,   setPending]   = useState<Member[]>([])
+  const [approved,  setApproved]  = useState<Member[]>([])
 
   const [generating, setGenerating] = useState(false)
   const [approvingId, setApprovingId] = useState<string | null>(null)
@@ -40,7 +40,7 @@ export default function AdminPage() {
       const json = await res.json()
       setCodes(json.codes ?? [])
       setPending(json.pending ?? [])
-      setApproved(json.approvedCount ?? 0)
+      setApproved(json.approved ?? [])
     } catch { /* leave empty */ }
   }, [])
 
@@ -72,8 +72,8 @@ export default function AdminPage() {
         body:    JSON.stringify({ userId }),
       })
       if (res.ok) {
-        setPending(prev => prev.filter(u => u.id !== userId))
-        setApproved(n => n + 1)
+        // Reload so the user moves from Pending into Members authoritatively.
+        await loadData()
       }
     } catch { /* ignore */ }
     finally { setApprovingId(null) }
@@ -114,7 +114,7 @@ export default function AdminPage() {
           <h1 className="section-title">{t('nav_admin')}</h1>
           <p className="section-sub">
             {t('admin_sub')}
-            {!loading && ` · ${t('admin_approved_count', { n: approved })}`}
+            {!loading && ` · ${t('admin_approved_count', { n: approved.length })}`}
           </p>
         </div>
       </div>
@@ -206,6 +206,42 @@ export default function AdminPage() {
                               ? t('admin_approving')
                               : <><UserCheck size={12} />{t('admin_approve')}</>}
                           </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </PanelBody>
+        </Panel>
+      </div>
+
+      {/* Members (approved users) */}
+      <div style={{ marginTop: 18 }}>
+        <Panel>
+          <PanelHead
+            title={t('admin_members_title')}
+            meta={loading ? '' : String(approved.length)}
+          />
+          <PanelBody flush>
+            {loading ? (
+              <EmptyState title={t('loading')} />
+            ) : !approved.length ? (
+              <EmptyState title={t('admin_no_members')} />
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table">
+                  <tbody>
+                    {approved.map(u => (
+                      <tr key={u.id}>
+                        <td className="td--strong">{u.name || '—'}</td>
+                        <td className="text-mono text-tertiary" style={{ fontSize: 12 }}>{u.email}</td>
+                        <td className="text-tertiary" style={{ fontSize: 12 }}>
+                          {fmt.relativeTime(u.createdAt)}
+                        </td>
+                        <td className="num">
+                          <span className="badge badge--positive">{t('admin_member_approved')}</span>
                         </td>
                       </tr>
                     ))}
