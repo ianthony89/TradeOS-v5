@@ -91,12 +91,13 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 **Phase 1** — In progress:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
 - App shell (sidebar / topbar / mobile nav)
-- Dashboard (intelligence-first cockpit)
+- Dashboard (intelligence-first cockpit + Action Center)
 - Holdings (decision workspace)
+- Watchlist (radar system — symbol / target / distance / status, persisted to `watchlist_items`)
 - Market intelligence (live sessions, FX, sync indicators)
 
-**Phase 2** — Planned: Watchlist / Journal / Planner / AI insights / Price alerts.
-Currently these are honest "Coming soon" empty states with claimed nav slots.
+**Phase 2** — Planned: Journal / Planner / AI insights / Price alerts.
+These are honest "Coming soon" roadmap cards with claimed nav slots.
 They are NOT fake shells. Do not populate them with invented data or fake panels.
 
 ---

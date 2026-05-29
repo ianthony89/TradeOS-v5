@@ -12,6 +12,7 @@ import { Panel, PanelBody } from '@/components/ui/panel'
 import { SymCell }           from '@/components/brand/stock-logo'
 import { DeltaBadge, DeltaMoney } from '@/components/ui/delta-badge'
 import { EmptyState }        from '@/components/ui/empty-state'
+import { InfoTooltip }       from '@/components/ui/info-tooltip'
 import {
   classifyStrategy, classifyAction,
   STRATEGY_TONE, ACTION_TONE,
@@ -319,6 +320,17 @@ export default function HoldingsPage() {
               ))}
             </div>
             <div className="toolbar-spacer" />
+            <span className="th-with-help text-tertiary" style={{ fontSize: 11.5 }}>
+              {t('tax_def_title')}
+              <InfoTooltip content={
+                <div className="tax-def">
+                  <div className="tax-def-title">{t('tax_def_title')}</div>
+                  <div className="tax-def-row">{t('tax_CORE_def')}</div>
+                  <div className="tax-def-row">{t('tax_TACTICAL_def')}</div>
+                  <div className="tax-def-row">{t('tax_SPECULATIVE_def')}</div>
+                </div>
+              } />
+            </span>
             <span className="text-tertiary" style={{ fontSize: 11.5 }}>
               {sorted.length} of {holdings.length}
             </span>

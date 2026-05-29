@@ -2,7 +2,7 @@
 
 import { Calculator } from 'lucide-react'
 import { Panel, PanelBody } from '@/components/ui/panel'
-import { EmptyState }       from '@/components/ui/empty-state'
+import { ComingSoon }       from '@/components/ui/coming-soon'
 import { useT }             from '@/lib/i18n/context'
 
 export default function PlannerPage() {
@@ -12,15 +12,18 @@ export default function PlannerPage() {
       <div className="section-header">
         <div>
           <h1 className="section-title">{t('nav_planner')}</h1>
-          <p className="section-sub">Position sizing & risk planning</p>
+          <p className="section-sub">{t('soon_planner_desc')}</p>
         </div>
       </div>
       <Panel>
         <PanelBody>
-          <EmptyState
-            icon={<Calculator size={20} />}
-            title="Planner coming soon"
-            sub="Pre-trade calculator: position size, R-multiples, stop placement, target ratios."
+          <ComingSoon
+            icon={<Calculator size={22} />}
+            title={t('soon_planner_title')}
+            desc={t('soon_planner_desc')}
+            badge={t('soon_badge')}
+            roadmapLabel={t('soon_roadmap')}
+            roadmap={[t('soon_planner_r1'), t('soon_planner_r2'), t('soon_planner_r3')]}
           />
         </PanelBody>
       </Panel>

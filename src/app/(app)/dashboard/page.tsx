@@ -24,6 +24,7 @@ import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
 import { SymCell }        from '@/components/brand/stock-logo'
 import { getSector, getSectorColor }  from '@/lib/portfolio/sectors'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
+import { buildActionSuggestions } from '@/lib/portfolio/action-center'
 
 export default function DashboardPage() {
   const t        = useT()
@@ -218,40 +219,22 @@ export default function DashboardPage() {
       })),
   [enriched])
 
-  /* Intel signals */
-  const intels = useMemo(() => {
-    const out: Array<{
-      key: string; severity: 'critical'|'warning'|'info';
-      icon: 'concentration'|'loss'|'sector';
-      title: string; detail: string;
-    }> = []
-    for (const h of withWeight) {
-      if (h.portfolioWeight > 25) {
-        out.push({
-          key: `con-${h.id}`, severity: 'warning', icon: 'concentration',
-          title: `${h.symbol} is ${fmt.pct(h.portfolioWeight, 1)} of portfolio`,
-          detail: 'Above 25% concentration — consider trimming',
-        })
-      }
-      if (h.unrealizedPlPct < -50) {
-        out.push({
-          key: `loss-${h.id}`, severity: 'critical', icon: 'loss',
-          title: `${h.symbol} down ${fmt.pct(Math.abs(h.unrealizedPlPct), 1)}`,
-          detail: 'Heavy loss — review thesis or exit',
-        })
-      }
-    }
-    for (const s of sectorSlices) {
-      if (s.pct > 70) {
-        out.push({
-          key: `sec-${s.name}`, severity: 'warning', icon: 'sector',
-          title: `${s.name} is ${fmt.pct(s.pct, 1)} of portfolio`,
-          detail: 'Single-sector concentration',
-        })
-      }
-    }
-    return out.slice(0, 4)
-  }, [withWeight, sectorSlices])
+  /* Action Center — rules-based suggestions, prioritized, capped at 3 */
+  const actions = useMemo(
+    () => buildActionSuggestions(
+      withWeight.map(h => ({
+        symbol: h.symbol, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
+      })),
+      sectorSlices.map(s => ({ name: s.name, pct: s.pct })),
+      (v) => fmt.pct(v, 1),
+    ),
+    [withWeight, sectorSlices],
+  )
+
+  /* Hero intelligence row */
+  const largest   = topPositions[0]
+  const topWinner = winners[0]
+  const topLoser  = losers[0]
 
   /* Speculative weight — for risk stat tile */
   const speculativeWeight = useMemo(() => {
@@ -355,6 +338,34 @@ export default function DashboardPage() {
             <span>·</span>
             <span>{fmt.moneySigned(todayPl, primaryCurrency)} today</span>
           </div>
+
+          {/* Compact intelligence row — fills the hero efficiently */}
+          <div className="hero-intel">
+            <div className="hero-intel-cell">
+              <span className="hero-intel-label">{t('hero_largest')}</span>
+              <span className="hero-intel-value">
+                {largest
+                  ? <>{largest.symbol}{' '}<span className="text-tertiary">{fmt.pct(largest.portfolioWeight, 1)}</span></>
+                  : t('hero_none')}
+              </span>
+            </div>
+            <div className="hero-intel-cell">
+              <span className="hero-intel-label">{t('hero_top_winner')}</span>
+              <span className="hero-intel-value">
+                {topWinner
+                  ? <>{topWinner.symbol}{' '}<span className="text-positive">{fmt.pctSigned(topWinner.unrealizedPlPct, 1)}</span></>
+                  : t('hero_none')}
+              </span>
+            </div>
+            <div className="hero-intel-cell">
+              <span className="hero-intel-label">{t('hero_top_loser')}</span>
+              <span className="hero-intel-value">
+                {topLoser
+                  ? <>{topLoser.symbol}{' '}<span className="text-negative">{fmt.pctSigned(topLoser.unrealizedPlPct, 1)}</span></>
+                  : t('hero_none')}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="dash-mini-stats">
@@ -391,20 +402,28 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Intelligence signals — only if any */}
-      {intels.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-          {intels.map(s => (
-            <IntelCard
-              key={s.key}
-              severity={s.severity}
-              icon={s.icon}
-              title={s.title}
-              detail={s.detail}
-            />
-          ))}
+      {/* Action Center — what deserves attention today */}
+      <div className="action-center">
+        <div className="action-center-head">
+          <span className="action-center-title">{t('action_center')}</span>
+          <span className="action-center-sub">{t('action_center_sub')}</span>
         </div>
-      )}
+        {actions.length ? (
+          <div className="action-center-list">
+            {actions.map(a => (
+              <IntelCard
+                key={a.key}
+                severity={a.priority}
+                icon={a.icon}
+                title={t(a.titleKey, a.titleVars)}
+                detail={t(a.detailKey, a.detailVars)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="action-center-clear">{t('action_center_clear')}</div>
+        )}
+      </div>
 
       {/* Allocation donut + Risk by strategy */}
       <div className="grid-2" style={{ marginBottom: 18 }}>

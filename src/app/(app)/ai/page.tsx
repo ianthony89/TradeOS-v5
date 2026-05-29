@@ -2,7 +2,7 @@
 
 import { Bot } from 'lucide-react'
 import { Panel, PanelBody } from '@/components/ui/panel'
-import { EmptyState }       from '@/components/ui/empty-state'
+import { ComingSoon }       from '@/components/ui/coming-soon'
 import { useT }             from '@/lib/i18n/context'
 
 export default function AiPage() {
@@ -12,15 +12,18 @@ export default function AiPage() {
       <div className="section-header">
         <div>
           <h1 className="section-title">{t('nav_ai')}</h1>
-          <p className="section-sub">AI portfolio insights</p>
+          <p className="section-sub">{t('soon_ai_desc')}</p>
         </div>
       </div>
       <Panel>
         <PanelBody>
-          <EmptyState
-            icon={<Bot size={20} />}
-            title="AI insights coming soon"
-            sub="Bring your own key — Gemini / OpenAI. Position analysis, news summaries, scenario planning."
+          <ComingSoon
+            icon={<Bot size={22} />}
+            title={t('soon_ai_title')}
+            desc={t('soon_ai_desc')}
+            badge={t('soon_badge')}
+            roadmapLabel={t('soon_roadmap')}
+            roadmap={[t('soon_ai_r1'), t('soon_ai_r2'), t('soon_ai_r3')]}
           />
         </PanelBody>
       </Panel>
