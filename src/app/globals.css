@@ -1417,6 +1417,13 @@ a { color: inherit; text-decoration: none; }
 
 .hairline { height: 1px; background: var(--hairline); width: 100%; }
 
+/* Ticker mode toolbar (My Holdings / Hot List) */
+.ticker-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 /* ─────────────────────────────────────────────────────────────
    Ticker strip — premium auto-scrolling market pulse
    ───────────────────────────────────────────────────────────── */

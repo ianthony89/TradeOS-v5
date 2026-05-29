@@ -1,16 +1,18 @@
 'use client'
 
-import { useEffect, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { RefreshCw, Upload, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
 import { useT }           from '@/lib/i18n/context'
 import { fmt }            from '@/lib/utils/format'
+import { HOT_LIST }       from '@/lib/market/hot-list'
 import { Panel, PanelHead, PanelBody } from '@/components/ui/panel'
 import { StatCard }       from '@/components/ui/stat-card'
 import { DeltaBadge }     from '@/components/ui/delta-badge'
 import { EmptyState }     from '@/components/ui/empty-state'
+import { ImportCsvButton } from '@/components/ui/import-button'
 import { TickerStrip }    from '@/components/ui/ticker-strip'
 import { DonutChart, type DonutSlice } from '@/components/ui/donut-chart'
 import { IntelCard }      from '@/components/ui/intel-card'
@@ -39,46 +41,73 @@ export default function DashboardPage() {
   const primaryCurrency    = useMarketStore(s => s.primaryCurrency)
   const setPrimaryCurrency = useMarketStore(s => s.setPrimaryCurrency)
 
-  /* Load holdings once */
-  useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  /* Ticker mode: My Holdings (default) vs curated Hot List */
+  const [tickerMode, setTickerMode] = useState<'holdings' | 'hot'>('holdings')
+  const [hotItems, setHotItems] = useState<Array<{ symbol: string; price: number; changePct: number; currency: string }>>([])
+  const [importMsg, setImportMsg] = useState('')
 
-      const { data } = await supabase
-        .from('holdings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('market_value', { ascending: false })
-
-      if (data) {
-        setHoldings(data.map(row => ({
-          id:               row.id,
-          symbol:           row.symbol,
-          symbolNormalized: row.symbol_normalized,
-          name:             row.name ?? row.symbol,
-          quantity:         Number(row.quantity),
-          availableQty:     Number(row.available_qty ?? row.quantity),
-          avgCost:          Number(row.avg_cost),
-          currentPrice:     Number(row.current_price ?? row.avg_cost),
-          marketValue:      Number(row.market_value ?? 0),
-          unrealizedPl:     Number(row.unrealized_pl ?? 0),
-          unrealizedPlPct:  Number(row.unrealized_pl_pct ?? 0),
-          realizedPl:       Number(row.realized_pl ?? 0),
-          todayPl:          Number(row.today_pl ?? 0),
-          currency:         row.currency,
-          assetType:        row.asset_type ?? 'US_EQUITY',
-          sector:           row.sector,
-          targetPrice:      row.target_price ? Number(row.target_price) : null,
-          stopLoss:         row.stop_loss ? Number(row.stop_loss) : null,
-          notes:            row.notes,
-          portfolioWeight:  0,
-          quotesUpdatedAt:  row.quotes_updated_at,
-        })))
-      }
+  /* Reusable holdings loader (also called after a dashboard import) */
+  const loadHoldings = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('holdings')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('market_value', { ascending: false })
+    if (data) {
+      setHoldings(data.map(row => ({
+        id:               row.id,
+        symbol:           row.symbol,
+        symbolNormalized: row.symbol_normalized,
+        name:             row.name ?? row.symbol,
+        quantity:         Number(row.quantity),
+        availableQty:     Number(row.available_qty ?? row.quantity),
+        avgCost:          Number(row.avg_cost),
+        currentPrice:     Number(row.current_price ?? row.avg_cost),
+        marketValue:      Number(row.market_value ?? 0),
+        unrealizedPl:     Number(row.unrealized_pl ?? 0),
+        unrealizedPlPct:  Number(row.unrealized_pl_pct ?? 0),
+        realizedPl:       Number(row.realized_pl ?? 0),
+        todayPl:          Number(row.today_pl ?? 0),
+        currency:         row.currency,
+        assetType:        row.asset_type ?? 'US_EQUITY',
+        sector:           row.sector,
+        targetPrice:      row.target_price ? Number(row.target_price) : null,
+        stopLoss:         row.stop_loss ? Number(row.stop_loss) : null,
+        notes:            row.notes,
+        portfolioWeight:  0,
+        quotesUpdatedAt:  row.quotes_updated_at,
+      })))
     }
-    load()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, setHoldings])
+
+  useEffect(() => { loadHoldings() }, [loadHoldings])
+
+  /* Lazily fetch the Hot List when first switched to (prices are live) */
+  useEffect(() => {
+    if (tickerMode !== 'hot' || hotItems.length) return
+    let active = true
+    ;(async () => {
+      try {
+        const res  = await fetch('/api/quotes', {
+          method:  'POST',
+          headers: { 'content-type': 'application/json' },
+          body:    JSON.stringify({ symbols: HOT_LIST }),
+        })
+        const json = await res.json()
+        if (active && json.quotes) {
+          setHotItems((json.quotes as Array<{ symbol: string; price: number; changePercent: number }>).map(q => ({
+            symbol:    q.symbol,
+            price:     q.price,
+            changePct: q.changePercent ?? 0,
+            currency:  'USD',
+          })))
+        }
+      } catch { /* ignore */ }
+    })()
+    return () => { active = false }
+  }, [tickerMode, hotItems.length])
 
   /* Refresh quotes — also stamps the sync indicator */
   const refreshQuotes = useCallback(async () => {
@@ -297,7 +326,26 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Ticker pulse — full width, top of stage */}
-      <TickerStrip items={tickerItems} />
+      {/* Ticker mode selector + strip */}
+      <div className="ticker-toolbar">
+        <div className="chip-group" role="group" aria-label="Ticker mode">
+          <button
+            type="button"
+            onClick={() => setTickerMode('holdings')}
+            className={`chip${tickerMode === 'holdings' ? ' chip--active' : ''}`}
+          >
+            {t('ticker_my_holdings')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTickerMode('hot')}
+            className={`chip${tickerMode === 'hot' ? ' chip--active' : ''}`}
+          >
+            {t('ticker_hot_list')}
+          </button>
+        </div>
+      </div>
+      <TickerStrip items={tickerMode === 'hot' ? hotItems : tickerItems} />
 
       <div className="section-header">
         <div>
@@ -306,15 +354,37 @@ export default function DashboardPage() {
             {holdings.length} positions · {usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}
           </p>
         </div>
-        <button
-          onClick={refreshQuotes}
-          disabled={quoteRefreshing}
-          className="btn btn-ghost btn-sm"
-        >
-          <RefreshCw size={13} className={quoteRefreshing ? 'animate-spin' : ''} />
-          {quoteRefreshing ? t('quotes_refreshing') : t('quotes_refresh')}
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button
+            onClick={refreshQuotes}
+            disabled={quoteRefreshing}
+            className="btn btn-ghost btn-sm"
+          >
+            <RefreshCw size={13} className={quoteRefreshing ? 'animate-spin' : ''} />
+            {quoteRefreshing ? t('quotes_refreshing') : t('quotes_refresh')}
+          </button>
+          <ImportCsvButton
+            onImported={async (n) => {
+              setImportMsg(t('holdings_import_ok', { n }))
+              await loadHoldings()
+              refreshQuotes()
+            }}
+            onError={(msg) => setImportMsg(t('holdings_import_fail', { msg }))}
+          />
+        </div>
       </div>
+
+      {importMsg && (
+        <div
+          style={{
+            marginBottom: 14, padding: '8px 12px', borderRadius: 'var(--radius)',
+            background: 'var(--surface-1)', border: '1px solid var(--border-default)',
+            color: 'var(--text-secondary)', fontSize: 12.5,
+          }}
+        >
+          {importMsg}
+        </div>
+      )}
 
       {/* Hero + 4 mini stats side-by-side */}
       <div className="dash-overview">
@@ -345,7 +415,7 @@ export default function DashboardPage() {
             {fmt.money(heroPrimaryValue, primaryCurrency)}
           </span>
           <span className="hero-card-secondary">
-            {fmt.money(heroSecondaryValue, heroSecondaryCurr)}
+            = {fmt.money(heroSecondaryValue, heroSecondaryCurr)}
           </span>
           <div className="hero-card-sub">
             <DeltaBadge value={todayPct} variant="pill" />

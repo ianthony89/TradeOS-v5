@@ -9,16 +9,15 @@ import { FlagMY, FlagUS } from '@/components/brand/flags'
 
 function greetingPart() {
   const h = new Date().getHours()
-  if (h < 5)  return 'Good late night'
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  if (h < 22) return 'Good evening'
-  return 'Good late night'
+  if (h < 12) return 'Good Morning'
+  if (h < 18) return 'Good Afternoon'
+  return 'Good Evening'
 }
 
 function todayLabel() {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
+  // Full weekday + day-month-year, e.g. "Saturday, 30 May 2026"
+  return new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
 
@@ -44,7 +43,7 @@ export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProp
           {typeof positions === 'number' && positions > 0 && (
             <>
               <span className="text-quaternary">·</span>
-              <span>{positions} positions</span>
+              <span>{positions} Positions</span>
             </>
           )}
         </div>

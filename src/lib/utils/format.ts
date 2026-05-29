@@ -10,13 +10,6 @@ const usdFmt = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 })
 
-const myrFmt = new Intl.NumberFormat('en-MY', {
-  style: 'currency',
-  currency: 'MYR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
-
 const usdCompactFmt = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -24,12 +17,8 @@ const usdCompactFmt = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 })
 
-const myrCompactFmt = new Intl.NumberFormat('en-MY', {
-  style: 'currency',
-  currency: 'MYR',
-  notation: 'compact',
-  maximumFractionDigits: 1,
-})
+// MYR is rendered with an explicit "MYR" prefix (not the "RM" Intl symbol).
+const compactNum = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
 
 const intFmt   = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 const decFmt   = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -39,17 +28,18 @@ function n(v: number | null | undefined): number {
   return Number.isFinite(v as number) ? (v as number) : 0
 }
 
-/** USD/MYR money formatter — chooses by currency code. */
+/** USD/MYR money formatter — chooses by currency code.
+ *  MYR uses an explicit "MYR" prefix (e.g. "MYR 18,668.44"), not "RM". */
 function money(value: number | null | undefined, currency = 'USD'): string {
   const v = n(value)
-  if (currency === 'MYR') return myrFmt.format(v)
+  if (currency === 'MYR') return `MYR ${decFmt.format(v)}`
   return usdFmt.format(v)
 }
 
-/** Compact ($1.2K, $3.4M) — chooses by currency code. */
+/** Compact ($1.2K, MYR 18.7K) — chooses by currency code. */
 function compact(value: number | null | undefined, currency = 'USD'): string {
   const v = n(value)
-  if (currency === 'MYR') return myrCompactFmt.format(v)
+  if (currency === 'MYR') return `MYR ${compactNum.format(v)}`
   return usdCompactFmt.format(v)
 }
 
