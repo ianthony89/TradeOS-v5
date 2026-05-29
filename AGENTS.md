@@ -88,17 +88,26 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 
 ### Current phase
 
-**Phase 1** — In progress:
+**Phase 1** — COMPLETE & live in production:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
 - App shell (sidebar / topbar / mobile nav)
 - Dashboard (intelligence-first cockpit + Action Center)
 - Holdings (decision workspace)
 - Watchlist (radar system — symbol / target / distance / status, persisted to `watchlist_items`)
+- Settings (theme / language / currency / manual+live FX)
+- Admin (invite-only onboarding: generate single-use codes + approve users + members list)
 - Market intelligence (live sessions, FX, sync indicators)
 
 **Phase 2** — Planned: Journal / Planner / AI insights / Price alerts.
 These are honest "Coming soon" roadmap cards with claimed nav slots.
 They are NOT fake shells. Do not populate them with invented data or fake panels.
+
+### Deployment
+
+- **Live**: `https://trade-os-sigma.vercel.app` (Vercel, auto-deploys on push to `main`)
+- **Repo**: `github.com/ianthony89/TradeOS` — public; `main` = v5, `legacy-4.0` branch = the old single-file HTML/GAS app
+- **Env vars** live in Vercel (7 keys; see `DEPLOY.md`). `.env.local` is gitignored and never committed.
+- After any push to `main`, Vercel redeploys in ~1–2 min.
 
 ---
 
@@ -243,12 +252,25 @@ Do NOT say "Total Value" if you don't actually know the total. Trader trust is b
 
 ### FX Philosophy
 
-- **Default rate**: USD/MYR = `4.00` (manual reference baseline)
-- **Manual override**: User can edit the rate manually in Settings
-- **Live sync**: Optional — user opts in
-- FX is a **reference tool**, not hidden auto-magic. User must understand where the number comes from.
+- **Default rate**: USD/MYR = `4.00` (manual reference baseline) — DONE
+- **Manual override**: editable in Settings AND via click-to-edit popover on the topbar FX pill — DONE
+- **Live sync**: opt-in via Settings; `useFxRateSync()` only fetches when mode = live — DONE
+- FX is a **reference tool**, not hidden auto-magic. The pill shows a `manual`/`live` indicator.
 
-**Implementation note**: `useFxRateSync()` in app shell currently auto-fetches every 5 min. This needs a Settings toggle before public release so users can disable live FX and use manual rate.
+### FX invariance decision (resolved 2026-05, option A — keep)
+
+The portfolio USD total **does** move when FX changes — by design. This is correct:
+a MYR-native holding (e.g. SUNMED) is valued `MYR ÷ FX`, so a stronger MYR raises its
+USD value. Worked example: RM 350 ÷ 4.00 = $87.50 vs ÷ 3.92 = $89.29 (+$1.79).
+
+- USD-native holdings are FX-invariant; only the MYR→USD conversion moves.
+- Do NOT "fix" this — it's real currency exposure. Anthony chose to keep it (option A).
+- A deferred option B (freeze MYR holdings to a USD value at import) is a Phase-2
+  cash/valuation decision, not a bug fix.
+
+**Consistency rule**: every monetary metric (Holdings Value, Today P/L, Unrealized) is
+first reduced to a USD-equivalent base (`usdEquiv`), then converted to the active
+display currency together. Never display a raw mixed-currency sum.
 
 ### Currency Primary / Secondary
 
@@ -280,8 +302,8 @@ Define **explicit states** for each market. Do not invent vague labels.
 | Session | Time (ET) | UI label |
 |---|---|---|
 | premarket | 04:00–09:30 | "Pre-market" |
-| regular | 09:30–16:00 | "Open" |
-| after-hours | 16:00–20:00 | "After-hours" |
+| regular | 09:30–16:00 | "Regular Hours" |
+| after-hours | 16:00–20:00 | "Post-market" |
 | overnight | 20:00–04:00 + weekends | "Overnight" |
 
 ### Future markets (extensibility)
@@ -486,11 +508,15 @@ Use these as the checklist when shipping or reviewing dashboard work.
 
 | Area | Gotcha | Avoidance |
 |---|---|---|
-| Database | `holdings` table needs `name` column + `UNIQUE(user_id, symbol_normalized)` constraint in some environments | Check `supabase/migrations/` current files; new environments must run all migrations in order |
+| **Legacy DB tables missing columns** (the #1 recurring bug) | The live Supabase DB was seeded from a template; `CREATE TABLE IF NOT EXISTS` skipped pre-existing tables, so columns are missing piecemeal. Confirmed missing in production at various points: `holdings.name`, `holdings UNIQUE(user_id,symbol_normalized)`, `invite_codes.used_at/used_by/created_by`, `profiles.email` (NOT NULL, broke signup). | Symptom is always `column X does not exist` or "Database error saving new user". **Root fix**: run `supabase/migrations/003 → 004 → 006` in full (idempotent) to align everything. Surface the real DB error (`detail`/`code`) in API 500s so the missing column is visible. |
+| Pre-auth Supabase reads | `validate-invite` and `pin-len` run BEFORE the user is authenticated; RLS blocks anon reads | Use the **service-role admin client** server-side (bypasses RLS) for any pre-auth lookup. Never the session/anon client. |
+| Admin routes | `/api/admin/*` use service-role (bypass RLS) | Every admin route MUST call `requireAdmin()` (verifies caller's own `profiles.is_admin`) and 403 before any privileged work. |
+| `handle_new_user` trigger | Auto-creates the profile row on signup; `profiles.email` is NOT NULL | The trigger MUST insert `email = new.email`; missing it → "Database error saving new user". |
 | Migrations | Archived migrations live in `supabase/migrations/archive/` — do not run them | Active migrations are whatever exists in `supabase/migrations/` root |
 | Symbol normalization | Pure-numeric tickers like `5555` need `currency=MYR` to map to `.KL` correctly | `lib/market/symbol-normalizer.ts` handles this, but CSV imports must include currency column |
 | Stock logos | Parqet CDN returns 404 for some tickers (especially MY/HK) | `<StockLogo>` falls back to letter avatar via `onError` |
-| FX rate | Currently fetches live every 5 min via `useFxRateSync` | Needs Settings toggle for opt-in before public release (see § 6) |
+| FX rate | Manual default 4.00; live sync opt-in via Settings (done) | `useFxRateSync` only fetches in live mode. Read the active rate via `selectActiveFxRate`. |
+| Quote refresh cache | `/api/quotes` caches 5 min in Redis; without `skipCache` a manual refresh returns stale prices (only the timestamp moves) | Manual "Refresh Quotes" buttons send `skipCache: true`. (Closed prices still won't move — that's real, not a bug.) |
 | Theme | Persisted to `profiles.theme` in Supabase | On toggle, `await` the update before considering it persisted |
 | Login cache | localStorage keys: `tradeos:last_email`, `tradeos:last_pin_len` | Sign-out does NOT clear cache (intentional UX); "Use different account" link clears |
 | React 19 lint | `react-hooks/set-state-in-effect` is a new rule | For legitimate localStorage hydration, wrap with `/* eslint-disable react-hooks/set-state-in-effect */` block |
