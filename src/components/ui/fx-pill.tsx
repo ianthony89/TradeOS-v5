@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Pencil } from 'lucide-react'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
 import { fmt } from '@/lib/utils/format'
 
@@ -85,9 +86,11 @@ export function FxPill({ className = '' }: { className?: string }) {
         <span className="market-pill-time text-tabular text-primary">
           {fmt.fxRate(activeRate)}
         </span>
-        <span className="fx-pill-mode" data-mode={isLiveMode ? 'live' : 'manual'}>
-          {isLiveMode ? 'LIVE' : 'MANUAL'}
+        <span className="fx-pill-tag" data-mode={isLiveMode ? 'live' : 'manual'}>
+          <span className="fx-pill-dot" />
+          {isLiveMode ? 'live' : 'manual'}
         </span>
+        <Pencil size={11} className="fx-pill-edit" aria-hidden="true" />
       </button>
 
       {open && (

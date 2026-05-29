@@ -82,13 +82,13 @@ function getUSState(): MarketState {
   if (p.totalMin >= 240 && p.totalMin < 570) {
     return { ...base, session: 'pre-market', label: 'Pre-market', labelKey: 'market_pre_market', isOpen: false, tone: 'pre' }
   }
-  // Open 09:30 – 16:00
+  // Regular 09:30 – 16:00
   if (p.totalMin >= 570 && p.totalMin < 960) {
-    return { ...base, session: 'open', label: 'Open', labelKey: 'market_open', isOpen: true, tone: 'open' }
+    return { ...base, session: 'open', label: 'Regular Hours', labelKey: 'market_regular', isOpen: true, tone: 'open' }
   }
-  // After 16:00 – 20:00
+  // Post-market 16:00 – 20:00
   if (p.totalMin >= 960 && p.totalMin < 1200) {
-    return { ...base, session: 'after-hours', label: 'After-hours', labelKey: 'market_after_hours', isOpen: false, tone: 'after' }
+    return { ...base, session: 'after-hours', label: 'Post-market', labelKey: 'market_after_hours', isOpen: false, tone: 'after' }
   }
   // Overnight 00:00–04:00 + 20:00–24:00
   return { ...base, session: 'overnight', label: 'Overnight', labelKey: 'market_overnight', isOpen: false, tone: 'closed' }

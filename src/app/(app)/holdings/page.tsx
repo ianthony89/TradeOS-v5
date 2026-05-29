@@ -163,7 +163,7 @@ export default function HoldingsPage() {
       const res  = await fetch('/api/quotes', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
-        body:    JSON.stringify({ symbols }),
+        body:    JSON.stringify({ symbols, skipCache: true }),
       })
       const json = await res.json()
       if (json.quotes) {

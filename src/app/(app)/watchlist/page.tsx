@@ -51,13 +51,13 @@ export default function WatchlistPage() {
   const [addErr,  setAddErr]  = useState('')
 
   /* ── Fetch quotes for a set of normalized symbols ───────── */
-  const fetchQuotes = useCallback(async (symbols: string[]) => {
+  const fetchQuotes = useCallback(async (symbols: string[], skipCache = false) => {
     if (!symbols.length) return
     try {
       const res  = await fetch('/api/quotes', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
-        body:    JSON.stringify({ symbols }),
+        body:    JSON.stringify({ symbols, skipCache }),
       })
       const json = await res.json()
       if (json.quotes) {
@@ -118,7 +118,7 @@ export default function WatchlistPage() {
   async function refreshAll() {
     if (refreshing || !items.length) return
     setRefreshing(true)
-    await fetchQuotes(items.map(i => i.symbolNormalized))
+    await fetchQuotes(items.map(i => i.symbolNormalized), true)   // force fresh
     setRefreshing(false)
   }
 

@@ -3,12 +3,7 @@
 import { useEffect, useCallback, useMemo } from 'react'
 import { RefreshCw, Upload, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import {
-  useHoldingsStore,
-  getTotalValue,
-  getTodayPl,
-  getTotalUnrealizedPl,
-} from '@/stores/holdings'
+import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
 import { useT }           from '@/lib/i18n/context'
 import { fmt }            from '@/lib/utils/format'
@@ -25,6 +20,11 @@ import { SymCell }        from '@/components/brand/stock-logo'
 import { getSector, getSectorColor }  from '@/lib/portfolio/sectors'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
 import { buildActionSuggestions } from '@/lib/portfolio/action-center'
+
+/** USD-equivalent of a native amount (MYR ÷ FX). Module-scope = stable. */
+function usdEquiv(amt: number, currency: string, fx: number): number {
+  return currency === 'MYR' ? amt / fx : amt
+}
 
 export default function DashboardPage() {
   const t        = useT()
@@ -89,7 +89,7 @@ export default function DashboardPage() {
       const res  = await fetch('/api/quotes', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
-        body:    JSON.stringify({ symbols }),
+        body:    JSON.stringify({ symbols, skipCache: true }),
       })
       const json = await res.json()
       if (json.quotes) {
@@ -107,16 +107,30 @@ export default function DashboardPage() {
     return () => clearInterval(id)
   }, [holdings.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Derived metrics ─────────────────────────────────────── */
-  const { combined } = getTotalValue(holdings, fxRate)
-  const todayPl      = getTodayPl(holdings)
-  const unrealizedPl = getTotalUnrealizedPl(holdings)
-  const todayPct     = combined > 0 ? (todayPl / combined) * 100 : 0
-  const totalPnLPct  = (combined - unrealizedPl) > 0 ? (unrealizedPl / (combined - unrealizedPl)) * 100 : 0
-  const todayTone    = todayPl > 0 ? 'positive' : todayPl < 0 ? 'negative' : 'neutral'
+  /* ── Derived metrics (USD base → displayed in chosen currency) ───
+     Every monetary metric is first reduced to a USD-equivalent base
+     (MYR holdings ÷ FX), then converted to the active display currency.
+     This keeps Holdings Value, Today P/L and Unrealized P/L consistent
+     and makes them all switch together with the currency toggle. */
+  const { combined, todayPlUsd, unrealizedUsd } = useMemo(() => {
+    let c = 0, t = 0, u = 0
+    for (const h of holdings) {
+      c += usdEquiv(h.marketValue,  h.currency, fxRate)
+      t += usdEquiv(h.todayPl,      h.currency, fxRate)
+      u += usdEquiv(h.unrealizedPl, h.currency, fxRate)
+    }
+    return { combined: c, todayPlUsd: t, unrealizedUsd: u }
+  }, [holdings, fxRate])
+  const costUsd = combined - unrealizedUsd
 
-  /* Hero — primary/secondary currency display */
-  const heroPrimaryValue   = primaryCurrency === 'USD' ? combined : combined * fxRate
+  const toDisplay = (usd: number) => (primaryCurrency === 'USD' ? usd : usd * fxRate)
+
+  const todayPct    = combined > 0 ? (todayPlUsd / combined) * 100 : 0
+  const totalPnLPct = costUsd > 0  ? (unrealizedUsd / costUsd) * 100 : 0
+  const todayTone   = todayPlUsd > 0 ? 'positive' : todayPlUsd < 0 ? 'negative' : 'neutral'
+
+  /* Hero — primary value + converted secondary */
+  const heroPrimaryValue   = toDisplay(combined)
   const heroSecondaryValue = primaryCurrency === 'USD' ? combined * fxRate : combined
   const heroSecondaryCurr  = primaryCurrency === 'USD' ? 'MYR' : 'USD'
 
@@ -336,7 +350,7 @@ export default function DashboardPage() {
           <div className="hero-card-sub">
             <DeltaBadge value={todayPct} variant="pill" />
             <span>·</span>
-            <span>{fmt.moneySigned(todayPl, primaryCurrency)} today</span>
+            <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} today</span>
           </div>
 
           {/* Compact intelligence row — fills the hero efficiently */}
@@ -371,14 +385,14 @@ export default function DashboardPage() {
         <div className="dash-mini-stats">
           <StatCard
             label={t('dash_today_pl')}
-            value={fmt.moneySigned(todayPl, primaryCurrency)}
+            value={fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)}
             tone={todayTone}
             sub={<DeltaBadge value={todayPct} variant="pill" />}
           />
           <StatCard
             label={t('dash_unrealized')}
-            value={fmt.moneySigned(unrealizedPl, primaryCurrency)}
-            tone={unrealizedPl > 0 ? 'positive' : unrealizedPl < 0 ? 'negative' : 'neutral'}
+            value={fmt.moneySigned(toDisplay(unrealizedUsd), primaryCurrency)}
+            tone={unrealizedUsd > 0 ? 'positive' : unrealizedUsd < 0 ? 'negative' : 'neutral'}
             sub={<DeltaBadge value={totalPnLPct} variant="pill" />}
           />
           <StatCard
