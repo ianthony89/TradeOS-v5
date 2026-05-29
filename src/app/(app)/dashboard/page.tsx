@@ -41,8 +41,7 @@ export default function DashboardPage() {
   const primaryCurrency    = useMarketStore(s => s.primaryCurrency)
   const setPrimaryCurrency = useMarketStore(s => s.setPrimaryCurrency)
 
-  /* Ticker mode: My Holdings (default) vs curated Hot List */
-  const [tickerMode, setTickerMode] = useState<'holdings' | 'hot'>('holdings')
+  /* Curated Hot List (live prices) for the top ticker row */
   const [hotItems, setHotItems] = useState<Array<{ symbol: string; price: number; changePct: number; currency: string }>>([])
   const [importMsg, setImportMsg] = useState('')
 
@@ -84,9 +83,8 @@ export default function DashboardPage() {
 
   useEffect(() => { loadHoldings() }, [loadHoldings])
 
-  /* Lazily fetch the Hot List when first switched to (prices are live) */
+  /* Fetch the Hot List once on mount (prices are live) for the top row */
   useEffect(() => {
-    if (tickerMode !== 'hot' || hotItems.length) return
     let active = true
     ;(async () => {
       try {
@@ -107,7 +105,7 @@ export default function DashboardPage() {
       } catch { /* ignore */ }
     })()
     return () => { active = false }
-  }, [tickerMode, hotItems.length])
+  }, [])
 
   /* Refresh quotes — also stamps the sync indicator */
   const refreshQuotes = useCallback(async () => {
@@ -326,26 +324,11 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Ticker pulse — full width, top of stage */}
-      {/* Ticker mode selector + strip */}
-      <div className="ticker-toolbar">
-        <div className="chip-group" role="group" aria-label="Ticker mode">
-          <button
-            type="button"
-            onClick={() => setTickerMode('holdings')}
-            className={`chip${tickerMode === 'holdings' ? ' chip--active' : ''}`}
-          >
-            {t('ticker_my_holdings')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setTickerMode('hot')}
-            className={`chip${tickerMode === 'hot' ? ' chip--active' : ''}`}
-          >
-            {t('ticker_hot_list')}
-          </button>
-        </div>
+      {/* Dual ticker — Hot List (← left) over My Holdings (→ right) */}
+      <div className="ticker-dual">
+        <TickerStrip items={hotItems}    direction="left" />
+        <TickerStrip items={tickerItems} direction="right" />
       </div>
-      <TickerStrip items={tickerMode === 'hot' ? hotItems : tickerItems} />
 
       <div className="section-header">
         <div>

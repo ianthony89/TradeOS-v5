@@ -1417,13 +1417,6 @@ a { color: inherit; text-decoration: none; }
 
 .hairline { height: 1px; background: var(--hairline); width: 100%; }
 
-/* Ticker mode toolbar (My Holdings / Hot List) */
-.ticker-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
-}
-
 /* ─────────────────────────────────────────────────────────────
    Ticker strip — premium auto-scrolling market pulse
    ───────────────────────────────────────────────────────────── */
@@ -1454,10 +1447,15 @@ a { color: inherit; text-decoration: none; }
 .ticker-strip:hover .ticker-strip-track {
   animation-play-state: paused;
 }
+/* Reverse motion for the second (My Holdings) row — scrolls right */
+.ticker-strip-track--right { animation-direction: reverse; }
 @keyframes ticker-marquee {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
+/* Dual-row stack on the dashboard */
+.ticker-dual { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.ticker-dual .ticker-strip { margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) {
   .ticker-strip-track { animation: none; }
 }

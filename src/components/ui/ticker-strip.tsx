@@ -12,6 +12,8 @@ interface TickerStripItem {
 
 interface TickerStripProps {
   items:      TickerStripItem[]
+  /** Scroll direction. 'left' (default) or 'right'. */
+  direction?: 'left' | 'right'
   className?: string
 }
 
@@ -19,17 +21,19 @@ interface TickerStripProps {
  * Premium horizontal market pulse strip.
  * Auto-scrolling marquee (pauses on hover). Items rendered twice
  * for a seamless wrap. Animation duration scales with item count.
+ * Direction can be reversed for a dual-row (Apple Stocks) layout.
  */
-export function TickerStrip({ items, className = '' }: TickerStripProps) {
+export function TickerStrip({ items, direction = 'left', className = '' }: TickerStripProps) {
   if (!items.length) return null
 
-  // Duration scales with item count — feels natural at any size
-  const duration = Math.max(40, items.length * 4)
+  // Duration scales with item count so both rows share the same px/sec.
+  // Tuned so the ~10-item Hot List row runs ≈55s (slightly faster pulse).
+  const duration = Math.max(48, items.length * 5.5)
 
   return (
     <div className={`ticker-strip ${className}`}>
       <div
-        className="ticker-strip-track"
+        className={`ticker-strip-track${direction === 'right' ? ' ticker-strip-track--right' : ''}`}
         style={{ ['--ticker-duration' as string]: `${duration}s` }}
       >
         {items.map(it => (
