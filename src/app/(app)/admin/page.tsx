@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ShieldAlert, Plus, Copy, Check, UserCheck } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { fmt }  from '@/lib/utils/format'
@@ -33,28 +33,31 @@ export default function AdminPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null)
   const [copiedId,    setCopiedId]    = useState<string | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/admin/data', { cache: 'no-store' })
-        if (res.status === 403) { setForbidden(true); setLoading(false); return }
-        const json = await res.json()
-        setCodes(json.codes ?? [])
-        setPending(json.pending ?? [])
-        setApproved(json.approvedCount ?? 0)
-      } catch { /* leave empty */ }
-      finally { setLoading(false) }
-    }
-    load()
+  const loadData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/data', { cache: 'no-store' })
+      if (res.status === 403) { setForbidden(true); return }
+      const json = await res.json()
+      setCodes(json.codes ?? [])
+      setPending(json.pending ?? [])
+      setApproved(json.approvedCount ?? 0)
+    } catch { /* leave empty */ }
   }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData().finally(() => setLoading(false))
+  }, [loadData])
 
   async function generate() {
     if (generating) return
     setGenerating(true)
     try {
       const res = await fetch('/api/admin/invite', { method: 'POST' })
-      const json = await res.json()
-      if (json.code) setCodes(prev => [json.code, ...prev])
+      if (res.ok) {
+        // Reload from the DB so the displayed code is authoritative.
+        await loadData()
+      }
     } catch { /* ignore */ }
     finally { setGenerating(false) }
   }
