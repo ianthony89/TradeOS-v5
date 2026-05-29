@@ -20,6 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [theme,    setTheme]    = useState<Theme>('dark')
   const [lang,     setLang]     = useState<Lang>('en')
   const [userName, setUserName] = useState<string>('')
+  const [isAdmin,  setIsAdmin]  = useState(false)
   const [loading,  setLoading]  = useState(true)
 
   /* Start FX sync loop. Single instance for the whole app session. */
@@ -36,7 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('name, lang, theme')
+        .select('name, lang, theme, is_admin')
         .eq('id', user.id)
         .single()
 
@@ -44,6 +45,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         if (profile.name)  setUserName(profile.name)
         if (profile.lang)  setLang(profile.lang as Lang)
         if (profile.theme) setTheme(profile.theme as Theme)
+        setIsAdmin(profile.is_admin === true)
       }
       setLoading(false)
     }
@@ -83,7 +85,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <I18nProvider initialLang={lang}>
       <div className="app-shell">
-        <Sidebar />
+        <Sidebar isAdmin={isAdmin} />
         <Topbar
           userName={userName}
           positions={positions}

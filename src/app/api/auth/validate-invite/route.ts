@@ -29,14 +29,15 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('invite_codes')
-    .select('id, used_by, expires_at')
+    .select('id, used_at, expires_at')
     .eq('code', code.trim().toUpperCase())
     .maybeSingle()
 
   if (error || !data)
     return NextResponse.json({ error: 'Invalid invite code' }, { status: 400 })
 
-  if (data.used_by)
+  // used_at is the authoritative "consumed" marker (set by use-invite).
+  if (data.used_at)
     return NextResponse.json({ error: 'Invite code already used' }, { status: 400 })
 
   if (data.expires_at && new Date(data.expires_at) < new Date())

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Briefcase, Eye, BookOpen,
-  Calculator, Bot, Settings, LogOut,
+  Calculator, Bot, Settings, LogOut, ShieldAlert,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { createClient } from '@/lib/supabase/client'
@@ -35,11 +35,18 @@ const NAV_GROUPS = [
   },
 ] as const
 
-export function Sidebar() {
+export function Sidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname()
   const router   = useRouter()
   const supabase = createClient()
   const t        = useT()
+
+  // Append the admin entry to the Account group only for admins.
+  const groups = isAdmin
+    ? NAV_GROUPS.map(g => g.label === 'Account'
+        ? { ...g, items: [...g.items, { href: '/admin', icon: ShieldAlert, key: 'nav_admin' }] }
+        : g)
+    : NAV_GROUPS
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -61,7 +68,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="sidebar-nav">
-        {NAV_GROUPS.map(group => (
+        {groups.map(group => (
           <div key={group.label} className="nav-group">
             <div className="nav-group-label">{group.label}</div>
             {group.items.map(({ href, icon: Icon, key }) => {

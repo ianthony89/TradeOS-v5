@@ -266,6 +266,25 @@ const en: Dict = {
   soon_ai_r2:            'Position & thesis analysis',
   soon_ai_r3:            'Scenario planning',
 
+  // ── Admin ────────────────────────────────────────────────
+  nav_admin:             'Admin',
+  admin_sub:             'Invite codes & approvals',
+  admin_forbidden_title: 'Admins only',
+  admin_forbidden_sub:   'You do not have access to this page.',
+  admin_codes_title:     'Invite Codes',
+  admin_generate:        'Generate code',
+  admin_generating:      'Generating…',
+  admin_code_unused:     'Unused',
+  admin_code_used:       'Used',
+  admin_copy:            'Copy',
+  admin_copied:          'Copied',
+  admin_no_codes:        'No codes yet — generate one.',
+  admin_pending_title:   'Pending Approvals',
+  admin_approve:         'Approve',
+  admin_approving:       'Approving…',
+  admin_no_pending:      'No one waiting for approval.',
+  admin_approved_count:  '{n} approved',
+
   // ── Common ───────────────────────────────────────────────
   btn_save:              'Save',
   btn_cancel:            'Cancel',
@@ -538,6 +557,25 @@ const zh: Dict = {
   soon_ai_r1:            '自带密钥（Gemini / OpenAI）',
   soon_ai_r2:            '持仓与逻辑分析',
   soon_ai_r3:            '情景推演',
+
+  // ── Admin ────────────────────────────────────────────────
+  nav_admin:             '管理',
+  admin_sub:             '邀请码与审批',
+  admin_forbidden_title: '仅限管理员',
+  admin_forbidden_sub:   '你没有访问这个页面的权限。',
+  admin_codes_title:     '邀请码',
+  admin_generate:        '生成邀请码',
+  admin_generating:      '生成中…',
+  admin_code_unused:     '未使用',
+  admin_code_used:       '已使用',
+  admin_copy:            '复制',
+  admin_copied:          '已复制',
+  admin_no_codes:        '还没有邀请码 — 生成一个。',
+  admin_pending_title:   '待审批',
+  admin_approve:         '批准',
+  admin_approving:       '批准中…',
+  admin_no_pending:      '没有等待审批的用户。',
+  admin_approved_count:  '已批准 {n} 人',
 
   // ── Common ───────────────────────────────────────────────
   btn_save:              '保存',

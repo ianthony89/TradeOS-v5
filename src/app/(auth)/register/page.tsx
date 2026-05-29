@@ -57,7 +57,7 @@ export default function RegisterPage() {
       await fetch('/api/auth/use-invite', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
-        body:    JSON.stringify({ code: inviteCode }),
+        body:    JSON.stringify({ code: inviteCode, email }),
       })
 
       router.push('/pending-approval')
