@@ -20,19 +20,25 @@ export async function POST() {
 
   const db = adminClient()
 
-  // Retry on the (astronomically unlikely) unique collision.
+  // Insert only `code` — created_by is optional metadata and may be absent
+  // in environments where invite_codes predates that column.
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = genCode()
     const { data, error } = await db
       .from('invite_codes')
-      .insert({ code, created_by: adminId })
+      .insert({ code })
       .select('id, code, used_at, created_at')
       .single()
 
     if (!error && data) return NextResponse.json({ code: data })
-    if (error && error.code !== '23505') {
-      return NextResponse.json({ error: 'Could not create code' }, { status: 500 })
+    if (error?.code === '23505') continue   // unique collision — retry
+    if (error) {
+      // Surface the real reason so a failure is debuggable from the response/log.
+      return NextResponse.json(
+        { error: 'Could not create code', detail: error.message, code: error.code },
+        { status: 500 },
+      )
     }
   }
-  return NextResponse.json({ error: 'Could not create code' }, { status: 500 })
+  return NextResponse.json({ error: 'Could not create code (collisions)' }, { status: 500 })
 }
