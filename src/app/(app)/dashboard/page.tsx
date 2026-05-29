@@ -1,67 +1,44 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
-import { createClient }         from '@/lib/supabase/client'
-import { useHoldingsStore, getTotalValue, getTodayPl, getTotalUnrealizedPl } from '@/stores/holdings'
-import type { Holding }         from '@/stores/holdings'
-import { useT }                 from '@/lib/i18n/context'
-
-const FX_USD_MYR = 4.72   // fallback; refreshed from API in production
-
-// ── Formatters ────────────────────────────────────────────────
-function fmt(n: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', {
-    style:    'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n)
-}
-
-function fmtPct(n: number) {
-  const sign = n >= 0 ? '+' : ''
-  return `${sign}${n.toFixed(2)}%`
-}
-
-function plClass(n: number) {
-  return n > 0 ? 'positive' : n < 0 ? 'negative' : 'neutral'
-}
-
-// ── Sector classifier (simple) ────────────────────────────────
-const SECTOR_MAP: Record<string, string> = {
-  AAPL:'Technology', NOK:'Technology', AIXI:'Technology',
-  CREG:'Utilities',  CETX:'Technology',
-  CTNT:'Consumer Disc.',
-  AMZE:'Consumer Disc.',
-  JUNS:'Healthcare',
-  IOBTQ:'Healthcare',
-  FBL:'ETF', NOWL:'ETF', CBRG:'ETF',
-}
-
-function sectorOf(symbol: string, assetType: string) {
-  if (assetType === 'ETF') return 'ETF'
-  return SECTOR_MAP[symbol] ?? 'Other'
-}
-
-// ── Sector colors ─────────────────────────────────────────────
-const SECTOR_COLORS: Record<string, string> = {
-  'Technology':     '#6c8ef5',
-  'Healthcare':     '#22c55e',
-  'ETF':            '#8b5cf6',
-  'Consumer Disc.': '#f59e0b',
-  'Utilities':      '#3b82f6',
-  'Other':          '#6b7280',
-}
+import { useEffect, useCallback, useMemo } from 'react'
+import { RefreshCw, Upload, ArrowRight } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import {
+  useHoldingsStore,
+  getTotalValue,
+  getTodayPl,
+  getTotalUnrealizedPl,
+} from '@/stores/holdings'
+import { useMarketStore, selectActiveFxRate } from '@/stores/market'
+import { useT }           from '@/lib/i18n/context'
+import { fmt }            from '@/lib/utils/format'
+import { Panel, PanelHead, PanelBody } from '@/components/ui/panel'
+import { StatCard }       from '@/components/ui/stat-card'
+import { DeltaBadge }     from '@/components/ui/delta-badge'
+import { EmptyState }     from '@/components/ui/empty-state'
+import { TickerStrip }    from '@/components/ui/ticker-strip'
+import { DonutChart, type DonutSlice } from '@/components/ui/donut-chart'
+import { IntelCard }      from '@/components/ui/intel-card'
+import { MoversPanel, type MoverItem } from '@/components/ui/movers-panel'
+import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
+import { SymCell }        from '@/components/brand/stock-logo'
+import { getSector, getSectorColor }  from '@/lib/portfolio/sectors'
+import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
 
 export default function DashboardPage() {
-  const t          = useT()
-  const supabase   = createClient()
-  const { holdings, setHoldings, quotes, updateQuotes, quoteRefreshing, setRefreshing } = useHoldingsStore()
-  const [fxRate,   setFxRate]   = useState(FX_USD_MYR)
-  const [maxPosPct, setMaxPosPct] = useState(25)
+  const t        = useT()
+  const supabase = createClient()
+  const {
+    holdings, setHoldings,
+    quotes, updateQuotes,
+    quoteRefreshing, setRefreshing,
+  } = useHoldingsStore()
+  const fxRate             = useMarketStore(selectActiveFxRate)
+  const setQuotesUpdated   = useMarketStore(s => s.setQuotesUpdated)
+  const primaryCurrency    = useMarketStore(s => s.primaryCurrency)
+  const setPrimaryCurrency = useMarketStore(s => s.setPrimaryCurrency)
 
-  // ── Load holdings from Supabase ───────────────────────────
+  /* Load holdings once */
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -80,10 +57,10 @@ export default function DashboardPage() {
           symbolNormalized: row.symbol_normalized,
           name:             row.name ?? row.symbol,
           quantity:         Number(row.quantity),
-          availableQty:     Number(row.available_qty),
+          availableQty:     Number(row.available_qty ?? row.quantity),
           avgCost:          Number(row.avg_cost),
           currentPrice:     Number(row.current_price ?? row.avg_cost),
-          marketValue:      Number(row.market_value),
+          marketValue:      Number(row.market_value ?? 0),
           unrealizedPl:     Number(row.unrealized_pl ?? 0),
           unrealizedPlPct:  Number(row.unrealized_pl_pct ?? 0),
           realizedPl:       Number(row.realized_pl ?? 0),
@@ -94,22 +71,15 @@ export default function DashboardPage() {
           targetPrice:      row.target_price ? Number(row.target_price) : null,
           stopLoss:         row.stop_loss ? Number(row.stop_loss) : null,
           notes:            row.notes,
-          portfolioWeight:  Number(row.market_value ?? 0),  // calculated below
+          portfolioWeight:  0,
           quotesUpdatedAt:  row.quotes_updated_at,
         })))
       }
-
-      // Load FX rate
-      try {
-        const res = await fetch('/api/quotes?symbols=USDMYR%3DX')
-        const json = await res.json()
-        if (json.quotes?.[0]?.price) setFxRate(json.quotes[0].price)
-      } catch { /* use fallback */ }
     }
     load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Refresh quotes ────────────────────────────────────────
+  /* Refresh quotes — also stamps the sync indicator */
   const refreshQuotes = useCallback(async () => {
     if (!holdings.length || quoteRefreshing) return
     setRefreshing(true)
@@ -121,81 +91,224 @@ export default function DashboardPage() {
         body:    JSON.stringify({ symbols }),
       })
       const json = await res.json()
-      if (json.quotes) updateQuotes(json.quotes)
-    } catch { /* silent */ }
+      if (json.quotes) {
+        updateQuotes(json.quotes)
+        setQuotesUpdated(new Date())
+      }
+    } catch { /* swallow */ }
     finally { setRefreshing(false) }
-  }, [holdings, quoteRefreshing])
+  }, [holdings, quoteRefreshing, setRefreshing, updateQuotes, setQuotesUpdated])
 
-  // 30-min auto-refresh
   useEffect(() => {
     if (!holdings.length) return
     refreshQuotes()
-    const timer = setInterval(refreshQuotes, 30 * 60 * 1000)
-    return () => clearInterval(timer)
-  }, [holdings.length])
+    const id = setInterval(refreshQuotes, 30 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [holdings.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Derived values ────────────────────────────────────────
-  const { usd, myr } = getTotalValue(holdings, fxRate)
+  /* ── Derived metrics ─────────────────────────────────────── */
+  const { combined } = getTotalValue(holdings, fxRate)
   const todayPl      = getTodayPl(holdings)
   const unrealizedPl = getTotalUnrealizedPl(holdings)
+  const todayPct     = combined > 0 ? (todayPl / combined) * 100 : 0
+  const totalPnLPct  = (combined - unrealizedPl) > 0 ? (unrealizedPl / (combined - unrealizedPl)) * 100 : 0
+  const todayTone    = todayPl > 0 ? 'positive' : todayPl < 0 ? 'negative' : 'neutral'
 
-  // Apply live quotes to prices
-  const enriched = holdings.map(h => {
-    const q = quotes.get(h.symbolNormalized)
-    return q ? { ...h, currentPrice: q.price } : h
-  })
+  /* Hero — primary/secondary currency display */
+  const heroPrimaryValue   = primaryCurrency === 'USD' ? combined : combined * fxRate
+  const heroSecondaryValue = primaryCurrency === 'USD' ? combined * fxRate : combined
+  const heroSecondaryCurr  = primaryCurrency === 'USD' ? 'MYR' : 'USD'
 
-  // Portfolio weight based on combined total
-  const combined = usd + (myr / fxRate)
-  const withWeight = enriched.map(h => ({
-    ...h,
-    portfolioWeight: combined > 0
-      ? ((h.currency === 'MYR' ? h.marketValue / fxRate : h.marketValue) / combined) * 100
-      : 0,
-    sector: sectorOf(h.symbol, h.assetType),
-  }))
+  /* Enrich holdings with live prices */
+  const enriched = useMemo(() =>
+    holdings.map(h => {
+      const q = quotes.get(h.symbolNormalized)
+      return q ? { ...h, currentPrice: q.price } : h
+    }),
+  [holdings, quotes])
 
-  // Sort by value
-  const sorted = [...withWeight].sort((a, b) => {
-    const av = a.currency === 'MYR' ? a.marketValue / fxRate : a.marketValue
-    const bv = b.currency === 'MYR' ? b.marketValue / fxRate : b.marketValue
-    return bv - av
-  })
+  /* Weight in USD-equivalent terms */
+  const withWeight = useMemo(() =>
+    enriched.map(h => {
+      const usdValue = h.currency === 'MYR' ? h.marketValue / fxRate : h.marketValue
+      return {
+        ...h,
+        usdValue,
+        portfolioWeight: combined > 0 ? (usdValue / combined) * 100 : 0,
+      }
+    }),
+  [enriched, combined, fxRate])
 
-  // Sector buckets
-  const sectorMap = new Map<string, number>()
-  for (const h of withWeight) {
-    const sec = h.sector ?? 'Other'
-    const val = h.currency === 'MYR' ? h.marketValue / fxRate : h.marketValue
-    sectorMap.set(sec, (sectorMap.get(sec) ?? 0) + val)
-  }
-  const sectors = [...sectorMap.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([name, val]) => ({ name, val, pct: combined > 0 ? (val / combined) * 100 : 0 }))
+  /* Top positions — top 6 by weight */
+  const topPositions = useMemo(() =>
+    [...withWeight].sort((a, b) => b.portfolioWeight - a.portfolioWeight).slice(0, 6),
+  [withWeight])
 
-  // Position alerts
-  const positionAlerts = withWeight.filter(h => h.portfolioWeight > maxPosPct)
+  /* Movers — exactly 3 + 3 */
+  const { winners, losers } = useMemo(() => {
+    const sorted = [...withWeight].sort((a, b) => b.unrealizedPlPct - a.unrealizedPlPct)
+    const wins: MoverItem[] = sorted
+      .filter(h => h.unrealizedPlPct > 0)
+      .slice(0, 3)
+      .map(h => ({
+        id: h.id, symbol: h.symbol, name: h.name, currency: h.currency,
+        unrealizedPl: h.unrealizedPl, unrealizedPlPct: h.unrealizedPlPct,
+      }))
+    const los: MoverItem[] = sorted
+      .filter(h => h.unrealizedPlPct < 0)
+      .reverse()
+      .slice(0, 3)
+      .map(h => ({
+        id: h.id, symbol: h.symbol, name: h.name, currency: h.currency,
+        unrealizedPl: h.unrealizedPl, unrealizedPlPct: h.unrealizedPlPct,
+      }))
+    return { winners: wins, losers: los }
+  }, [withWeight])
 
-  // Top gainer / loser
-  const byPct  = [...withWeight].sort((a, b) => b.unrealizedPlPct - a.unrealizedPlPct)
-  const gainer = byPct[0]
-  const loser  = byPct[byPct.length - 1]
+  /* Sector donut slices */
+  const sectorSlices = useMemo<DonutSlice[]>(() => {
+    if (!withWeight.length || combined <= 0) return []
+    const buckets = new Map<string, number>()
+    for (const h of withWeight) {
+      const sec = getSector(h.symbol, h.assetType)
+      buckets.set(sec, (buckets.get(sec) ?? 0) + h.usdValue)
+    }
+    return [...buckets.entries()]
+      .map(([name, value]) => ({
+        name,
+        value,
+        pct:   (value / combined) * 100,
+        color: getSectorColor(name),
+      }))
+      .sort((a, b) => b.pct - a.pct)
+  }, [withWeight, combined])
 
-  // ── Render ────────────────────────────────────────────────
+  /* Risk-by-strategy bars (CORE / TACTICAL / SPECULATIVE) */
+  const strategyBars = useMemo<RiskBar[]>(() => {
+    const buckets = new Map<'CORE'|'TACTICAL'|'SPECULATIVE', number>()
+    buckets.set('CORE', 0); buckets.set('TACTICAL', 0); buckets.set('SPECULATIVE', 0)
+    for (const h of withWeight) {
+      const cls = classifyStrategy({
+        symbol: h.symbol, name: h.name, assetType: h.assetType,
+        unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
+      })
+      buckets.set(cls, (buckets.get(cls) ?? 0) + h.usdValue)
+    }
+    return (['CORE','TACTICAL','SPECULATIVE'] as const).map(cls => {
+      const value = buckets.get(cls) ?? 0
+      const pct   = combined > 0 ? (value / combined) * 100 : 0
+      const tone  = STRATEGY_TONE[cls]
+      const color =
+        tone === 'positive' ? 'var(--positive)' :
+        tone === 'warning'  ? 'var(--warning)'  :
+                              'var(--accent)'
+      return { name: t(`tax_${cls}`), pct, value, color }
+    })
+  }, [withWeight, combined, t])
+
+  /* Ticker strip — one chip per holding */
+  const tickerItems = useMemo(() =>
+    enriched
+      .filter(h => h.currentPrice > 0)
+      .map(h => ({
+        symbol:    h.symbol,
+        price:     h.currentPrice,
+        changePct: h.unrealizedPlPct,
+        currency:  h.currency,
+      })),
+  [enriched])
+
+  /* Intel signals */
+  const intels = useMemo(() => {
+    const out: Array<{
+      key: string; severity: 'critical'|'warning'|'info';
+      icon: 'concentration'|'loss'|'sector';
+      title: string; detail: string;
+    }> = []
+    for (const h of withWeight) {
+      if (h.portfolioWeight > 25) {
+        out.push({
+          key: `con-${h.id}`, severity: 'warning', icon: 'concentration',
+          title: `${h.symbol} is ${fmt.pct(h.portfolioWeight, 1)} of portfolio`,
+          detail: 'Above 25% concentration — consider trimming',
+        })
+      }
+      if (h.unrealizedPlPct < -50) {
+        out.push({
+          key: `loss-${h.id}`, severity: 'critical', icon: 'loss',
+          title: `${h.symbol} down ${fmt.pct(Math.abs(h.unrealizedPlPct), 1)}`,
+          detail: 'Heavy loss — review thesis or exit',
+        })
+      }
+    }
+    for (const s of sectorSlices) {
+      if (s.pct > 70) {
+        out.push({
+          key: `sec-${s.name}`, severity: 'warning', icon: 'sector',
+          title: `${s.name} is ${fmt.pct(s.pct, 1)} of portfolio`,
+          detail: 'Single-sector concentration',
+        })
+      }
+    }
+    return out.slice(0, 4)
+  }, [withWeight, sectorSlices])
+
+  /* Speculative weight — for risk stat tile */
+  const speculativeWeight = useMemo(() => {
+    return withWeight.reduce((s, h) => {
+      const cls = classifyStrategy({
+        symbol: h.symbol, name: h.name, assetType: h.assetType,
+        unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
+      })
+      return cls === 'SPECULATIVE' ? s + h.portfolioWeight : s
+    }, 0)
+  }, [withWeight])
+
+  const usdCount = holdings.filter(h => h.currency === 'USD').length
+  const myrCount = holdings.filter(h => h.currency === 'MYR').length
+
+  /* ── Empty state ─────────────────────────────────────────── */
   if (!holdings.length) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-[var(--muted)]">
-        <p className="text-center">{t('dash_no_holdings')}</p>
-        <a href="/holdings" className="btn btn-primary">{t('holdings_import')}</a>
+      <div>
+        <div className="section-header">
+          <div>
+            <h1 className="section-title">{t('nav_dashboard')}</h1>
+            <p className="section-sub">Your portfolio overview will appear here</p>
+          </div>
+        </div>
+        <Panel>
+          <PanelBody>
+            <EmptyState
+              icon={<Upload size={20} />}
+              title="No holdings yet"
+              sub="Import your broker CSV to populate the dashboard with live positions, P/L and portfolio intelligence."
+              actions={
+                <a href="/holdings" className="btn btn-primary btn-sm">
+                  <Upload size={13} />
+                  Import CSV
+                </a>
+              }
+            />
+          </PanelBody>
+        </Panel>
       </div>
     )
   }
 
+  /* ── Loaded state ────────────────────────────────────────── */
   return (
-    <div className="space-y-6 animate-fadeIn">
-      {/* Header */}
+    <div>
+      {/* Ticker pulse — full width, top of stage */}
+      <TickerStrip items={tickerItems} />
+
       <div className="section-header">
-        <h1 className="section-title">{t('nav_dashboard')}</h1>
+        <div>
+          <h1 className="section-title">{t('nav_dashboard')}</h1>
+          <p className="section-sub">
+            {holdings.length} positions · {usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}
+          </p>
+        </div>
         <button
           onClick={refreshQuotes}
           disabled={quoteRefreshing}
@@ -206,159 +319,191 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {/* ── Stat cards ──────────────────────────────────────── */}
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-label">{t('dash_total_value')}</div>
-          <div className="stat-value">{fmt(usd)}</div>
-          <div className="stat-sub text-[var(--muted)]">{fmt(myr, 'MYR')} MYR</div>
+      {/* Hero + 4 mini stats side-by-side */}
+      <div className="dash-overview">
+        <div className={`hero-card ${
+          todayTone === 'positive' ? 'hero-card-positive-tint' :
+          todayTone === 'negative' ? 'hero-card-negative-tint' : ''
+        }`}>
+          <div className="hero-card-header">
+            <div className="hero-card-label">{t('dash_holdings_value')}</div>
+            <div className="chip-group" role="group" aria-label="Primary currency">
+              <button
+                type="button"
+                onClick={() => setPrimaryCurrency('USD')}
+                className={`chip${primaryCurrency === 'USD' ? ' chip--active' : ''}`}
+              >
+                USD
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrimaryCurrency('MYR')}
+                className={`chip${primaryCurrency === 'MYR' ? ' chip--active' : ''}`}
+              >
+                MYR
+              </button>
+            </div>
+          </div>
+          <span className="hero-card-primary">
+            {fmt.money(heroPrimaryValue, primaryCurrency)}
+          </span>
+          <span className="hero-card-secondary">
+            {fmt.money(heroSecondaryValue, heroSecondaryCurr)}
+          </span>
+          <div className="hero-card-sub">
+            <DeltaBadge value={todayPct} variant="pill" />
+            <span>·</span>
+            <span>{fmt.moneySigned(todayPl, primaryCurrency)} today</span>
+          </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">{t('dash_today_pl')}</div>
-          <div className={`stat-value ${plClass(todayPl)}`}>{fmt(todayPl)}</div>
-          <div className="stat-sub">USD</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">{t('dash_unrealized')}</div>
-          <div className={`stat-value ${plClass(unrealizedPl)}`}>{fmt(unrealizedPl)}</div>
-          <div className="stat-sub">USD total</div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">{t('dash_holdings_count')}</div>
-          <div className="stat-value">{holdings.length}</div>
-          <div className="stat-sub">positions</div>
+        <div className="dash-mini-stats">
+          <StatCard
+            label={t('dash_today_pl')}
+            value={fmt.moneySigned(todayPl, primaryCurrency)}
+            tone={todayTone}
+            sub={<DeltaBadge value={todayPct} variant="pill" />}
+          />
+          <StatCard
+            label={t('dash_unrealized')}
+            value={fmt.moneySigned(unrealizedPl, primaryCurrency)}
+            tone={unrealizedPl > 0 ? 'positive' : unrealizedPl < 0 ? 'negative' : 'neutral'}
+            sub={<DeltaBadge value={totalPnLPct} variant="pill" />}
+          />
+          <StatCard
+            label={t('dash_holdings_count')}
+            value={String(holdings.length)}
+            sub={
+              <span className="text-tertiary">
+                {usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}
+              </span>
+            }
+          />
+          <StatCard
+            label="Risk exposure"
+            value={fmt.pct(speculativeWeight, 1)}
+            tone={
+              speculativeWeight > 50 ? 'negative' :
+              speculativeWeight > 25 ? 'neutral'  : 'positive'
+            }
+            sub={<span className="text-tertiary">Speculative weight</span>}
+          />
         </div>
       </div>
 
-      {/* ── Position alerts ─────────────────────────────────── */}
-      {positionAlerts.length > 0 && (
-        <div className="card border-[var(--warning)]/40">
-          <div className="card-title flex items-center gap-2">
-            <AlertTriangle size={12} className="text-[var(--warning)]" />
-            {t('dash_position_alerts')}
-          </div>
-          <div className="space-y-2">
-            {positionAlerts.map(h => (
-              <div key={h.id} className="flex items-center justify-between text-sm">
-                <span className="font-mono font-semibold">{h.symbol}</span>
-                <span className="badge badge-warning">
-                  {h.portfolioWeight.toFixed(1)}% &gt; {maxPosPct}% limit
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* Intelligence signals — only if any */}
+      {intels.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+          {intels.map(s => (
+            <IntelCard
+              key={s.key}
+              severity={s.severity}
+              icon={s.icon}
+              title={s.title}
+              detail={s.detail}
+            />
+          ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* ── Sector breakdown ────────────────────────────── */}
-        <div className="card">
-          <div className="card-title">{t('dash_sector_breakdown')}</div>
-          <div className="space-y-2">
-            {sectors.map(({ name, pct }) => (
-              <div key={name} className="flex items-center gap-3">
-                <div
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ background: SECTOR_COLORS[name] ?? '#6b7280' }}
+      {/* Allocation donut + Risk by strategy */}
+      <div className="grid-2" style={{ marginBottom: 18 }}>
+        <Panel>
+          <PanelHead title={t('dash_sector_alloc')} meta="By market value" />
+          <PanelBody>
+            {sectorSlices.length ? (
+              <>
+                <DonutChart
+                  slices={sectorSlices}
+                  centerValue={fmt.compact(combined, 'USD')}
+                  centerLabel="Market value"
+                  size={220}
+                  thickness={28}
                 />
-                <div className="flex-1 text-sm text-[var(--fg)]">{name}</div>
-                <div className="text-sm text-[var(--muted)] w-12 text-right">
-                  {pct.toFixed(1)}%
+                <div className="donut-legend">
+                  {sectorSlices.map(s => (
+                    <div key={s.name} className="donut-legend-item">
+                      <span className="donut-legend-dot" style={{ background: s.color }} />
+                      <span className="donut-legend-name">{s.name}</span>
+                      <span className="donut-legend-pct">{fmt.pct(s.pct, 1)}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="w-24 bg-[var(--bg3)] rounded-full h-1.5">
-                  <div
-                    className="h-1.5 rounded-full"
-                    style={{
-                      width: `${pct}%`,
-                      background: SECTOR_COLORS[name] ?? '#6b7280',
-                    }}
-                  />
-                </div>
+              </>
+            ) : (
+              <div className="text-tertiary" style={{ fontSize: 12 }}>
+                Allocation will appear once positions load.
               </div>
-            ))}
-          </div>
-        </div>
+            )}
+          </PanelBody>
+        </Panel>
 
-        {/* ── Top gainer / loser ──────────────────────────── */}
-        <div className="card">
-          <div className="card-title">{t('dash_top_gainer')} / {t('dash_top_loser')}</div>
-          <div className="space-y-3">
-            {gainer && (
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-mono font-semibold text-sm">{gainer.symbol}</div>
-                  <div className="text-xs text-[var(--muted)]">{gainer.name}</div>
-                </div>
-                <span className="badge badge-positive">
-                  <TrendingUp size={10} className="mr-1" />
-                  {fmtPct(gainer.unrealizedPlPct)}
-                </span>
-              </div>
-            )}
-            {loser && loser.id !== gainer?.id && (
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-mono font-semibold text-sm">{loser.symbol}</div>
-                  <div className="text-xs text-[var(--muted)]">{loser.name}</div>
-                </div>
-                <span className="badge badge-negative">
-                  <TrendingDown size={10} className="mr-1" />
-                  {fmtPct(loser.unrealizedPlPct)}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+        <Panel>
+          <PanelHead title="Risk exposure" meta="By strategy" />
+          <PanelBody>
+            <RiskByStrategy bars={strategyBars} />
+          </PanelBody>
+        </Panel>
       </div>
 
-      {/* ── Holdings summary table ───────────────────────── */}
-      <div className="card">
-        <div className="card-title">{t('holdings_title')}</div>
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t('holdings_symbol')}</th>
-                <th>{t('holdings_price')}</th>
-                <th className="hidden md:table-cell">{t('holdings_value')}</th>
-                <th>{t('holdings_unreal_pl')}</th>
-                <th className="hidden md:table-cell">{t('holdings_today_pl')}</th>
-                <th className="hidden lg:table-cell">{t('holdings_weight')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(h => (
-                <tr key={h.id}>
-                  <td>
-                    <div className="font-mono font-semibold text-sm">{h.symbol}</div>
-                    <div className="text-xs text-[var(--muted)] truncate max-w-24">{h.name}</div>
-                  </td>
-                  <td className="font-mono text-sm">
-                    {h.currentPrice.toFixed(h.currentPrice < 1 ? 4 : 2)}
-                    <span className="text-xs text-[var(--muted)] ml-1">{h.currency}</span>
-                  </td>
-                  <td className="hidden md:table-cell font-mono text-sm">
-                    {h.marketValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td>
-                    <span className={`badge ${h.unrealizedPl >= 0 ? 'badge-positive' : 'badge-negative'}`}>
-                      {fmtPct(h.unrealizedPlPct)}
-                    </span>
-                  </td>
-                  <td className={`hidden md:table-cell text-sm font-mono ${plClass(h.todayPl)}`}>
-                    {h.todayPl >= 0 ? '+' : ''}{h.todayPl.toFixed(2)}
-                  </td>
-                  <td className="hidden lg:table-cell text-sm text-[var(--muted)]">
-                    {h.portfolioWeight.toFixed(1)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {/* Top movers (winners + losers) */}
+      <div className="grid-2" style={{ marginBottom: 18 }}>
+        <Panel>
+          <PanelHead title={t('dash_movers')} meta="By unrealized %" />
+          <PanelBody>
+            <MoversPanel winners={winners} losers={losers} />
+          </PanelBody>
+        </Panel>
+
+        <Panel>
+          <PanelHead
+            title="Positions"
+            meta={`Top ${topPositions.length} by weight`}
+            actions={
+              <a href="/holdings" className="btn btn-ghost btn-sm">
+                View all
+                <ArrowRight size={12} />
+              </a>
+            }
+          />
+          <PanelBody flush>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th className="num">Value</th>
+                    <th className="num">P/L</th>
+                    <th className="num">Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topPositions.map(h => {
+                    const plTone =
+                      h.unrealizedPlPct < -25 ? 'negative-strong' :
+                      h.unrealizedPlPct >  25 ? 'positive-strong' : undefined
+                    return (
+                      <tr key={h.id} data-pl-tone={plTone}>
+                        <td>
+                          <SymCell symbol={h.symbol} name={h.name} currency={h.currency} logoSize={26} />
+                        </td>
+                        <td className="num text-mono text-tabular td--strong">
+                          {fmt.money(h.marketValue, h.currency)}
+                        </td>
+                        <td className="num">
+                          <DeltaBadge value={h.unrealizedPlPct} variant="pill" />
+                        </td>
+                        <td className="num text-tabular text-tertiary">
+                          {fmt.pct(h.portfolioWeight, 1)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </PanelBody>
+        </Panel>
       </div>
     </div>
   )

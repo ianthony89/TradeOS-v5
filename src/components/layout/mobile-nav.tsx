@@ -11,24 +11,23 @@ const MOBILE_NAV = [
   { href: '/watchlist', icon: Eye,             key: 'nav_watchlist' },
   { href: '/ai',        icon: Bot,             key: 'nav_ai'        },
   { href: '/settings',  icon: Settings,        key: 'nav_settings'  },
-]
+] as const
 
 export function MobileNav() {
   const pathname = usePathname()
   const t        = useT()
 
   return (
-    <nav className="bottom-nav">
-      {MOBILE_NAV.map(({ href, icon: Icon, key }) => (
-        <Link
-          key={href}
-          href={href}
-          className={`bottom-nav-item ${pathname.startsWith(href) ? 'active' : ''}`}
-        >
-          <Icon size={20} />
-          <span>{t(key)}</span>
-        </Link>
-      ))}
+    <nav className="mobile-nav">
+      {MOBILE_NAV.map(({ href, icon: Icon, key }) => {
+        const active = pathname === href || pathname.startsWith(`${href}/`)
+        return (
+          <Link key={href} href={href} className={`mobile-nav-item${active ? ' active' : ''}`}>
+            <Icon size={18} />
+            <span>{t(key)}</span>
+          </Link>
+        )
+      })}
     </nav>
   )
 }

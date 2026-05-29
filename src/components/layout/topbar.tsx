@@ -1,79 +1,81 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Lock, Sun, Moon } from 'lucide-react'
-import { useI18n } from '@/lib/i18n/context'
+import { Sun, Moon, Languages } from 'lucide-react'
+import { useI18n }       from '@/lib/i18n/context'
+import { MarketPill }    from '@/components/ui/market-pill'
+import { FxPill }        from '@/components/ui/fx-pill'
+import { SyncPill }      from '@/components/ui/sync-pill'
+import { FlagMY, FlagUS } from '@/components/brand/flags'
 
-function useClock() {
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [])
-  return tick
+function greetingPart() {
+  const h = new Date().getHours()
+  if (h < 5)  return 'Good late night'
+  if (h < 12) return 'Good morning'
+  if (h < 18) return 'Good afternoon'
+  if (h < 22) return 'Good evening'
+  return 'Good late night'
 }
 
-function fmtClock(tz: string, hour12: boolean) {
-  return new Date().toLocaleTimeString('en-US', {
-    timeZone: tz, hour: '2-digit', minute: '2-digit', hour12,
+function todayLabel() {
+  return new Date().toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
   })
 }
 
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good Morning'
-  if (h < 18) return 'Good Afternoon'
-  return 'Good Evening'
-}
-
 interface TopbarProps {
-  userName?: string
-  theme: 'dark' | 'light'
+  userName?:     string
+  positions?:    number
+  theme:         'dark' | 'light'
   onThemeToggle: () => void
-  onLock: () => void
 }
 
-export function Topbar({ userName, theme, onThemeToggle, onLock }: TopbarProps) {
-  useClock()   // re-render every second
+export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProps) {
   const { lang, setLang } = useI18n()
 
   return (
     <header className="topbar">
-      {/* Left: greeting */}
-      <div>
-        <p className="text-[var(--fg)] font-semibold text-sm">
-          {greeting()}{userName ? `, ${userName}` : ''}
-        </p>
-        <div className="flex gap-3 mt-0.5">
-          <span className="pill text-xs">
-            🇲🇾 MY {fmtClock('Asia/Kuala_Lumpur', false)}
-          </span>
-          <span className="pill text-xs">
-            🇺🇸 US {fmtClock('America/New_York', true)}
-          </span>
+      {/* Left: greeting + meta */}
+      <div className="topbar-left">
+        <h2 className="topbar-greeting">
+          {greetingPart()}{userName ? `, ${userName}` : ''}
+        </h2>
+        <div className="topbar-sub">
+          <span>{todayLabel()}</span>
+          {typeof positions === 'number' && positions > 0 && (
+            <>
+              <span className="text-quaternary">·</span>
+              <span>{positions} positions</span>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Center pulse — markets + FX + sync */}
+      <div className="topbar-pulse">
+        <MarketPill market="MY" flag={<FlagMY size={12} />} />
+        <MarketPill market="US" flag={<FlagUS size={12} />} />
+        <FxPill />
+        <SyncPill />
+      </div>
+
       {/* Right: controls */}
-      <div className="flex items-center gap-2">
+      <div className="topbar-actions">
         <button
           onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
           className="btn btn-ghost btn-sm"
           title="Toggle language"
+          aria-label="Toggle language"
         >
-          {lang === 'zh' ? 'EN' : '中文'}
+          <Languages size={13} />
+          <span>{lang === 'zh' ? 'EN' : '中'}</span>
         </button>
-
         <button
           onClick={onThemeToggle}
-          className="btn btn-ghost btn-sm"
+          className="btn btn-icon"
           title="Toggle theme"
+          aria-label="Toggle theme"
         >
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-        </button>
-
-        <button onClick={onLock} className="btn btn-ghost btn-sm" title="Lock">
-          <Lock size={14} />
         </button>
       </div>
     </header>

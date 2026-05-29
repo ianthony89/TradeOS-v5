@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Logo }         from '@/components/brand/logo'
 
 export default function ForgotPinPage() {
   const supabase = createClient()
@@ -28,41 +29,60 @@ export default function ForgotPinPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--bg)] p-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[var(--accent)]">TradeOS</h1>
-          <p className="text-[var(--muted)] mt-1 text-sm">Reset your PIN</p>
+    <div className="auth-screen">
+      <div className="auth-card">
+
+        <div className="auth-brand">
+          <Logo size={40} glow className="auth-brand-mark" />
+          <div className="auth-brand-name">TradeOS</div>
+          <div className="auth-brand-meta">by Anthony · v5</div>
         </div>
 
         {sent ? (
-          <div className="text-center space-y-4">
-            <div className="text-4xl">📧</div>
-            <p className="text-[var(--fg)]">Check your email</p>
-            <p className="text-sm text-[var(--muted)]">
-              We sent a reset link to <strong>{email}</strong>.<br />
-              Click the link to set a new PIN.
-            </p>
-            <a href="/login" className="btn btn-ghost btn-sm inline-flex">
-              Back to sign in
-            </a>
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="empty-state-icon" style={{ margin: '0 auto' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <div>
+              <div className="auth-brand-name" style={{ fontSize: 16 }}>Check your email</div>
+              <div className="text-tertiary" style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.6 }}>
+                Reset link sent to <span className="text-secondary text-mono">{email}</span>
+              </div>
+            </div>
+            <a href="/login" className="btn btn-ghost" style={{ alignSelf: 'center' }}>← Back to sign in</a>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm mb-1 text-[var(--fg)]">Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                className="input w-full" placeholder="you@example.com" required />
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="auth-field">
+              <label className="auth-label">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="input"
+                placeholder="you@example.com"
+                autoFocus
+                required
+              />
             </div>
-            {error && <p className="text-[var(--negative)] text-sm">{error}</p>}
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
-              {loading ? 'Sending…' : 'Send reset link'}
+
+            {error && <div className="auth-error">{error}</div>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary"
+              style={{ height: 44, width: '100%', marginTop: 4 }}
+            >
+              {loading ? <span className="auth-spinner" /> : 'Send reset link'}
             </button>
-            <p className="text-center">
-              <a href="/login" className="text-sm text-[var(--muted)] hover:text-[var(--accent)]">
-                ← Back to sign in
-              </a>
-            </p>
+
+            <div className="auth-footer">
+              <a href="/login" className="auth-link">← Back to sign in</a>
+            </div>
           </form>
         )}
       </div>

@@ -42,8 +42,13 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single()
 
-  if (sessionErr || !session)
-    return NextResponse.json({ error: 'Failed to create import session' }, { status: 500 })
+  if (sessionErr || !session) {
+    console.error('[import] session insert failed:', sessionErr)
+    return NextResponse.json(
+      { error: 'Failed to create import session', details: sessionErr?.message },
+      { status: 500 },
+    )
+  }
 
   // ── Upsert holdings ───────────────────────────────────────
   const rows = holdings.map(h => ({
@@ -71,8 +76,13 @@ export async function POST(req: NextRequest) {
     .from('holdings')
     .upsert(rows, { onConflict: 'user_id,symbol_normalized' })
 
-  if (upsertErr)
-    return NextResponse.json({ error: 'Failed to save holdings', details: upsertErr.message }, { status: 500 })
+  if (upsertErr) {
+    console.error('[import] holdings upsert failed:', upsertErr)
+    return NextResponse.json(
+      { error: 'Failed to save holdings', details: upsertErr.message, code: upsertErr.code, hint: upsertErr.hint },
+      { status: 500 },
+    )
+  }
 
   // ── Calculate total values for snapshot ──────────────────
   let totalUsd = 0, totalMyr = 0

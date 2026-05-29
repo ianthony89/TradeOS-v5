@@ -44,7 +44,7 @@ export function detectAssetType(
     'VTI','VOO','ARKK','SOXL','TQQQ','SQQQ','UVXY','VXX',
     'XLF','XLK','XLE','XLV','XLI','XLP','XLU','XLB','XLC',
     // Leveraged ETFs from user's portfolio
-    'CBRG','FBL','NOWL',
+    'CBRG','CRCG','FBL','NOWL',
   ])
   if (KNOWN_ETFS.has(normalizedSymbol)) return 'ETF'
 
