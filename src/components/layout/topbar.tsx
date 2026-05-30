@@ -73,9 +73,9 @@ const TIPS: Record<Lang, Record<Bucket, string[]>> = {
   },
 }
 
-function todayLabel() {
-  // Full weekday + day-month-year, e.g. "Saturday, 30 May 2026"
-  return new Date().toLocaleDateString('en-GB', {
+function todayLabel(lang: Lang) {
+  // Full weekday + date, localized: "Saturday, 30 May 2026" / "2026年5月30日星期六"
+  return new Date().toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 }
@@ -88,7 +88,7 @@ interface TopbarProps {
 }
 
 export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProps) {
-  const { lang, setLang } = useI18n()
+  const { lang, setLang, t } = useI18n()
 
   /* Greeting + a random encouragement. Bucket and the random index are
      picked once per mount (i.e. once per page load → fresh on every refresh);
@@ -120,11 +120,11 @@ export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProp
           )}
         </h2>
         <div className="topbar-sub">
-          <span>{todayLabel()}</span>
+          <span suppressHydrationWarning>{todayLabel(lang)}</span>
           {total > 0 && (
             <>
               <span className="topbar-sep">·</span>
-              <span>{total} Positions{breakdown}</span>
+              <span>{total} {t('positions_label')}{breakdown}</span>
             </>
           )}
         </div>

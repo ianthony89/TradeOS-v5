@@ -1,6 +1,7 @@
 'use client'
 
 import { TrendingUp, TrendingDown } from 'lucide-react'
+import { useT } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
 import { SymCell } from '@/components/brand/stock-logo'
 import { DeltaMoney } from '@/components/ui/delta-badge'
@@ -32,11 +33,12 @@ interface MoversPanelProps {
  * Per AGENTS.md § 4: intentionally capped, no unlimited spam.
  */
 export function MoversPanel({ winners, losers, className = '' }: MoversPanelProps) {
+  const t = useT()
   const hasNone = !winners.length && !losers.length
   if (hasNone) {
     return (
       <div className={`movers-empty ${className}`}>
-        No P/L movement yet — refresh quotes to populate.
+        {t('movers_empty')}
       </div>
     )
   }
@@ -46,7 +48,7 @@ export function MoversPanel({ winners, losers, className = '' }: MoversPanelProp
         <div className="movers-section">
           <div className="movers-section-head movers-section-head--positive">
             <TrendingUp size={12} />
-            <span>Top winners</span>
+            <span>{t('movers_winners')}</span>
           </div>
           <div className="movers-list">
             {winners.map(m => <MoverRow key={m.id} m={m} direction="up" />)}
@@ -60,7 +62,7 @@ export function MoversPanel({ winners, losers, className = '' }: MoversPanelProp
         <div className="movers-section">
           <div className="movers-section-head movers-section-head--negative">
             <TrendingDown size={12} />
-            <span>Top losers</span>
+            <span>{t('movers_losers')}</span>
           </div>
           <div className="movers-list">
             {losers.map(m => <MoverRow key={m.id} m={m} direction="down" />)}

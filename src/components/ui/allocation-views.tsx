@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
 import type { DonutSlice } from './donut-chart'
 import { DonutChart }     from './donut-chart'
@@ -29,10 +30,11 @@ export function AllocationViews({
   centerValue?: string
   stars?:       StarItem[]
 }) {
+  const t = useT()
   const [view, setView] = useState<View>('donut')
 
   if (!slices.length) {
-    return <div className="text-tertiary" style={{ fontSize: 12 }}>Allocation will appear once positions load.</div>
+    return <div className="text-tertiary" style={{ fontSize: 12 }}>{t('alloc_empty')}</div>
   }
 
   return (
@@ -54,7 +56,7 @@ export function AllocationViews({
 
       <div className="alloc-stage">
         {view === 'donut' && (
-          <DonutChart slices={slices} centerValue={centerValue} centerLabel="Market value" size={220} thickness={28} />
+          <DonutChart slices={slices} centerValue={centerValue} centerLabel={t('alloc_center')} size={220} thickness={28} />
         )}
         {view === 'tree'   && <TreemapChart slices={slices} />}
         {view === 'stars'  && <StarfieldChart stars={stars} />}

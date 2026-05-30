@@ -90,3 +90,22 @@ const SECTOR_VAR: Record<string, string> = {
 export function getSectorColor(sector: string): string {
   return SECTOR_VAR[sector] ?? SECTOR_VAR['Other']
 }
+
+/** Canonical sector name → i18n key (for bilingual display). */
+const SECTOR_KEY: Record<string, string> = {
+  'Technology':             'sector_technology',
+  'Healthcare':             'sector_healthcare',
+  'Financials':             'sector_financials',
+  'Consumer Discretionary': 'sector_consumer_disc',
+  'Consumer Staples':       'sector_consumer_stap',
+  'Communication Services': 'sector_comm_services',
+  'Energy':                 'sector_energy',
+  'Utilities':              'sector_utilities',
+  'ETF':                    'sector_etf',
+  'Crypto':                 'sector_crypto',
+  'Other':                  'sector_other',
+}
+
+export function sectorKey(sector: string): string {
+  return SECTOR_KEY[sector] ?? 'sector_other'
+}

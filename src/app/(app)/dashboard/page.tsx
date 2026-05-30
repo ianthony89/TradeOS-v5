@@ -5,7 +5,7 @@ import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gau
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
-import { useT }           from '@/lib/i18n/context'
+import { useI18n }        from '@/lib/i18n/context'
 import { fmt }            from '@/lib/utils/format'
 import { HOT_LIST }       from '@/lib/market/hot-list'
 import { Panel, PanelHead, PanelBody } from '@/components/ui/panel'
@@ -24,7 +24,8 @@ import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
 import { RiskGauge }      from '@/components/ui/risk-gauge'
 import { computeRiskScore } from '@/lib/portfolio/risk-score'
 import { SymCell }        from '@/components/brand/stock-logo'
-import { getSector, getSectorColor }  from '@/lib/portfolio/sectors'
+import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
+import { stockName }      from '@/lib/portfolio/stock-names'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
 import { buildActionSuggestions } from '@/lib/portfolio/action-center'
 
@@ -34,7 +35,7 @@ function usdEquiv(amt: number, currency: string, fx: number): number {
 }
 
 export default function DashboardPage() {
-  const t        = useT()
+  const { t, lang } = useI18n()
   const supabase = createClient()
   const {
     holdings, setHoldings,
@@ -215,7 +216,7 @@ export default function DashboardPage() {
       .filter(h => h.unrealizedPlPct > 0)
       .slice(0, 3)
       .map(h => ({
-        id: h.id, symbol: h.symbol, name: h.name, currency: h.currency,
+        id: h.id, symbol: h.symbol, name: stockName(h.symbol, h.name, lang), currency: h.currency,
         unrealizedPl: h.unrealizedPl, unrealizedPlPct: h.unrealizedPlPct,
       }))
     const los: MoverItem[] = sorted
@@ -223,11 +224,11 @@ export default function DashboardPage() {
       .reverse()
       .slice(0, 3)
       .map(h => ({
-        id: h.id, symbol: h.symbol, name: h.name, currency: h.currency,
+        id: h.id, symbol: h.symbol, name: stockName(h.symbol, h.name, lang), currency: h.currency,
         unrealizedPl: h.unrealizedPl, unrealizedPlPct: h.unrealizedPlPct,
       }))
     return { winners: wins, losers: los }
-  }, [withWeight])
+  }, [withWeight, lang])
 
   /* Sector donut slices */
   const sectorSlices = useMemo<DonutSlice[]>(() => {
@@ -238,14 +239,14 @@ export default function DashboardPage() {
       buckets.set(sec, (buckets.get(sec) ?? 0) + h.usdValue)
     }
     return [...buckets.entries()]
-      .map(([name, value]) => ({
-        name,
+      .map(([sec, value]) => ({
+        name:  t(sectorKey(sec)),
         value,
         pct:   (value / combined) * 100,
-        color: getSectorColor(name),
+        color: getSectorColor(sec),
       }))
       .sort((a, b) => b.pct - a.pct)
-  }, [withWeight, combined])
+  }, [withWeight, combined, t])
 
   /* Risk-by-strategy bars (CORE / TACTICAL / SPECULATIVE) */
   const strategyBars = useMemo<RiskBar[]>(() => {
@@ -314,9 +315,9 @@ export default function DashboardPage() {
   const allocStars = useMemo(() =>
     withWeight.map(h => {
       const sector = getSector(h.symbol, h.assetType)
-      return { symbol: h.symbol, sector, weight: h.portfolioWeight, color: getSectorColor(sector) }
+      return { symbol: h.symbol, sector: t(sectorKey(sector)), weight: h.portfolioWeight, color: getSectorColor(sector) }
     }),
-  [withWeight])
+  [withWeight, t])
 
   /* Risk Score — concentration + speculative + drawdown (real formula) */
   const risk = useMemo(() => {
@@ -345,19 +346,19 @@ export default function DashboardPage() {
         <div className="section-header">
           <div>
             <h1 className="section-title">{t('nav_dashboard')}</h1>
-            <p className="section-sub">Your portfolio overview will appear here</p>
+            <p className="section-sub">{t('empty_sub')}</p>
           </div>
         </div>
         <Panel>
           <PanelBody>
             <EmptyState
               icon={<Upload size={20} />}
-              title="No holdings yet"
-              sub="Import your broker CSV to populate the dashboard with live positions, P/L and portfolio intelligence."
+              title={t('empty_title')}
+              sub={t('empty_desc')}
               actions={
                 <a href="/holdings" className="btn btn-primary btn-sm">
                   <Upload size={13} />
-                  Import CSV
+                  {t('holdings_import')}
                 </a>
               }
             />
@@ -381,7 +382,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="section-title">{t('nav_dashboard')}</h1>
           <p className="section-sub">
-            {holdings.length} positions · {usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}
+            {holdings.length} {t('positions_label')} · {usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -455,7 +456,7 @@ export default function DashboardPage() {
           <div className="hero-card-sub">
             <DeltaBadge value={todayPct} variant="pill" />
             <span>·</span>
-            <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} today</span>
+            <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} {t('word_today')}</span>
           </div>
 
           {/* Compact intelligence row — fills the hero efficiently */}
@@ -545,7 +546,7 @@ export default function DashboardPage() {
       {/* Allocation donut + Risk by strategy */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel>
-          <PanelHead title={t('dash_sector_alloc')} meta="By market value" />
+          <PanelHead title={t('dash_sector_alloc')} meta={t('meta_by_market_value')} />
           <PanelBody>
             <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} />
           </PanelBody>
@@ -579,7 +580,7 @@ export default function DashboardPage() {
       {/* Top movers (winners + losers) */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel>
-          <PanelHead title={t('dash_movers')} meta="By unrealized %" />
+          <PanelHead title={t('dash_movers')} meta={t('meta_by_unrealized')} />
           <PanelBody>
             <MoversPanel winners={winners} losers={losers} />
           </PanelBody>
@@ -587,11 +588,11 @@ export default function DashboardPage() {
 
         <Panel>
           <PanelHead
-            title="Positions"
-            meta={`Top ${topPositions.length} by weight`}
+            title={t('positions_label')}
+            meta={t('dash_top_n_weight', { n: topPositions.length })}
             actions={
               <a href="/holdings" className="btn btn-ghost btn-sm">
-                View all
+                {t('dash_view_all')}
                 <ArrowRight size={12} />
               </a>
             }
@@ -601,10 +602,10 @@ export default function DashboardPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Symbol</th>
-                    <th className="num">Value</th>
-                    <th className="num">P/L</th>
-                    <th className="num">Weight</th>
+                    <th>{t('col_symbol')}</th>
+                    <th className="num">{t('col_value')}</th>
+                    <th className="num">{t('col_pl')}</th>
+                    <th className="num">{t('col_weight')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -615,7 +616,7 @@ export default function DashboardPage() {
                     return (
                       <tr key={h.id} data-pl-tone={plTone}>
                         <td>
-                          <SymCell symbol={h.symbol} name={h.name} currency={h.currency} logoSize={26} />
+                          <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={26} />
                         </td>
                         <td className="num text-mono text-tabular td--strong">
                           {fmt.money(h.marketValue, h.currency)}
