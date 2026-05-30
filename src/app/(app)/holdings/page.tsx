@@ -6,7 +6,9 @@ import { createClient }      from '@/lib/supabase/client'
 import { useHoldingsStore }  from '@/stores/holdings'
 import type { Holding }      from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
-import { useT }              from '@/lib/i18n/context'
+import { useI18n }           from '@/lib/i18n/context'
+import type { Lang }         from '@/lib/i18n/dictionary'
+import { stockName }         from '@/lib/portfolio/stock-names'
 import { fmt }               from '@/lib/utils/format'
 import { Panel, PanelBody } from '@/components/ui/panel'
 import { SymCell }           from '@/components/brand/stock-logo'
@@ -26,7 +28,7 @@ type FilterCurrency = 'ALL' | 'USD' | 'MYR'
 const FX_FALLBACK = 4.00
 
 export default function HoldingsPage() {
-  const t        = useT()
+  const { t, lang } = useI18n()
   const supabase = createClient()
   const {
     holdings, setHoldings,
@@ -191,10 +193,12 @@ export default function HoldingsPage() {
     return { ...h, portfolioWeight: totalUsd > 0 ? (v / totalUsd) * 100 : 0 }
   })
 
+  const q = search.toUpperCase()
   const filtered = enriched.filter(h =>
     (filterCur === 'ALL' || h.currency === filterCur) &&
-    (!search || h.symbol.toUpperCase().includes(search.toUpperCase()) ||
-     (h.name ?? '').toUpperCase().includes(search.toUpperCase()))
+    (!search || h.symbol.toUpperCase().includes(q) ||
+     (h.name ?? '').toUpperCase().includes(q) ||
+     stockName(h.symbol, h.name, lang).toUpperCase().includes(q))
   )
 
   const sorted = [...filtered].sort((a, b) => {
@@ -272,7 +276,7 @@ export default function HoldingsPage() {
             {t('holdings_drop_csv')}
           </div>
           <div className="text-tertiary" style={{ fontSize: 12 }}>
-            Moomoo / generic broker CSV · symbol, qty, cost, price, currency
+            {t('holdings_drop_hint')}
           </div>
         </div>
       )}
@@ -303,7 +307,7 @@ export default function HoldingsPage() {
               type="search"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search symbol or name…"
+              placeholder={t('holdings_search_ph')}
               className="input"
               style={{ width: 260, padding: '7px 12px', fontSize: 12.5 }}
             />
@@ -332,7 +336,7 @@ export default function HoldingsPage() {
               } />
             </span>
             <span className="text-tertiary" style={{ fontSize: 11.5 }}>
-              {sorted.length} of {holdings.length}
+              {t('holdings_showing', { shown: sorted.length, total: holdings.length })}
             </span>
           </div>
 
@@ -341,8 +345,8 @@ export default function HoldingsPage() {
             <PanelBody flush>
               {!sorted.length ? (
                 <EmptyState
-                  title="No matches"
-                  sub="Try a different search or filter."
+                  title={t('empty_no_matches')}
+                  sub={t('empty_no_matches_sub')}
                 />
               ) : (
                 <div style={{ overflowX: 'auto' }}>
@@ -387,7 +391,7 @@ export default function HoldingsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sorted.map(h => <Row key={h.id} h={h} t={t} />)}
+                      {sorted.map(h => <Row key={h.id} h={h} t={t} lang={lang} />)}
                     </tbody>
                   </table>
                 </div>
@@ -409,7 +413,7 @@ function SortIcon({ k, sortKey, sortAsc }: { k: SortKey; sortKey: SortKey; sortA
 }
 
 /* ── Single holdings row ───────────────────────────────────── */
-function Row({ h, t }: { h: Holding; t: (key: string) => string }) {
+function Row({ h, t, lang }: { h: Holding; t: (key: string) => string; lang: Lang }) {
   const classifyInput = {
     symbol:          h.symbol,
     name:            h.name,
@@ -425,7 +429,7 @@ function Row({ h, t }: { h: Holding; t: (key: string) => string }) {
   return (
     <tr data-pl-tone={plTone}>
       <td>
-        <SymCell symbol={h.symbol} name={h.name} currency={h.currency} logoSize={28} />
+        <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={28} />
       </td>
       <td className="num text-mono text-tabular">{fmt.qty(h.quantity)}</td>
       <td className="num text-mono text-tabular">{fmt.price(h.avgCost)}</td>

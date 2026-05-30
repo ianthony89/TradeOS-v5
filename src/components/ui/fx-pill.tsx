@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Lock, Radio } from 'lucide-react'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
+import { useT } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
 
 /**
@@ -16,15 +17,13 @@ import { fmt } from '@/lib/utils/format'
  * The popover makes editing instant — no detour to Settings needed.
  */
 export function FxPill({ className = '' }: { className?: string }) {
+  const t = useT()
   const fxMode      = useMarketStore(s => s.fxMode)
-  const liveRate    = useMarketStore(s => s.fxLiveRate)
-  const updatedAt   = useMarketStore(s => s.fxUpdatedAt)
   const activeRate  = useMarketStore(selectActiveFxRate)
   const manualRate  = useMarketStore(s => s.fxManualRate)
   const setManual   = useMarketStore(s => s.setFxManualRate)
 
   const isLiveMode  = fxMode === 'live'
-  const hasLiveData = isLiveMode && liveRate > 0
 
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -69,10 +68,7 @@ export function FxPill({ className = '' }: { className?: string }) {
     }
   }, [open])
 
-  const title =
-    hasLiveData ? `Live · updated ${fmt.relativeTime(updatedAt)} · click to edit fallback` :
-    isLiveMode  ? 'Live mode — awaiting first fetch · click to edit fallback'             :
-                  'Manual rate — click to edit'
+  const title = isLiveMode ? t('fx_title_live') : t('fx_title_manual')
 
   return (
     <span ref={wrapRef} className={`fx-pill-wrap ${className}`}>
@@ -96,7 +92,7 @@ export function FxPill({ className = '' }: { className?: string }) {
 
       {open && (
         <div className="fx-popover" role="dialog" aria-label="Edit FX rate">
-          <div className="fx-popover-label">Manual rate · USD / MYR</div>
+          <div className="fx-popover-label">{t('fx_pop_label')}</div>
           <div className="fx-popover-row">
             <input
               ref={inputRef}
@@ -114,12 +110,12 @@ export function FxPill({ className = '' }: { className?: string }) {
               className="input text-mono text-tabular fx-popover-input"
             />
             <button type="button" onClick={commit} className="btn btn-primary btn-sm">
-              Save
+              {t('fx_save')}
             </button>
           </div>
           {isLiveMode && (
             <div className="fx-popover-hint">
-              Live mode active — manual rate is fallback only
+              {t('fx_live_hint')}
             </div>
           )}
         </div>

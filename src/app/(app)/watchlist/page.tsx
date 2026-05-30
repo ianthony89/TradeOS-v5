@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Eye, Plus, X, RefreshCw } from 'lucide-react'
 import { createClient }    from '@/lib/supabase/client'
-import { useT }            from '@/lib/i18n/context'
+import { useI18n }         from '@/lib/i18n/context'
+import { stockName }       from '@/lib/portfolio/stock-names'
 import { fmt }             from '@/lib/utils/format'
 import { normalizeSymbol } from '@/lib/market/symbol-normalizer'
 import {
@@ -34,7 +35,7 @@ function normalizeOrRaw(raw: string): string {
 }
 
 export default function WatchlistPage() {
-  const t        = useT()
+  const { t, lang } = useI18n()
   const supabase = createClient()
 
   const [watchlistId, setWatchlistId] = useState<string | null>(null)
@@ -296,7 +297,7 @@ export default function WatchlistPage() {
                   {enriched.map(e => (
                     <tr key={e.id} className="watch-row">
                       <td>
-                        <SymCell symbol={e.symbol} name={e.name} logoSize={28} />
+                        <SymCell symbol={e.symbol} name={stockName(e.symbol, e.name, lang)} logoSize={28} />
                       </td>
                       <td className="num text-mono text-tabular td--strong">
                         {e.current > 0 ? fmt.price(e.current) : '—'}

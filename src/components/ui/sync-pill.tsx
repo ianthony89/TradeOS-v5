@@ -2,6 +2,7 @@
 
 import { useMarketStore } from '@/stores/market'
 import { useClock }       from '@/lib/hooks/use-clock'
+import { useT }           from '@/lib/i18n/context'
 import { fmt }            from '@/lib/utils/format'
 import { CheckCircle2, CircleDashed } from 'lucide-react'
 
@@ -10,6 +11,7 @@ import { CheckCircle2, CircleDashed } from 'lucide-react'
  * Re-renders every 30s to update the relative-time label.
  */
 export function SyncPill({ className = '' }: { className?: string }) {
+  const t = useT()
   useClock(30_000)
   const ts = useMarketStore(s => s.quotesUpdatedAt)
 
@@ -17,7 +19,7 @@ export function SyncPill({ className = '' }: { className?: string }) {
     return (
       <span className={`market-pill ${className}`}>
         <CircleDashed size={11} className="text-quaternary" />
-        <span className="market-pill-state market-pill-state--closed">Quotes idle</span>
+        <span className="market-pill-state market-pill-state--closed">{t('sync_idle')}</span>
       </span>
     )
   }
@@ -30,7 +32,7 @@ export function SyncPill({ className = '' }: { className?: string }) {
     <span className={`market-pill ${className}`} title={ts.toLocaleString()}>
       <CheckCircle2 size={11} className={stale ? 'text-tertiary' : 'text-positive'} />
       <span className={`market-pill-state ${stale ? 'market-pill-state--closed' : 'market-pill-state--open'}`}>
-        Quotes {fmt.relativeTime(ts)}
+        {t('sync_quotes')} {fmt.relativeTime(ts)}
       </span>
     </span>
   )

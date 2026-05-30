@@ -97,7 +97,7 @@ export default function SettingsPage() {
       <div className="section-header">
         <div>
           <h1 className="section-title">{t('nav_settings')}</h1>
-          <p className="section-sub">Account · preferences · appearance · FX</p>
+          <p className="section-sub">{t('settings_sub')}</p>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ export default function SettingsPage() {
           <PanelHead title={t('settings_account')} />
           <PanelBody>
             <div style={{ display: 'grid', gap: 14 }}>
-              <SettingsRow label="Email">
+              <SettingsRow label={t('settings_email')}>
                 <span className="text-mono text-secondary" style={{ fontSize: 13 }}>
                   {email || '—'}
                 </span>
@@ -120,7 +120,7 @@ export default function SettingsPage() {
                     onChange={e => setUserName(e.target.value)}
                     onBlur={persistName}
                     className="input"
-                    placeholder="Your name"
+                    placeholder={t('settings_name_ph')}
                     style={{ maxWidth: 260 }}
                   />
                   {saving && (
@@ -136,7 +136,7 @@ export default function SettingsPage() {
 
         {/* Appearance */}
         <Panel>
-          <PanelHead title="Appearance" />
+          <PanelHead title={t('settings_appearance')} />
           <PanelBody>
             <div style={{ display: 'grid', gap: 14 }}>
               <SettingsRow label={t('settings_theme')}>
@@ -248,7 +248,7 @@ export default function SettingsPage() {
                     style={{ width: 140, textAlign: 'right' }}
                   />
                   <span className="text-tertiary" style={{ fontSize: 11.5 }}>
-                    {fxMode === 'live' ? 'fallback if live fails' : 'in use'}
+                    {fxMode === 'live' ? t('settings_fx_fallback') : t('settings_fx_in_use')}
                   </span>
                 </div>
               </SettingsRow>
