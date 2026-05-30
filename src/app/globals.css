@@ -2370,3 +2370,102 @@ a { color: inherit; text-decoration: none; }
   .toast-host { left: 16px; right: 16px; bottom: 16px; }
   .toast { max-width: none; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Charts — shared tooltip + allocation views + lab visualizations
+   ══════════════════════════════════════════════════════════════ */
+
+/* Shared hover tooltip (treemap, donut, bars, histogram, race, stars) */
+.chart-tip {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 11px;
+  border-radius: 11px;
+  background: var(--glass-tint-strong, rgba(22, 30, 56, 0.88));
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+}
+.chart-tip-name {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-quaternary);
+}
+.chart-tip-detail {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Allocation switcher */
+.alloc { display: flex; flex-direction: column; align-items: center; }
+.alloc-switch { width: 100%; display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.alloc-stage { width: 100%; display: flex; justify-content: center; min-height: 200px; align-items: center; }
+
+/* Treemap */
+.tm-wrap { display: flex; gap: 5px; height: 220px; width: 100%; }
+.tm-col  { display: flex; flex-direction: column; gap: 5px; }
+.tm-cell {
+  position: relative;
+  flex: 1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  cursor: default;
+  transition: filter var(--dur-fast), transform var(--dur-fast);
+}
+.tm-cell:hover { filter: brightness(1.13); transform: translateY(-1px); }
+.tm-name { font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.tm-pct  { font-size: 11px; color: rgba(255,255,255,.85); font-variant-numeric: tabular-nums; }
+
+/* Categorical bar */
+.catbar { display: flex; flex-direction: column; gap: 13px; width: 100%; padding: 8px 2px; }
+.catbar-row { display: grid; grid-template-columns: 92px 1fr 54px; align-items: center; gap: 12px; cursor: default; }
+.catbar-name { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catbar-row:hover .catbar-name { color: var(--text-primary); }
+.catbar-track { height: 9px; border-radius: 6px; background: rgba(255,255,255,.05); overflow: hidden; }
+.catbar-fill  { height: 100%; border-radius: 6px; transition: filter var(--dur-fast); }
+.catbar-row:hover .catbar-fill { filter: brightness(1.12); }
+.catbar-val { text-align: right; font-size: 12px; color: var(--text-tertiary); }
+
+/* Histogram */
+.histo { display: flex; align-items: flex-end; gap: 8px; height: 200px; padding-top: 8px; }
+.histo-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; cursor: default; }
+.histo-count { font-size: 13px; font-weight: 800; color: var(--text-primary); margin-bottom: 5px; }
+.histo-bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.histo-bar { width: 100%; border-radius: 6px 6px 2px 2px; min-height: 3px; transition: filter var(--dur-fast); }
+.histo-col:hover .histo-bar { filter: brightness(1.15); }
+.histo-label { font-size: 9.5px; color: var(--text-quaternary); margin-top: 8px; white-space: nowrap; }
+
+/* Bar race */
+.race { display: flex; flex-direction: column; gap: 12px; }
+.race-head { display: flex; align-items: center; justify-content: space-between; }
+.race-hint { font-size: 11.5px; color: var(--text-quaternary); }
+.race-rows { display: flex; flex-direction: column; gap: 9px; }
+.race-row  { display: grid; grid-template-columns: 52px 1fr 64px; align-items: center; gap: 10px; cursor: default; }
+.race-sym  { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.race-track { height: 20px; border-radius: 6px; background: rgba(255,255,255,.04); overflow: hidden; }
+.race-fill {
+  height: 100%;
+  border-radius: 6px;
+  transform-origin: left center;
+  animation: race-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes race-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.race-val { text-align: right; font-size: 12px; color: var(--text-tertiary); }
+
+/* Constellation */
+.constel { width: 100%; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(120% 120% at 50% 0%, rgba(30, 42, 80, 0.5), rgba(8, 12, 26, 0.6)); }
+.constel svg { display: block; width: 100%; height: auto; }

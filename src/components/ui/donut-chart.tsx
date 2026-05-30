@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { fmt } from '@/lib/utils/format'
+import { useChartTooltip, ChartTooltip } from './chart-tooltip'
 
 export interface DonutSlice {
   name:   string
@@ -32,6 +34,7 @@ export function DonutChart({
   className = '',
 }: DonutChartProps) {
   const [hover, setHover] = useState<string | null>(null)
+  const { tip, show, move, hide } = useChartTooltip()
 
   const cx = size / 2
   const cy = size / 2
@@ -52,6 +55,7 @@ export function DonutChart({
       name:  s.name,
       color: s.color,
       pct:   s.pct,
+      value: s.value,
       d:     arcPath(cx, cy, inner, outer, a0, a1),
     }
   })
@@ -71,8 +75,9 @@ export function DonutChart({
               style={{
                 ['--slice-color' as string]: a.color,
               }}
-              onMouseEnter={() => setHover(a.name)}
-              onMouseLeave={() => setHover(null)}
+              onMouseEnter={e => { setHover(a.name); show(e, a.name, `${fmt.money(a.value, 'USD')} · ${fmt.pct(a.pct, 1)}`) }}
+              onMouseMove={move}
+              onMouseLeave={() => { setHover(null); hide() }}
             />
           )
         })}
@@ -104,6 +109,7 @@ export function DonutChart({
           </g>
         )}
       </svg>
+      <ChartTooltip tip={tip} />
     </div>
   )
 }

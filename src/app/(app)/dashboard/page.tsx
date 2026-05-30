@@ -15,7 +15,9 @@ import { EmptyState }     from '@/components/ui/empty-state'
 import { ImportCsvButton } from '@/components/ui/import-button'
 import { Toast, type ToastData } from '@/components/ui/toast'
 import { TickerStrip }    from '@/components/ui/ticker-strip'
-import { DonutChart, type DonutSlice } from '@/components/ui/donut-chart'
+import { type DonutSlice } from '@/components/ui/donut-chart'
+import { AllocationViews } from '@/components/ui/allocation-views'
+import { PlHistogram }     from '@/components/ui/histogram-chart'
 import { IntelCard }      from '@/components/ui/intel-card'
 import { MoversPanel, type MoverItem } from '@/components/ui/movers-panel'
 import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
@@ -519,30 +521,7 @@ export default function DashboardPage() {
         <Panel>
           <PanelHead title={t('dash_sector_alloc')} meta="By market value" />
           <PanelBody>
-            {sectorSlices.length ? (
-              <>
-                <DonutChart
-                  slices={sectorSlices}
-                  centerValue={fmt.compact(combined, 'USD')}
-                  centerLabel="Market value"
-                  size={220}
-                  thickness={28}
-                />
-                <div className="donut-legend">
-                  {sectorSlices.map(s => (
-                    <div key={s.name} className="donut-legend-item">
-                      <span className="donut-legend-dot" style={{ background: s.color }} />
-                      <span className="donut-legend-name">{s.name}</span>
-                      <span className="donut-legend-pct">{fmt.pct(s.pct, 1)}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="text-tertiary" style={{ fontSize: 12 }}>
-                Allocation will appear once positions load.
-              </div>
-            )}
+            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} />
           </PanelBody>
         </Panel>
 
@@ -613,6 +592,14 @@ export default function DashboardPage() {
           </PanelBody>
         </Panel>
       </div>
+
+      {/* P/L distribution — how many positions are winning vs bleeding */}
+      <Panel>
+        <PanelHead title={t('dash_pl_distribution')} meta={t('dash_pl_distribution_meta')} />
+        <PanelBody>
+          <PlHistogram items={withWeight.map(h => ({ unrealizedPlPct: h.unrealizedPlPct }))} />
+        </PanelBody>
+      </Panel>
     </div>
   )
 }

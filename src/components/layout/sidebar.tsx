@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Briefcase, Eye, BookOpen,
-  Calculator, Bot, Settings, LogOut, ShieldAlert,
+  Calculator, Bot, Settings, LogOut, ShieldAlert, Sparkles,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +17,7 @@ const NAV_GROUPS = [
       { href: '/dashboard', icon: LayoutDashboard, key: 'nav_dashboard' },
       { href: '/holdings',  icon: Briefcase,       key: 'nav_holdings'  },
       { href: '/watchlist', icon: Eye,             key: 'nav_watchlist' },
+      { href: '/lab',       icon: Sparkles,        key: 'nav_lab'       },
     ],
   },
   {
