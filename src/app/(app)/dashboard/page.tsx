@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge, Lightbulb } from 'lucide-react'
+import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge, Lightbulb, Repeat } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
@@ -16,8 +16,9 @@ import { ImportCsvButton } from '@/components/ui/import-button'
 import { Toast, type ToastData } from '@/components/ui/toast'
 import { TickerStrip }    from '@/components/ui/ticker-strip'
 import { type DonutSlice } from '@/components/ui/donut-chart'
-import { AllocationViews } from '@/components/ui/allocation-views'
+import { AllocationViews, ALLOC_VIEWS, nextAllocView, type AllocView } from '@/components/ui/allocation-views'
 import { PlHistogram }     from '@/components/ui/histogram-chart'
+import { InfoTooltip }     from '@/components/ui/info-tooltip'
 import { IntelCard }      from '@/components/ui/intel-card'
 import { MoversPanel, type MoverItem } from '@/components/ui/movers-panel'
 import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
@@ -50,6 +51,7 @@ export default function DashboardPage() {
   /* Curated Hot List (live prices) for the top ticker row */
   const [hotItems, setHotItems] = useState<Array<{ symbol: string; price: number; changePct: number; currency: string }>>([])
   const [toast, setToast] = useState<ToastData | null>(null)
+  const [allocView, setAllocView] = useState<AllocView>('donut')
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -92,6 +94,13 @@ export default function DashboardPage() {
   }, [supabase, setHoldings])
 
   useEffect(() => { loadHoldings() }, [loadHoldings])
+
+  /* Allocation default: Stars on desktop, Donut on phones. Runs once on mount
+     (server renders the safe 'donut' default, so no hydration mismatch). */
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (window.matchMedia('(min-width: 900px)').matches) setAllocView('stars')
+  }, [])
 
   /* Fetch the Hot List once on mount (prices are live) for the top row */
   useEffect(() => {
@@ -315,7 +324,7 @@ export default function DashboardPage() {
   const allocStars = useMemo(() =>
     withWeight.map(h => {
       const sector = getSector(h.symbol, h.assetType)
-      return { symbol: h.symbol, sector: t(sectorKey(sector)), weight: h.portfolioWeight, color: getSectorColor(sector) }
+      return { symbol: h.symbol, sector: t(sectorKey(sector)), weight: h.portfolioWeight, color: getSectorColor(sector), pl: h.unrealizedPlPct }
     }),
   [withWeight, t])
 
@@ -335,6 +344,13 @@ export default function DashboardPage() {
     const d = risk.factors.drawdown      * 0.25
     return c >= s && c >= d ? 'concentration' : s >= d ? 'speculative' : 'drawdown'
   })()
+  const brokenCount = withWeight.filter(h => h.unrealizedPlPct < -50).length
+  const riskActionVars: Record<string, string | number> =
+    riskTop === 'concentration'
+      ? { symbol: topPositions[0]?.symbol ?? '—', pct: fmt.pct(topPositions[0]?.portfolioWeight ?? 0, 1) }
+    : riskTop === 'speculative'
+      ? { pct: fmt.pct(speculativeWeight, 1) }
+      : { n: brokenCount }
 
   const usdCount = holdings.filter(h => h.currency === 'USD').length
   const myrCount = holdings.filter(h => h.currency === 'MYR').length
@@ -546,32 +562,52 @@ export default function DashboardPage() {
       {/* Allocation donut + Risk by strategy */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel>
-          <PanelHead title={t('dash_sector_alloc')} meta={t('meta_by_market_value')} />
+          <PanelHead
+            title={t('dash_sector_alloc')}
+            meta={t('meta_by_market_value')}
+            actions={
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setAllocView(nextAllocView(allocView))}
+                title="Switch view"
+              >
+                <Repeat size={12} />
+                {ALLOC_VIEWS.find(v => v.id === allocView)?.label}
+              </button>
+            }
+          />
           <PanelBody>
-            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} />
+            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} view={allocView} />
           </PanelBody>
         </Panel>
 
         <Panel>
           <PanelHead title={t('dash_risk')} meta={t('dash_risk_meta')} />
           <PanelBody>
-            <div className="rg-section-label">{t('risk_drivers')}</div>
+            <div className="rg-section-label">
+              {t('risk_drivers')}
+              <InfoTooltip content={t('risk_drivers_help')} />
+            </div>
             <RiskGauge
               variant="factors"
               factors={[
-                { label: t('risk_f_concentration'), weight: 0.40, value: risk.factors.concentration },
-                { label: t('risk_f_speculative'),   weight: 0.35, value: risk.factors.speculative },
-                { label: t('risk_f_drawdown'),      weight: 0.25, value: risk.factors.drawdown },
+                { label: t('risk_f_concentration'), weight: 0.40, value: risk.factors.concentration, color: '#a78bfa' },
+                { label: t('risk_f_speculative'),   weight: 0.35, value: risk.factors.speculative,   color: 'var(--warning)' },
+                { label: t('risk_f_drawdown'),      weight: 0.25, value: risk.factors.drawdown,      color: 'var(--negative)' },
               ]}
             />
             <div className="rg-divider" />
-            <div className="rg-section-label">{t('risk_by_strategy')}</div>
+            <div className="rg-section-label">
+              {t('risk_by_strategy')}
+              <InfoTooltip content={t('risk_strategy_help')} />
+            </div>
             <RiskByStrategy bars={strategyBars} />
 
             <div className="rg-guide">
               <div className="rg-guide-head"><Lightbulb size={12} />{t('risk_guide_label')}</div>
               <p>{t(`risk_guide_${risk.level}`)}</p>
-              <p>{t(`risk_tip_${riskTop}`)}</p>
+              <p>{t(`risk_act_${riskTop}`, riskActionVars)}</p>
             </div>
           </PanelBody>
         </Panel>

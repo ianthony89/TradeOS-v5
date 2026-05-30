@@ -1533,12 +1533,11 @@ a { color: inherit; text-decoration: none; }
 }
 .donut-slice {
   cursor: pointer;
-  transition: filter 180ms var(--ease-out);
+  transition: opacity 160ms var(--ease-out), filter 160ms var(--ease-out);
 }
-/* Glow only — no transform (SVG path scaling shifts the slice and looks glitchy) */
-.donut-slice[data-hover="true"] {
-  filter: drop-shadow(0 0 7px var(--slice-color));
-}
+/* Hover = highlight the slice, fade the rest (cleaner than a glow) */
+.donut-slice[data-hover="true"] { filter: brightness(1.08); }
+.donut-slice[data-dim="true"]   { opacity: 0.3; }
 .donut-center-value {
   fill: var(--text-primary);
   font-size: 22px;
@@ -1554,13 +1553,19 @@ a { color: inherit; text-decoration: none; }
   text-transform: uppercase;
 }
 
-/* Legend below the chart — 3 per row, centered */
+/* Legend below the chart — rows of 3, each row centered */
 .donut-legend {
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  justify-content: center;
-  gap: 9px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
   margin-top: 14px;
+}
+.donut-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 9px 20px;
 }
 .donut-legend-item {
   display: inline-flex;
@@ -1568,9 +1573,6 @@ a { color: inherit; text-decoration: none; }
   gap: 7px;
   font-size: 12px;
   color: var(--text-secondary);
-}
-@media (max-width: 560px) {
-  .donut-legend { grid-template-columns: repeat(2, auto); }
 }
 .donut-legend-dot {
   width: 8px;
@@ -2396,20 +2398,18 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 11px;
-  border-radius: 11px;
-  background: var(--glass-tint-strong, rgba(22, 30, 56, 0.88));
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--border-default);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-xl);
 }
 .chart-tip-name {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-quaternary);
+  color: var(--text-tertiary);
 }
 .chart-tip-detail {
   font-size: 12.5px;
@@ -2418,13 +2418,13 @@ a { color: inherit; text-decoration: none; }
   font-variant-numeric: tabular-nums;
 }
 
-/* Allocation switcher */
+/* Allocation — fixed-height stage so every view (donut/treemap/stars) is the
+   same size and swapping never resizes the panel */
 .alloc { display: flex; flex-direction: column; align-items: center; }
-.alloc-switch { width: 100%; display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.alloc-stage { width: 100%; display: flex; justify-content: center; min-height: 200px; align-items: center; }
+.alloc-stage { width: 100%; height: 236px; display: flex; justify-content: center; align-items: center; }
 
 /* Treemap */
-.tm-wrap { display: flex; gap: 5px; height: 220px; width: 100%; }
+.tm-wrap { display: flex; gap: 5px; height: 100%; width: 100%; }
 .tm-col  { display: flex; flex-direction: column; gap: 5px; }
 .tm-cell {
   position: relative;
@@ -2435,9 +2435,19 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-between;   /* holdings top · label bottom */
   cursor: default;
   transition: filter var(--dur-fast), transform var(--dur-fast);
+}
+.tm-holdings { display: flex; flex-wrap: wrap; gap: 4px; }
+.tm-chip {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
 }
 .tm-cell:hover { filter: brightness(1.13); transform: translateY(-1px); }
 /* Single-line label so small slices never clip their name */
@@ -2535,18 +2545,45 @@ a { color: inherit; text-decoration: none; }
     radial-gradient(55% 75% at 78% 76%, rgba(110, 70, 200, 0.22), transparent 70%),
     radial-gradient(120% 120% at 50% 0%, rgba(20, 28, 60, 0.55), rgba(4, 7, 18, 0.92));
 }
-.starfield svg { display: block; width: 100%; height: auto; }
+.starfield { height: 100%; }
+.starfield svg { display: block; width: 100%; height: 100%; }
 .sf-twinkle { animation: sf-twinkle 3.4s ease-in-out infinite; }
-@keyframes sf-twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+@keyframes sf-twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 
-/* Soft orbs gently breathe in brightness; hovering brightens + pulses */
-.sf-orb { animation: sf-orb 5s ease-in-out infinite; }
-@keyframes sf-orb { 0%, 100% { opacity: 0.82; } 50% { opacity: 1; } }
+/* Each star drifts gently (the whole thing feels alive, not static) */
+.sf-float {
+  animation-name: sf-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes sf-float {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(var(--dx, 0), var(--dy, 0)); }
+}
+/* Orbs breathe in brightness + scale a touch */
+.sf-orb {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-orb 4.6s ease-in-out infinite;
+}
+@keyframes sf-orb {
+  0%, 100% { opacity: 0.78; transform: scale(0.94); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
 .sf-star { cursor: pointer; }
 .sf-star:hover { animation: sf-starpulse 1s ease-in-out infinite; }
 @keyframes sf-starpulse {
   0%, 100% { filter: brightness(1.4) drop-shadow(0 0 3px rgba(255, 255, 255, 0.7)); }
-  50%      { filter: brightness(2.15) drop-shadow(0 0 11px #fff); }
+  50%      { filter: brightness(2.2) drop-shadow(0 0 12px #fff); }
+}
+
+/* Light theme — warmer "dusk" cosmos so it reads differently from dark mode */
+[data-theme="light"] .starfield {
+  background:
+    radial-gradient(60% 80% at 24% 20%, rgba(56, 132, 158, 0.34), transparent 70%),
+    radial-gradient(58% 78% at 80% 80%, rgba(168, 92, 158, 0.26), transparent 70%),
+    radial-gradient(120% 120% at 50% 0%, rgba(26, 32, 58, 0.7), rgba(10, 14, 32, 0.96));
+  border: 1px solid rgba(140, 170, 220, 0.14);
 }
 
 /* Risk guide — how to read & act on the score */
@@ -2573,6 +2610,9 @@ a { color: inherit; text-decoration: none; }
 .rg-guide b { color: var(--text-primary); font-weight: 600; }
 
 .rg-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -2585,3 +2625,8 @@ a { color: inherit; text-decoration: none; }
 .topbar-left { gap: 3px; }
 .topbar-sub { gap: 0; }
 .topbar-sep { margin: 0 6px; color: var(--text-quaternary); font-weight: 400; }
+/* On phones the inline tip wraps awkwardly — hide it (date line stays) */
+@media (max-width: 640px) {
+  .topbar-greeting .topbar-sep,
+  .topbar-greeting .topbar-tip { display: none; }
+}

@@ -33,6 +33,15 @@ export default function SettingsPage() {
 
   const [manualRateInput, setManualRateInput] = useState(fxManualRate.toFixed(4))
 
+  /* Change PIN — verify current first, then set new */
+  const [pinStep,    setPinStep]    = useState<'verify' | 'set'>('verify')
+  const [currentPin, setCurrentPin] = useState('')
+  const [newPin,     setNewPin]     = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [pinSaving,  setPinSaving]  = useState(false)
+  const [pinMsg,     setPinMsg]     = useState('')
+  const [pinErr,     setPinErr]     = useState(false)
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -80,6 +89,31 @@ export default function SettingsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) await supabase.from('profiles').update({ name: userName.trim() }).eq('id', user.id)
     setSaving(false)
+  }
+
+  async function verifyCurrentPin(e: React.FormEvent) {
+    e.preventDefault()
+    setPinMsg(''); setPinErr(false)
+    if (!currentPin) return
+    setPinSaving(true)
+    // Re-authenticate to confirm the current PIN is correct.
+    const { error } = await supabase.auth.signInWithPassword({ email, password: currentPin })
+    setPinSaving(false)
+    if (error) { setPinErr(true); setPinMsg(t('auth_pin_wrong')); return }
+    setPinStep('set')
+  }
+
+  async function changePin(e: React.FormEvent) {
+    e.preventDefault()
+    setPinMsg(''); setPinErr(false)
+    if (newPin.length < 4) { setPinErr(true); setPinMsg(t('settings_pin_short')); return }
+    if (newPin !== confirmPin) { setPinErr(true); setPinMsg(t('auth_pin_mismatch')); return }
+    setPinSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: newPin })
+    setPinSaving(false)
+    if (error) { setPinErr(true); setPinMsg(error.message); return }
+    setPinMsg(t('settings_pin_updated'))
+    setPinStep('verify'); setCurrentPin(''); setNewPin(''); setConfirmPin('')
   }
 
   function commitManualRate() {
@@ -131,6 +165,66 @@ export default function SettingsPage() {
                 </div>
               </SettingsRow>
             </div>
+          </PanelBody>
+        </Panel>
+
+        {/* Security — change PIN (verify current → set new) */}
+        <Panel>
+          <PanelHead title={t('settings_security')} />
+          <PanelBody>
+            {pinStep === 'verify' ? (
+              <form onSubmit={verifyCurrentPin} style={{ display: 'grid', gap: 14 }}>
+                <SettingsRow label={t('settings_current_pin')}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="password" inputMode="numeric" autoComplete="current-password"
+                      value={currentPin}
+                      onChange={e => setCurrentPin(e.target.value.replace(/\D/g, ''))}
+                      className="input text-mono text-tabular"
+                      style={{ maxWidth: 200, letterSpacing: '0.3em' }}
+                      maxLength={8}
+                    />
+                    <button type="submit" disabled={pinSaving} className="btn btn-primary btn-sm">
+                      {pinSaving ? <span className="auth-spinner" /> : t('settings_continue')}
+                    </button>
+                    {pinMsg && (
+                      <span style={{ fontSize: 11.5, color: pinErr ? 'var(--negative)' : 'var(--positive)' }}>{pinMsg}</span>
+                    )}
+                  </div>
+                </SettingsRow>
+              </form>
+            ) : (
+              <form onSubmit={changePin} style={{ display: 'grid', gap: 14 }}>
+                <SettingsRow label={t('settings_new_pin')}>
+                  <input
+                    type="password" inputMode="numeric" autoComplete="new-password"
+                    value={newPin}
+                    onChange={e => setNewPin(e.target.value.replace(/\D/g, ''))}
+                    className="input text-mono text-tabular"
+                    style={{ maxWidth: 200, letterSpacing: '0.3em' }}
+                    maxLength={8}
+                  />
+                </SettingsRow>
+                <SettingsRow label={t('settings_confirm_pin')}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="password" inputMode="numeric" autoComplete="new-password"
+                      value={confirmPin}
+                      onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                      className="input text-mono text-tabular"
+                      style={{ maxWidth: 200, letterSpacing: '0.3em' }}
+                      maxLength={8}
+                    />
+                    <button type="submit" disabled={pinSaving} className="btn btn-primary btn-sm">
+                      {pinSaving ? <span className="auth-spinner" /> : t('settings_update_pin')}
+                    </button>
+                    {pinMsg && (
+                      <span style={{ fontSize: 11.5, color: pinErr ? 'var(--negative)' : 'var(--positive)' }}>{pinMsg}</span>
+                    )}
+                  </div>
+                </SettingsRow>
+              </form>
+            )}
           </PanelBody>
         </Panel>
 

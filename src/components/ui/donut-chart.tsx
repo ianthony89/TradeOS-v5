@@ -72,6 +72,7 @@ export function DonutChart({
               fill={a.color}
               className="donut-slice"
               data-hover={isHover ? 'true' : 'false'}
+              data-dim={hover && !isHover ? 'true' : 'false'}
               style={{
                 ['--slice-color' as string]: a.color,
               }}

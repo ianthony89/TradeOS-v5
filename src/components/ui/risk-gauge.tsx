@@ -1,6 +1,6 @@
 'use client'
 
-export interface RiskFactor { label: string; weight: number; value: number }
+export interface RiskFactor { label: string; weight: number; value: number; color?: string }
 
 interface RiskGaugeProps {
   factors:      RiskFactor[]
@@ -51,7 +51,7 @@ export function RiskGauge({
           <div key={f.label} className="rg-factor">
             <span className="rg-factor-label">{f.label}</span>
             <div className="rg-factor-track">
-              <div className="rg-factor-fill" style={{ width: `${f.value}%` }} />
+              <div className="rg-factor-fill" style={{ width: `${f.value}%`, background: f.color ?? 'var(--accent)' }} />
             </div>
             <span className="rg-factor-weight text-tabular">×{f.weight.toFixed(2)}</span>
           </div>
