@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { ShieldAlert, Plus, Copy, Check, UserCheck } from 'lucide-react'
-import { useT } from '@/lib/i18n/context'
+import { useI18n } from '@/lib/i18n/context'
 import { fmt }  from '@/lib/utils/format'
 import { Panel, PanelHead, PanelBody } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -21,7 +21,7 @@ interface Member {
 }
 
 export default function AdminPage() {
-  const t = useT()
+  const { t, lang } = useI18n()
 
   const [loading,   setLoading]   = useState(true)
   const [forbidden, setForbidden] = useState(false)
@@ -149,7 +149,7 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="text-tertiary" style={{ fontSize: 12 }}>
-                        {fmt.relativeTime(c.created_at)}
+                        {fmt.relativeTime(c.created_at, lang)}
                       </td>
                       <td className="num">
                         {!c.used_at && (
@@ -194,7 +194,7 @@ export default function AdminPage() {
                         <td className="td--strong">{u.name || '—'}</td>
                         <td className="text-mono text-tertiary" style={{ fontSize: 12 }}>{u.email}</td>
                         <td className="text-tertiary" style={{ fontSize: 12 }}>
-                          {fmt.relativeTime(u.createdAt)}
+                          {fmt.relativeTime(u.createdAt, lang)}
                         </td>
                         <td className="num">
                           <button
@@ -238,7 +238,7 @@ export default function AdminPage() {
                         <td className="td--strong">{u.name || '—'}</td>
                         <td className="text-mono text-tertiary" style={{ fontSize: 12 }}>{u.email}</td>
                         <td className="text-tertiary" style={{ fontSize: 12 }}>
-                          {fmt.relativeTime(u.createdAt)}
+                          {fmt.relativeTime(u.createdAt, lang)}
                         </td>
                         <td className="num">
                           <span className="badge badge--positive">{t('admin_member_approved')}</span>

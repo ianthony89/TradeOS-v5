@@ -211,7 +211,7 @@ export default function HoldingsPage() {
     return sortAsc ? cmp : -cmp
   })
 
-  const lastImportLabel = lastImportAt ? fmt.relativeTime(lastImportAt) : null
+  const lastImportLabel = lastImportAt ? fmt.relativeTime(lastImportAt, lang) : null
 
   /* ── Render ─────────────────────────────────────────────── */
   return (

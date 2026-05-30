@@ -262,7 +262,7 @@ export default function SettingsPage() {
                           {fmt.fxRate(fxLiveRate)}
                         </span>
                         <span className="text-tertiary" style={{ fontSize: 11.5 }}>
-                          · {fmt.relativeTime(fxUpdatedAt)}
+                          · {fmt.relativeTime(fxUpdatedAt, lang)}
                         </span>
                       </>
                     ) : (

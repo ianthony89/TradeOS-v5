@@ -97,15 +97,25 @@ function qty(value: number | null | undefined): string {
   return decFmt.format(v).replace(/\.?0+$/, '')
 }
 
-/** "5 minutes ago" / "2 hours ago" — for last-updated timestamps. */
-function relativeTime(input: string | Date | null | undefined): string {
+/** "5m ago" / "刚刚" — for last-updated timestamps. Localized. */
+function relativeTime(input: string | Date | null | undefined, lang: 'en' | 'zh' = 'en'): string {
   if (!input) return ''
   const d = typeof input === 'string' ? new Date(input) : input
   const diff = Date.now() - d.getTime()
-  if (diff < 60_000)        return 'just now'
-  if (diff < 3_600_000)     return `${Math.floor(diff / 60_000)}m ago`
-  if (diff < 86_400_000)    return `${Math.floor(diff / 3_600_000)}h ago`
-  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`
+  const min  = Math.floor(diff / 60_000)
+  const hr   = Math.floor(diff / 3_600_000)
+  const day  = Math.floor(diff / 86_400_000)
+  if (lang === 'zh') {
+    if (diff < 60_000)         return '刚刚'
+    if (diff < 3_600_000)      return `${min} 分钟前`
+    if (diff < 86_400_000)     return `${hr} 小时前`
+    if (diff < 7 * 86_400_000) return `${day} 天前`
+    return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  }
+  if (diff < 60_000)         return 'just now'
+  if (diff < 3_600_000)      return `${min}m ago`
+  if (diff < 86_400_000)     return `${hr}h ago`
+  if (diff < 7 * 86_400_000) return `${day}d ago`
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
