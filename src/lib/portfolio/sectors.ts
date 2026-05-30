@@ -15,11 +15,11 @@ const SECTOR_MAP: Record<string, string> = {
   NOK:  'Technology', AIXI: 'Technology', CETX: 'Technology',
 
   // Consumer Discretionary
-  AMZN: 'Consumer Disc.',  TSLA: 'Consumer Disc.',  NKE:  'Consumer Disc.',
-  SBUX: 'Consumer Disc.',  MCD:  'Consumer Disc.',  CMG:  'Consumer Disc.',
-  HD:   'Consumer Disc.',  LOW:  'Consumer Disc.',  CTNT: 'Consumer Disc.',
-  AMZE: 'Consumer Disc.',  SHOP: 'Consumer Disc.',  UBER: 'Consumer Disc.',
-  ABNB: 'Consumer Disc.',  LYFT: 'Consumer Disc.',
+  AMZN: 'Consumer Discretionary',  TSLA: 'Consumer Discretionary',  NKE:  'Consumer Discretionary',
+  SBUX: 'Consumer Discretionary',  MCD:  'Consumer Discretionary',  CMG:  'Consumer Discretionary',
+  HD:   'Consumer Discretionary',  LOW:  'Consumer Discretionary',  CTNT: 'Consumer Discretionary',
+  AMZE: 'Consumer Discretionary',  SHOP: 'Consumer Discretionary',  UBER: 'Consumer Discretionary',
+  ABNB: 'Consumer Discretionary',  LYFT: 'Consumer Discretionary',
 
   // Consumer Staples
   WMT: 'Consumer Staples', COST: 'Consumer Staples',
@@ -38,8 +38,8 @@ const SECTOR_MAP: Record<string, string> = {
   COIN:'Financials', HOOD:'Financials', SOFI:'Financials',
 
   // Communication services
-  NFLX: 'Comm. Services', DIS: 'Comm. Services',
-  T:    'Comm. Services', VZ:  'Comm. Services',
+  NFLX: 'Communication Services', DIS: 'Communication Services',
+  T:    'Communication Services', VZ:  'Communication Services',
 
   // Energy
   XOM:  'Energy', CVX:  'Energy',
@@ -77,9 +77,9 @@ const SECTOR_VAR: Record<string, string> = {
   'Technology':       'var(--sector-tech)',
   'Healthcare':       'var(--sector-healthcare)',
   'Financials':       'var(--sector-financials)',
-  'Consumer Disc.':   'var(--sector-consumer-disc)',
+  'Consumer Discretionary':   'var(--sector-consumer-disc)',
   'Consumer Staples': 'var(--sector-consumer-stap)',
-  'Comm. Services':   'var(--sector-comm)',
+  'Communication Services':   'var(--sector-comm)',
   'Energy':           'var(--sector-energy)',
   'Utilities':        'var(--sector-utilities)',
   'ETF':              'var(--sector-etf)',

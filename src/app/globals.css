@@ -105,12 +105,12 @@
   --sector-tech:           #3d8bff;
   --sector-healthcare:     #10b981;
   --sector-financials:     #8b6dff;
-  --sector-consumer-disc:  #f59e0b;
+  --sector-consumer-disc:  #94a3b8;   /* grey */
   --sector-consumer-stap:  #84cc16;
   --sector-comm:           #ec4899;
   --sector-energy:         #f97316;
   --sector-utilities:      #06b6d4;
-  --sector-etf:            #94a3b8;
+  --sector-etf:            #eab308;    /* yellow */
   --sector-crypto:         #fbbf24;
   --sector-other:          #64748b;
 }
@@ -175,12 +175,12 @@
   --sector-tech:           #2563eb;
   --sector-healthcare:     #059669;
   --sector-financials:     #7c3aed;
-  --sector-consumer-disc:  #d97706;
+  --sector-consumer-disc:  #64748b;   /* grey */
   --sector-consumer-stap:  #65a30d;
   --sector-comm:           #db2777;
   --sector-energy:         #ea580c;
   --sector-utilities:      #0891b2;
-  --sector-etf:            #64748b;
+  --sector-etf:            #ca8a04;    /* yellow */
   --sector-crypto:         #ca8a04;
   --sector-other:          #475569;
 }
@@ -1533,14 +1533,11 @@ a { color: inherit; text-decoration: none; }
 }
 .donut-slice {
   cursor: pointer;
-  transform-origin: center;
-  transition:
-    filter 200ms var(--ease-out),
-    transform 200ms var(--ease-out);
+  transition: filter 180ms var(--ease-out);
 }
+/* Glow only — no transform (SVG path scaling shifts the slice and looks glitchy) */
 .donut-slice[data-hover="true"] {
-  filter: drop-shadow(0 0 14px var(--slice-color));
-  transform: scale(1.03);
+  filter: drop-shadow(0 0 7px var(--slice-color));
 }
 .donut-center-value {
   fill: var(--text-primary);
@@ -1557,20 +1554,23 @@ a { color: inherit; text-decoration: none; }
   text-transform: uppercase;
 }
 
-/* Donut legend below the chart */
+/* Legend below the chart — 3 per row, centered */
 .donut-legend {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 16px;
-  margin-top: 12px;
+  grid-template-columns: repeat(3, auto);
+  justify-content: center;
+  gap: 9px 22px;
+  margin-top: 14px;
 }
 .donut-legend-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   font-size: 12px;
   color: var(--text-secondary);
-  min-width: 0;
+}
+@media (max-width: 560px) {
+  .donut-legend { grid-template-columns: repeat(2, auto); }
 }
 .donut-legend-dot {
   width: 8px;
@@ -1578,12 +1578,7 @@ a { color: inherit; text-decoration: none; }
   border-radius: 2px;
   flex-shrink: 0;
 }
-.donut-legend-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.donut-legend-name { white-space: nowrap; }
 .donut-legend-pct {
   color: var(--text-tertiary);
   font-size: 11.5px;
@@ -2529,6 +2524,54 @@ a { color: inherit; text-decoration: none; }
 .rg-factor-fill { height: 100%; border-radius: 4px; background: var(--accent); }
 .rg-factor-weight { text-align: right; color: var(--text-quaternary); }
 .rg-divider { height: 1px; background: var(--hairline); margin: 16px 0; }
+
+/* Starfield — holdings as soft glowing stars over a night sky */
+.starfield {
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 80% at 22% 24%, rgba(45, 70, 150, 0.30), transparent 70%),
+    radial-gradient(55% 75% at 78% 76%, rgba(110, 70, 200, 0.22), transparent 70%),
+    radial-gradient(120% 120% at 50% 0%, rgba(20, 28, 60, 0.55), rgba(4, 7, 18, 0.92));
+}
+.starfield svg { display: block; width: 100%; height: auto; }
+.sf-twinkle { animation: sf-twinkle 3.4s ease-in-out infinite; }
+@keyframes sf-twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+/* Soft orbs gently breathe in brightness; hovering brightens + pulses */
+.sf-orb { animation: sf-orb 5s ease-in-out infinite; }
+@keyframes sf-orb { 0%, 100% { opacity: 0.82; } 50% { opacity: 1; } }
+.sf-star { cursor: pointer; }
+.sf-star:hover { animation: sf-starpulse 1s ease-in-out infinite; }
+@keyframes sf-starpulse {
+  0%, 100% { filter: brightness(1.4) drop-shadow(0 0 3px rgba(255, 255, 255, 0.7)); }
+  50%      { filter: brightness(2.15) drop-shadow(0 0 11px #fff); }
+}
+
+/* Risk guide — how to read & act on the score */
+.rg-guide {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-1, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--hairline);
+}
+.rg-guide-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-quaternary);
+  margin-bottom: 8px;
+}
+.rg-guide p { font-size: 12px; line-height: 1.55; color: var(--text-secondary); margin: 0; }
+.rg-guide p + p { margin-top: 5px; }
+.rg-guide b { color: var(--text-primary); font-weight: 600; }
+
 .rg-section-label {
   font-size: 10px;
   font-weight: 700;

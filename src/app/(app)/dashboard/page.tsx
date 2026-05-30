@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge } from 'lucide-react'
+import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
@@ -310,6 +310,14 @@ export default function DashboardPage() {
     }, 0)
   }, [withWeight])
 
+  /* Stars for the Starfield allocation view — one star per holding */
+  const allocStars = useMemo(() =>
+    withWeight.map(h => {
+      const sector = getSector(h.symbol, h.assetType)
+      return { symbol: h.symbol, sector, weight: h.portfolioWeight, color: getSectorColor(sector) }
+    }),
+  [withWeight])
+
   /* Risk Score — concentration + speculative + drawdown (real formula) */
   const risk = useMemo(() => {
     const maxWeight    = Math.max(0, ...withWeight.map(h => h.portfolioWeight))
@@ -318,6 +326,14 @@ export default function DashboardPage() {
   }, [withWeight, speculativeWeight])
 
   const riskTone = risk.level === 'low' ? 'positive' : risk.level === 'high' ? 'negative' : 'neutral'
+
+  /* Dominant risk driver (weighted) — for the actionable guide line */
+  const riskTop = (() => {
+    const c = risk.factors.concentration * 0.40
+    const s = risk.factors.speculative   * 0.35
+    const d = risk.factors.drawdown      * 0.25
+    return c >= s && c >= d ? 'concentration' : s >= d ? 'speculative' : 'drawdown'
+  })()
 
   const usdCount = holdings.filter(h => h.currency === 'USD').length
   const myrCount = holdings.filter(h => h.currency === 'MYR').length
@@ -531,7 +547,7 @@ export default function DashboardPage() {
         <Panel>
           <PanelHead title={t('dash_sector_alloc')} meta="By market value" />
           <PanelBody>
-            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} />
+            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} />
           </PanelBody>
         </Panel>
 
@@ -550,6 +566,12 @@ export default function DashboardPage() {
             <div className="rg-divider" />
             <div className="rg-section-label">{t('risk_by_strategy')}</div>
             <RiskByStrategy bars={strategyBars} />
+
+            <div className="rg-guide">
+              <div className="rg-guide-head"><Lightbulb size={12} />{t('risk_guide_label')}</div>
+              <p>{t(`risk_guide_${risk.level}`)}</p>
+              <p>{t(`risk_tip_${riskTop}`)}</p>
+            </div>
           </PanelBody>
         </Panel>
       </div>

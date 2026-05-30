@@ -5,14 +5,14 @@ import { fmt } from '@/lib/utils/format'
 import type { DonutSlice } from './donut-chart'
 import { DonutChart }     from './donut-chart'
 import { TreemapChart }   from './treemap-chart'
-import { CategoricalBar } from './categorical-bar'
+import { StarfieldChart, type StarItem } from './starfield-chart'
 
-type View = 'tree' | 'donut' | 'bar'
+type View = 'donut' | 'tree' | 'stars'
 
 const VIEWS: { id: View; label: string }[] = [
-  { id: 'tree',  label: 'Treemap' },
   { id: 'donut', label: 'Donut'   },
-  { id: 'bar',   label: 'Bar'     },
+  { id: 'tree',  label: 'Treemap' },
+  { id: 'stars', label: 'Stars'   },
 ]
 
 /**
@@ -23,11 +23,13 @@ const VIEWS: { id: View; label: string }[] = [
 export function AllocationViews({
   slices,
   centerValue,
+  stars = [],
 }: {
   slices:       DonutSlice[]
   centerValue?: string
+  stars?:       StarItem[]
 }) {
-  const [view, setView] = useState<View>('tree')
+  const [view, setView] = useState<View>('donut')
 
   if (!slices.length) {
     return <div className="text-tertiary" style={{ fontSize: 12 }}>Allocation will appear once positions load.</div>
@@ -51,11 +53,11 @@ export function AllocationViews({
       </div>
 
       <div className="alloc-stage">
-        {view === 'tree'  && <TreemapChart slices={slices} />}
         {view === 'donut' && (
           <DonutChart slices={slices} centerValue={centerValue} centerLabel="Market value" size={220} thickness={28} />
         )}
-        {view === 'bar'   && <CategoricalBar slices={slices} />}
+        {view === 'tree'   && <TreemapChart slices={slices} />}
+        {view === 'stars'  && <StarfieldChart stars={stars} />}
       </div>
 
       <div className="donut-legend">
