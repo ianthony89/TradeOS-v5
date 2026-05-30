@@ -42,4 +42,4 @@ next-env.d.ts
 
 # local dev artifacts
 dev-output.log
-ticker-preview.html
+*preview*.html

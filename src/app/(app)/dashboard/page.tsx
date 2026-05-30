@@ -13,6 +13,7 @@ import { StatCard }       from '@/components/ui/stat-card'
 import { DeltaBadge }     from '@/components/ui/delta-badge'
 import { EmptyState }     from '@/components/ui/empty-state'
 import { ImportCsvButton } from '@/components/ui/import-button'
+import { Toast, type ToastData } from '@/components/ui/toast'
 import { TickerStrip }    from '@/components/ui/ticker-strip'
 import { DonutChart, type DonutSlice } from '@/components/ui/donut-chart'
 import { IntelCard }      from '@/components/ui/intel-card'
@@ -43,19 +44,20 @@ export default function DashboardPage() {
 
   /* Curated Hot List (live prices) for the top ticker row */
   const [hotItems, setHotItems] = useState<Array<{ symbol: string; price: number; changePct: number; currency: string }>>([])
-  const [importMsg, setImportMsg] = useState('')
+  const [toast, setToast] = useState<ToastData | null>(null)
 
-  /* Reusable holdings loader (also called after a dashboard import) */
+  /* Reusable holdings loader (also called after a dashboard import).
+     Returns the freshly loaded rows so callers can summarize them. */
   const loadHoldings = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) return []
     const { data } = await supabase
       .from('holdings')
       .select('*')
       .eq('user_id', user.id)
       .order('market_value', { ascending: false })
     if (data) {
-      setHoldings(data.map(row => ({
+      const mapped = data.map(row => ({
         id:               row.id,
         symbol:           row.symbol,
         symbolNormalized: row.symbol_normalized,
@@ -77,8 +79,11 @@ export default function DashboardPage() {
         notes:            row.notes,
         portfolioWeight:  0,
         quotesUpdatedAt:  row.quotes_updated_at,
-      })))
+      }))
+      setHoldings(mapped)
+      return mapped
     }
+    return []
   }, [supabase, setHoldings])
 
   useEffect(() => { loadHoldings() }, [loadHoldings])
@@ -134,6 +139,26 @@ export default function DashboardPage() {
     return () => clearInterval(id)
   }, [holdings.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Live recompute layer (the fix for "Refresh doesn't move numbers") ──
+     When a fresh quote exists for a holding, recompute its monetary fields
+     from the live price instead of trusting the CSV snapshot. Everything
+     downstream (totals, movers, sectors, risk, ticker) derives from `live`,
+     so pressing Refresh Quotes updates the whole dashboard — no re-import,
+     no DB write, no page reload. Holdings without a quote keep their snapshot. */
+  const live = useMemo(() =>
+    holdings.map(h => {
+      const q = quotes.get(h.symbolNormalized)
+      if (!q || !(q.price > 0)) return h
+      const price           = q.price
+      const qty             = h.quantity
+      const marketValue     = price * qty
+      const unrealizedPl    = (price - h.avgCost) * qty
+      const unrealizedPlPct = h.avgCost > 0 ? ((price - h.avgCost) / h.avgCost) * 100 : 0
+      const todayPl         = (q.change ?? 0) * qty
+      return { ...h, currentPrice: price, marketValue, unrealizedPl, unrealizedPlPct, todayPl }
+    }),
+  [holdings, quotes])
+
   /* ── Derived metrics (USD base → displayed in chosen currency) ───
      Every monetary metric is first reduced to a USD-equivalent base
      (MYR holdings ÷ FX), then converted to the active display currency.
@@ -141,13 +166,13 @@ export default function DashboardPage() {
      and makes them all switch together with the currency toggle. */
   const { combined, todayPlUsd, unrealizedUsd } = useMemo(() => {
     let c = 0, t = 0, u = 0
-    for (const h of holdings) {
+    for (const h of live) {
       c += usdEquiv(h.marketValue,  h.currency, fxRate)
       t += usdEquiv(h.todayPl,      h.currency, fxRate)
       u += usdEquiv(h.unrealizedPl, h.currency, fxRate)
     }
     return { combined: c, todayPlUsd: t, unrealizedUsd: u }
-  }, [holdings, fxRate])
+  }, [live, fxRate])
   const costUsd = combined - unrealizedUsd
 
   const toDisplay = (usd: number) => (primaryCurrency === 'USD' ? usd : usd * fxRate)
@@ -161,17 +186,9 @@ export default function DashboardPage() {
   const heroSecondaryValue = primaryCurrency === 'USD' ? combined * fxRate : combined
   const heroSecondaryCurr  = primaryCurrency === 'USD' ? 'MYR' : 'USD'
 
-  /* Enrich holdings with live prices */
-  const enriched = useMemo(() =>
-    holdings.map(h => {
-      const q = quotes.get(h.symbolNormalized)
-      return q ? { ...h, currentPrice: q.price } : h
-    }),
-  [holdings, quotes])
-
   /* Weight in USD-equivalent terms */
   const withWeight = useMemo(() =>
-    enriched.map(h => {
+    live.map(h => {
       const usdValue = h.currency === 'MYR' ? h.marketValue / fxRate : h.marketValue
       return {
         ...h,
@@ -179,7 +196,7 @@ export default function DashboardPage() {
         portfolioWeight: combined > 0 ? (usdValue / combined) * 100 : 0,
       }
     }),
-  [enriched, combined, fxRate])
+  [live, combined, fxRate])
 
   /* Top positions — top 6 by weight */
   const topPositions = useMemo(() =>
@@ -250,7 +267,7 @@ export default function DashboardPage() {
 
   /* Ticker strip — one chip per holding */
   const tickerItems = useMemo(() =>
-    enriched
+    live
       .filter(h => h.currentPrice > 0)
       .map(h => ({
         symbol:    h.symbol,
@@ -258,7 +275,7 @@ export default function DashboardPage() {
         changePct: h.unrealizedPlPct,
         currency:  h.currency,
       })),
-  [enriched])
+  [live])
 
   /* Action Center — rules-based suggestions, prioritized, capped at 3 */
   const actions = useMemo(
@@ -348,25 +365,30 @@ export default function DashboardPage() {
           </button>
           <ImportCsvButton
             onImported={async (n) => {
-              setImportMsg(t('holdings_import_ok', { n }))
-              await loadHoldings()
+              const rows  = await loadHoldings()
               refreshQuotes()
+              const usd   = rows.filter(r => r.currency === 'USD').length
+              const myr   = rows.filter(r => r.currency === 'MYR').length
+              const count = rows.length || n
+              const split = `${usd} USD${myr ? ` · ${myr} MYR` : ''}`
+              setToast({
+                tone:   'success',
+                title:  t('toast_portfolio_updated'),
+                detail: `${t('toast_positions_loaded', { n: count })} (${split})`,
+              })
             }}
-            onError={(msg) => setImportMsg(t('holdings_import_fail', { msg }))}
+            onError={(msg) => setToast({ tone: 'error', title: t('toast_import_failed'), detail: msg })}
           />
         </div>
       </div>
 
-      {importMsg && (
-        <div
-          style={{
-            marginBottom: 14, padding: '8px 12px', borderRadius: 'var(--radius)',
-            background: 'var(--surface-1)', border: '1px solid var(--border-default)',
-            color: 'var(--text-secondary)', fontSize: 12.5,
-          }}
-        >
-          {importMsg}
-        </div>
+      {toast && (
+        <Toast
+          tone={toast.tone}
+          title={toast.title}
+          detail={toast.detail}
+          onClose={() => setToast(null)}
+        />
       )}
 
       {/* Hero + 4 mini stats side-by-side */}
