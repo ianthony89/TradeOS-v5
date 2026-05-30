@@ -103,8 +103,8 @@ export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProp
       <div className="topbar-left">
         <h2 className="topbar-greeting" suppressHydrationWarning>
           {GREETING[lang][bucket]}{userName ? `, ${userName}` : ''}
+          {tip && <span className="topbar-tip" suppressHydrationWarning> · {tip}</span>}
         </h2>
-        <p className="topbar-tip" suppressHydrationWarning>{tip}</p>
         <div className="topbar-sub">
           <span>{todayLabel()}</span>
           {typeof positions === 'number' && positions > 0 && (
