@@ -41,6 +41,7 @@ interface TzParts {
   minute:     number
   second:     number
   totalMin:   number
+  weekday:    string
   isWeekend:  boolean
   clock:      string
 }
@@ -66,7 +67,7 @@ function getTzParts(tz: string, hour12: boolean): TzParts {
     timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12,
   }).format(new Date())
 
-  return { hour, minute, second, totalMin, isWeekend, clock }
+  return { hour, minute, second, totalMin, weekday, isWeekend, clock }
 }
 
 /* ── US session engine ───────────────────────────────────────── */
@@ -90,7 +91,11 @@ function getUSState(): MarketState {
   if (p.totalMin >= 960 && p.totalMin < 1200) {
     return { ...base, session: 'after-hours', label: 'Post-market', labelKey: 'market_after_hours', isOpen: false, tone: 'after' }
   }
-  // Overnight 00:00–04:00 + 20:00–24:00
+  // Friday after 20:00 → no session until Monday; it's the weekend already.
+  if (p.weekday === 'Fri' && p.totalMin >= 1200) {
+    return { ...base, session: 'closed', label: 'Closed', labelKey: 'market_closed', isOpen: false, tone: 'closed' }
+  }
+  // Overnight 00:00–04:00 + 20:00–24:00 (Mon–Thu only reaches here in the evening)
   return { ...base, session: 'overnight', label: 'Overnight', labelKey: 'market_overnight', isOpen: false, tone: 'closed' }
 }
 

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Sun, Moon, Languages } from 'lucide-react'
 import { useI18n }       from '@/lib/i18n/context'
+import { useHoldingsStore } from '@/stores/holdings'
 import type { Lang }     from '@/lib/i18n/dictionary'
 import { MarketPill }    from '@/components/ui/market-pill'
 import { FxPill }        from '@/components/ui/fx-pill'
@@ -97,20 +98,33 @@ export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProp
   const pool = TIPS[lang][bucket]
   const tip  = pool[tipIdx % pool.length]
 
+  const holdings = useHoldingsStore(s => s.holdings)
+  const total    = positions ?? holdings.length
+  const usdCount = holdings.filter(h => h.currency === 'USD').length
+  const myrCount = holdings.filter(h => h.currency === 'MYR').length
+  const breakdown = usdCount || myrCount
+    ? ` (${usdCount} USD${myrCount ? ` · ${myrCount} MYR` : ''})`
+    : ''
+
   return (
     <header className="topbar">
       {/* Left: greeting + meta */}
       <div className="topbar-left">
         <h2 className="topbar-greeting" suppressHydrationWarning>
           {GREETING[lang][bucket]}{userName ? `, ${userName}` : ''}
-          {tip && <span className="topbar-tip" suppressHydrationWarning> · {tip}</span>}
+          {tip && (
+            <>
+              <span className="topbar-sep" suppressHydrationWarning>·</span>
+              <span className="topbar-tip" suppressHydrationWarning>{tip}</span>
+            </>
+          )}
         </h2>
         <div className="topbar-sub">
           <span>{todayLabel()}</span>
-          {typeof positions === 'number' && positions > 0 && (
+          {total > 0 && (
             <>
-              <span className="text-quaternary">·</span>
-              <span>{positions} Positions</span>
+              <span className="topbar-sep">·</span>
+              <span>{total} Positions{breakdown}</span>
             </>
           )}
         </div>

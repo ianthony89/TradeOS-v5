@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { RefreshCw, Upload, ArrowRight } from 'lucide-react'
+import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
@@ -21,6 +21,8 @@ import { PlHistogram }     from '@/components/ui/histogram-chart'
 import { IntelCard }      from '@/components/ui/intel-card'
 import { MoversPanel, type MoverItem } from '@/components/ui/movers-panel'
 import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
+import { RiskGauge }      from '@/components/ui/risk-gauge'
+import { computeRiskScore } from '@/lib/portfolio/risk-score'
 import { SymCell }        from '@/components/brand/stock-logo'
 import { getSector, getSectorColor }  from '@/lib/portfolio/sectors'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
@@ -166,14 +168,15 @@ export default function DashboardPage() {
      (MYR holdings ÷ FX), then converted to the active display currency.
      This keeps Holdings Value, Today P/L and Unrealized P/L consistent
      and makes them all switch together with the currency toggle. */
-  const { combined, todayPlUsd, unrealizedUsd } = useMemo(() => {
-    let c = 0, t = 0, u = 0
+  const { combined, todayPlUsd, unrealizedUsd, realizedUsd } = useMemo(() => {
+    let c = 0, t = 0, u = 0, r = 0
     for (const h of live) {
       c += usdEquiv(h.marketValue,  h.currency, fxRate)
       t += usdEquiv(h.todayPl,      h.currency, fxRate)
       u += usdEquiv(h.unrealizedPl, h.currency, fxRate)
+      r += usdEquiv(h.realizedPl,   h.currency, fxRate)
     }
-    return { combined: c, todayPlUsd: t, unrealizedUsd: u }
+    return { combined: c, todayPlUsd: t, unrealizedUsd: u, realizedUsd: r }
   }, [live, fxRate])
   const costUsd = combined - unrealizedUsd
 
@@ -306,6 +309,15 @@ export default function DashboardPage() {
       return cls === 'SPECULATIVE' ? s + h.portfolioWeight : s
     }, 0)
   }, [withWeight])
+
+  /* Risk Score — concentration + speculative + drawdown (real formula) */
+  const risk = useMemo(() => {
+    const maxWeight    = Math.max(0, ...withWeight.map(h => h.portfolioWeight))
+    const brokenWeight = withWeight.reduce((s, h) => h.unrealizedPlPct < -50 ? s + h.portfolioWeight : s, 0)
+    return computeRiskScore({ maxWeight, speculativeWeight, brokenWeight })
+  }, [withWeight, speculativeWeight])
+
+  const riskTone = risk.level === 'low' ? 'positive' : risk.level === 'high' ? 'negative' : 'neutral'
 
   const usdCount = holdings.filter(h => h.currency === 'USD').length
   const myrCount = holdings.filter(h => h.currency === 'MYR').length
@@ -462,33 +474,31 @@ export default function DashboardPage() {
         <div className="dash-mini-stats">
           <StatCard
             label={t('dash_today_pl')}
+            icon={<TrendingUp size={15} />}
             value={fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)}
             tone={todayTone}
             sub={<DeltaBadge value={todayPct} variant="pill" />}
           />
           <StatCard
             label={t('dash_unrealized')}
+            icon={<Wallet size={15} />}
             value={fmt.moneySigned(toDisplay(unrealizedUsd), primaryCurrency)}
             tone={unrealizedUsd > 0 ? 'positive' : unrealizedUsd < 0 ? 'negative' : 'neutral'}
             sub={<DeltaBadge value={totalPnLPct} variant="pill" />}
           />
           <StatCard
-            label={t('dash_holdings_count')}
-            value={String(holdings.length)}
-            sub={
-              <span className="text-tertiary">
-                {usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}
-              </span>
-            }
+            label={t('dash_realized_pl')}
+            icon={<BadgeDollarSign size={15} />}
+            value={fmt.moneySigned(toDisplay(realizedUsd), primaryCurrency)}
+            tone={realizedUsd > 0 ? 'positive' : realizedUsd < 0 ? 'negative' : 'neutral'}
+            sub={<span className="text-tertiary">{t('dash_realized_sub')}</span>}
           />
           <StatCard
-            label="Risk exposure"
-            value={fmt.pct(speculativeWeight, 1)}
-            tone={
-              speculativeWeight > 50 ? 'negative' :
-              speculativeWeight > 25 ? 'neutral'  : 'positive'
-            }
-            sub={<span className="text-tertiary">Speculative weight</span>}
+            label={t('dash_risk_score')}
+            icon={<Gauge size={15} />}
+            value={<>{risk.score}<span className="text-quaternary" style={{ fontSize: 14 }}>/100</span></>}
+            tone={riskTone}
+            sub={<span className="text-tertiary">{t(`risk_${risk.level}`)}</span>}
           />
         </div>
       </div>
@@ -526,8 +536,19 @@ export default function DashboardPage() {
         </Panel>
 
         <Panel>
-          <PanelHead title="Risk exposure" meta="By strategy" />
+          <PanelHead title={t('dash_risk')} meta={t('dash_risk_meta')} />
           <PanelBody>
+            <div className="rg-section-label">{t('risk_drivers')}</div>
+            <RiskGauge
+              variant="factors"
+              factors={[
+                { label: t('risk_f_concentration'), weight: 0.40, value: risk.factors.concentration },
+                { label: t('risk_f_speculative'),   weight: 0.35, value: risk.factors.speculative },
+                { label: t('risk_f_drawdown'),      weight: 0.25, value: risk.factors.drawdown },
+              ]}
+            />
+            <div className="rg-divider" />
+            <div className="rg-section-label">{t('risk_by_strategy')}</div>
             <RiskByStrategy bars={strategyBars} />
           </PanelBody>
         </Panel>

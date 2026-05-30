@@ -26,8 +26,10 @@ export function TreemapChart({ slices }: { slices: DonutSlice[] }) {
       onMouseMove={move}
       onMouseLeave={hide}
     >
-      <span className="tm-name">{s.name}</span>
-      <span className="tm-pct">{fmt.pct(s.pct, 1)}</span>
+      <div className="tm-cell-label">
+        <span className="tm-name">{s.name}</span>
+        <span className="tm-pct">{fmt.pct(s.pct, 1)}</span>
+      </div>
     </div>
   )
 

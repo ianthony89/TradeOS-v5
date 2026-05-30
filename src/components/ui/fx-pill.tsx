@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Lock, Radio } from 'lucide-react'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
 import { fmt } from '@/lib/utils/format'
 
@@ -84,9 +85,12 @@ export function FxPill({ className = '' }: { className?: string }) {
         <span className="fx-pill-eq">
           1 USD = <b className="text-mono text-tabular">{fmt.fxRate(activeRate)}</b> MYR
         </span>
-        <span className="fx-pill-tag" data-mode={isLiveMode ? 'live' : 'manual'}>
-          <span className="fx-pill-dot" />
-          {isLiveMode ? 'live' : 'manual'}
+        <span
+          className="fx-pill-tag"
+          data-mode={isLiveMode ? 'live' : 'manual'}
+          aria-label={isLiveMode ? 'Live rate' : 'Manual rate'}
+        >
+          {isLiveMode ? <Radio size={12} /> : <Lock size={12} />}
         </span>
       </button>
 
