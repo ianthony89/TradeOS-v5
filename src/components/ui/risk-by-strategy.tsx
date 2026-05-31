@@ -37,8 +37,10 @@ export function RiskByStrategy({ bars, className = '' }: RiskByStrategyProps) {
               style={{ width: `${b.pct}%`, background: b.color }}
             />
           </div>
-          <span className="risk-bar-pct text-mono text-tabular">{fmt.pct(b.pct, 1)}</span>
-          <span className="risk-bar-money text-mono text-tabular">{fmt.compact(b.value, 'USD')}</span>
+          <div className="risk-bar-val">
+            <div className="risk-bar-pct text-mono text-tabular">{fmt.pct(b.pct, 1)}</div>
+            <div className="risk-bar-money text-mono text-tabular">{fmt.compact(b.value, 'USD')}</div>
+          </div>
         </div>
       ))}
     </div>

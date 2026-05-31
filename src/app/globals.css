@@ -462,10 +462,9 @@ a { color: inherit; text-decoration: none; }
   justify-content: space-between;
   padding: 12px 28px;
   gap: 16px;
-  background: var(--glass-tint);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-bottom: 1px solid var(--hairline);
+  /* Opaque so scrolled content (the ticker) doesn't bleed through */
+  background: var(--surface-solid);
+  border-bottom: 1px solid var(--border-default);
 }
 
 @media (max-width: 900px) {
@@ -1869,7 +1868,7 @@ a { color: inherit; text-decoration: none; }
 }
 .risk-bar-row {
   display: grid;
-  grid-template-columns: 110px 1fr 56px 72px;
+  grid-template-columns: 100px 1fr 64px;   /* matches .rg-factor exactly */
   align-items: center;
   gap: 12px;
   font-size: 12px;
@@ -1885,32 +1884,17 @@ a { color: inherit; text-decoration: none; }
 .risk-bar-track {
   height: 8px;
   border-radius: 99px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-default);
+  background: var(--border-default);
   overflow: hidden;
-  box-shadow: inset 0 1px 0 var(--glass-specular);
 }
 .risk-bar-fill {
   height: 100%;
   border-radius: 99px;
   transition: width 600ms var(--ease-out);
 }
-.risk-bar-pct {
-  color: var(--text-primary);
-  font-weight: 600;
-  text-align: right;
-}
-.risk-bar-money {
-  color: var(--text-tertiary);
-  text-align: right;
-  font-size: 11px;
-}
-@media (max-width: 640px) {
-  .risk-bar-row {
-    grid-template-columns: 90px 1fr 56px;
-  }
-  .risk-bar-money { display: none; }
-}
+.risk-bar-val { text-align: right; }
+.risk-bar-pct { color: var(--text-primary); font-weight: 600; }
+.risk-bar-money { color: var(--text-quaternary); font-size: 11px; margin-top: 1px; }
 
 /* ─────────────────────────────────────────────────────────────
    FX pill — wrap (for popover positioning) + popover
@@ -2589,9 +2573,9 @@ a { color: inherit; text-decoration: none; }
 }
 .rg-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-quaternary); }
 .rg-factors { display: flex; flex-direction: column; gap: 9px; margin-top: 15px; }
-.rg-factor { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 10px; font-size: 11.5px; color: var(--text-tertiary); }
-.rg-factor-track { height: 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
-.rg-factor-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+.rg-factor { display: grid; grid-template-columns: 100px 1fr 64px; align-items: center; gap: 12px; font-size: 11.5px; color: var(--text-tertiary); }
+.rg-factor-track { height: 8px; border-radius: 99px; background: var(--border-default); overflow: hidden; }
+.rg-factor-fill { height: 100%; border-radius: 99px; }
 .rg-factor-weight { text-align: right; color: var(--text-quaternary); }
 .rg-divider { height: 1px; background: var(--hairline); margin: 16px 0; }
 
