@@ -88,19 +88,32 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 
 ### Current phase
 
-**Phase 1** — COMPLETE & live in production:
+**Status: Phase 1 COMPLETE & live in production.** _Last updated: 2026-06-01._
+
+Shipped surfaces:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
 - App shell (sidebar / topbar / mobile nav)
-- Dashboard (intelligence-first cockpit + Action Center)
+- Dashboard (intelligence-first cockpit + Action Center) — current panel set in § 4
 - Holdings (decision workspace)
 - Watchlist (radar system — symbol / target / distance / status, persisted to `watchlist_items`)
-- Settings (theme / language / currency / manual+live FX)
+- Settings (theme / language / currency / manual+live FX / **two-step Change PIN**: verify old → set new)
 - Admin (invite-only onboarding: generate single-use codes + approve users + members list)
 - Market intelligence (live sessions, FX, sync indicators)
 
 **Phase 2** — Planned: Journal / Planner / AI insights / Price alerts.
 These are honest "Coming soon" roadmap cards with claimed nav slots.
 They are NOT fake shells. Do not populate them with invented data or fake panels.
+
+### Recent changes (newest first)
+
+Audit trail of the last sprint (latest commits on `main`). For an auditor: this is where the dashboard actually stands today.
+
+- **2026-06-01** — Allocation **finalized: Donut (default) + ranked List**. Sunburst & Treemap were trialled and **removed** (too many edge cases); the `StarItem` type now lives in `donut-chart.tsx`. The diversification footer shows on the **List only** (it unbalanced the donut). `bf33553`, `4ce21e1`.
+- **2026-05-31** — **Diversification footer** on the List: "effective sectors" (inverse Herfindahl index) + verdict pill (Concentrated / Balanced / Diversified) + top-2 concentration read. Pins to the panel bottom, mirrors the Risk "Suggested actions" box. `d064cc4`.
+- **2026-05-31** — **🔑 Live FX fixed** (the long-standing "Live rate won't update" bug). Root cause was a `yahoo-finance2` v3 API change that silently broke every Yahoo quote — full detail in § 15. This also restored Malaysian `.KL` quotes. `bef7b8f`.
+- **2026-05-31** — **Risk Assessment** polish: factor bars (Concentration / Speculative / Broken theses) and strategy bars (CORE / TACTICAL / SPECULATIVE) now **glow + show a plain-language calc on hover**; unified bar spacing; readable centred `InfoTooltip` with an `align` prop. `573074c`, `1fc121b`, `e669a0d`, `b54dcd0`.
+- **2026-05-31** — **Ranked allocation List** introduced + distinct per-sector colour palette. The "Stars / Portfolio Galaxy" starfield experiment was tried and dropped. `a64e02d`, `d6458e0`, `61cc874`.
+- **2026-05-30/31** — **Full EN/ZH i18n sweep** across Dashboard, Holdings, Watchlist, Settings, FX/Sync pills, sector names, a stock-name map (`lib/portfolio/stock-names.ts`), and localized relative timestamps. `355841a`, `bb8d61d`, `cd6d7ab`.
 
 ### Deployment
 
@@ -201,7 +214,8 @@ Real intelligence modules — render only when triggered or relevant:
 - **Concentration risk** alerts (any position > 25% of portfolio)
 - **Heavy loss** alerts (any position < −50%)
 - **Sector concentration** alerts (any sector > 70%)
-- **Sector allocation** visualization (stacked bar + legend)
+- **Sector allocation** — two views via the header swap control: **Donut** (default) and a ranked **List** (sector spectrum bar + sorted bars + Sectors/Holdings toggle + diversification footer). `allocation-views.tsx` routes the views; `donut-chart.tsx` + `allocation-list.tsx` render them. Sunburst & Treemap were trialled and removed — **do not re-add without asking**.
+- **Risk Assessment** — composite 0–100 score `= 0.40·concentration + 0.35·speculative + 0.25·drawdown` (`lib/portfolio/risk-score.ts`). Renders factor bars (hover = glow + plain-language calc), a strategy split (CORE / TACTICAL / SPECULATIVE), and a "Suggested actions" box. Strategy/factor classification lives in `lib/portfolio/taxonomy.ts`.
 - **Top movers** (capped: 3 gainers + 3 losers by unrealized %)
 
 **No fake panels.** If no data → empty state with honest message.
@@ -254,7 +268,7 @@ Do NOT say "Total Value" if you don't actually know the total. Trader trust is b
 
 - **Default rate**: USD/MYR = `4.00` (manual reference baseline) — DONE
 - **Manual override**: editable in Settings AND via click-to-edit popover on the topbar FX pill — DONE
-- **Live sync**: opt-in via Settings; `useFxRateSync()` only fetches when mode = live — DONE
+- **Live sync**: opt-in via Settings; `useFxRateSync()` only fetches when mode = live — DONE (confirmed working 2026-05-31 after the `yahoo-finance2` v3 provider fix; see § 15)
 - FX is a **reference tool**, not hidden auto-magic. The pill shows a `manual`/`live` indicator.
 
 ### FX invariance decision (resolved 2026-05, option A — keep)
@@ -516,6 +530,7 @@ Use these as the checklist when shipping or reviewing dashboard work.
 | Symbol normalization | Pure-numeric tickers like `5555` need `currency=MYR` to map to `.KL` correctly | `lib/market/symbol-normalizer.ts` handles this, but CSV imports must include currency column |
 | Stock logos | Parqet CDN returns 404 for some tickers (especially MY/HK) | `<StockLogo>` falls back to letter avatar via `onError` |
 | FX rate | Manual default 4.00; live sync opt-in via Settings (done) | `useFxRateSync` only fetches in live mode. Read the active rate via `selectActiveFxRate`. |
+| **`yahoo-finance2` v3 API** (the market-layer landmine) | v3's default export is a **class**, not the v2 singleton. The provider must `new YahooFinance()` first — calling `yahooFinance.quote()` on the bare import throws *"Call `const yahooFinance = new YahooFinance()` first"* at **runtime**, which silently killed **every** Yahoo quote (US equities survived only via the Finnhub fallback; FX `USDMYR=X` and Bursa `.KL` names have no fallback, so they failed — this **was** the "Live FX won't update" bug). | `yahoo-provider.ts` now constructs `new YahooFinance({ suppressNotices: ['yahooSurvey'] })` once at module load (fixed 2026-05-31, `bef7b8f`). Do NOT revert to the singleton import. **`tsc` passes either way** — the failure is runtime-only, so verify with a real quote, not just typecheck. |
 | Quote refresh cache | `/api/quotes` caches 5 min in Redis; without `skipCache` a manual refresh returns stale prices (only the timestamp moves) | Manual "Refresh Quotes" buttons send `skipCache: true`. (Closed prices still won't move — that's real, not a bug.) |
 | Theme | Persisted to `profiles.theme` in Supabase | On toggle, `await` the update before considering it persisted |
 | Login cache | localStorage keys: `tradeos:last_email`, `tradeos:last_pin_len` | Sign-out does NOT clear cache (intentional UX); "Use different account" link clears |

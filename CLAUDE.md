@@ -8,9 +8,12 @@ This file exists for compatibility with Claude Code's auto-loaded `CLAUDE.md` co
 
 If anything appears to conflict between this file and `AGENTS.md`, **`AGENTS.md` wins**.
 
+**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-01 — Phase 1 complete & live._
+
 For:
 - Who Anthony is
 - What TradeOS is
+- Current progress & changelog (§ 2)
 - Dashboard product architecture
 - Holdings philosophy
 - Financial semantics & FX rules
