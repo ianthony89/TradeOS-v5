@@ -1538,6 +1538,9 @@ a { color: inherit; text-decoration: none; }
 /* Hover = highlight the slice, fade the rest (cleaner than a glow) */
 .donut-slice[data-hover="true"] { filter: brightness(1.08); }
 .donut-slice[data-dim="true"]   { opacity: 0.3; }
+/* Sunburst segments */
+.sun-seg { cursor: default; transition: filter 160ms var(--ease-out); }
+.sun-seg:hover { filter: brightness(1.14); }
 .donut-center-value {
   fill: var(--text-primary);
   font-size: 22px;
@@ -2442,7 +2445,18 @@ a { color: inherit; text-decoration: none; }
   font-size: 11px; color: var(--text-quaternary); margin-bottom: 14px;
 }
 .alloc-cap b { color: var(--text-secondary); font-weight: 600; }
-.alloc-rows { display: flex; flex-direction: column; }
+/* Capped so List, Donut and Treemap keep the panel the same height
+   (the Holdings list scrolls instead of stretching the card) */
+.alloc-rows {
+  display: flex;
+  flex-direction: column;
+  max-height: 232px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.alloc-rows::-webkit-scrollbar { width: 6px; }
+.alloc-rows::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
 .alloc-row {
   display: grid; grid-template-columns: 132px 1fr 84px; align-items: center; gap: 14px;
   padding: 8px 10px; margin: 0 -10px; border-radius: 10px; cursor: default;

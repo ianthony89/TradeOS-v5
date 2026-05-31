@@ -196,7 +196,7 @@ const en: Dict = {
   sector_energy:         'Energy',
   sector_materials:      'Materials',
   sector_industrials:    'Industrials',
-  sector_consumer_disc:  'Consumer Discretionary',
+  sector_consumer_disc:  'Discretionary',
   sector_consumer_stap:  'Consumer Staples',
   sector_utilities:      'Utilities',
   sector_real_estate:    'Real Estate',
