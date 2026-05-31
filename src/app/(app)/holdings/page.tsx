@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { Upload, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react'
 import { createClient }      from '@/lib/supabase/client'
 import { useHoldingsStore }  from '@/stores/holdings'
@@ -429,7 +430,9 @@ function Row({ h, t, lang }: { h: Holding; t: (key: string) => string; lang: Lan
   return (
     <tr data-pl-tone={plTone}>
       <td>
-        <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={28} />
+        <Link href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="holdings-sym-link" title={t('pos_open_hub')}>
+          <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={28} />
+        </Link>
       </td>
       <td className="num text-mono text-tabular">{fmt.qty(h.quantity)}</td>
       <td className="num text-mono text-tabular">{fmt.price(h.avgCost)}</td>
