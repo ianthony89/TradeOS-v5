@@ -2284,7 +2284,10 @@ a { color: inherit; text-decoration: none; }
   text-transform: none;
   letter-spacing: normal;
   white-space: normal;
-  line-height: 1.45;
+  line-height: 1.5;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);   /* don't inherit the muted label colour */
 }
 .info-tooltip:hover .info-tooltip-content,
 .info-tooltip:focus-within .info-tooltip-content {
