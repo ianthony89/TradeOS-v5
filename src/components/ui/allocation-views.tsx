@@ -50,10 +50,15 @@ export function AllocationViews({
 
   return (
     <div className="alloc-views">
-      {/* The ranked list sizes to its content. */}
-      {view === 'list' && <AllocationList slices={slices} stars={stars} total={total} />}
+      {/* Ranked list with the diversification read pinned below it. */}
+      {view === 'list' && (
+        <>
+          <AllocationList slices={slices} stars={stars} total={total} />
+          <AllocationInsight slices={slices} />
+        </>
+      )}
 
-      {/* Donut + legend, centred in the space above the footer. */}
+      {/* Donut + legend, centred in the panel (no footer — keeps it balanced). */}
       {view === 'donut' && (
         <div className="alloc alloc--center">
           <div className="alloc-stage">
@@ -74,8 +79,6 @@ export function AllocationViews({
           </div>
         </div>
       )}
-
-      <AllocationInsight slices={slices} />
     </div>
   )
 }
