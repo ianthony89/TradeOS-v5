@@ -1549,9 +1549,9 @@ a { color: inherit; text-decoration: none; }
 }
 .donut-center-label {
   fill: var(--text-tertiary);
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -1868,11 +1868,12 @@ a { color: inherit; text-decoration: none; }
 }
 .risk-bar-row {
   display: grid;
-  grid-template-columns: 104px 1fr 92px;   /* matches .rg-factor exactly */
+  grid-template-columns: 104px 1fr 92px;   /* label width matches .rg-factor */
   align-items: center;
   gap: 12px;
   font-size: 12px;
 }
+.risk-bar-row--interactive { cursor: help; }
 .risk-bar-label {
   font-size: 10.5px;
   font-weight: 700;
@@ -1880,17 +1881,22 @@ a { color: inherit; text-decoration: none; }
   text-transform: uppercase;
   color: var(--text-tertiary);
   white-space: nowrap;
+  transition: color var(--dur-fast);
 }
+.risk-bar-row--interactive:hover .risk-bar-label { color: var(--text-secondary); }
 .risk-bar-track {
   height: 8px;
   border-radius: 99px;
   background: var(--border-default);
-  overflow: hidden;
 }
 .risk-bar-fill {
   height: 100%;
   border-radius: 99px;
-  transition: width 600ms var(--ease-out);
+  transition: width 600ms var(--ease-out), box-shadow var(--dur-fast), filter var(--dur-fast);
+}
+.risk-bar-row--interactive:hover .risk-bar-fill {
+  filter: saturate(1.12) brightness(1.1);
+  box-shadow: 0 0 12px 1px var(--rg-glow, var(--accent));
 }
 .risk-bar-val { display: flex; align-items: baseline; justify-content: flex-end; gap: 7px; }
 .risk-bar-pct { color: var(--text-primary); font-weight: 600; }
@@ -2255,10 +2261,9 @@ a { color: inherit; text-decoration: none; }
 .info-tooltip-content {
   position: absolute;
   top: calc(100% + 8px);
-  left: 50%;
   z-index: 60;
   width: max-content;
-  max-width: 240px;
+  max-width: 260px;
   padding: 12px 14px;
   border-radius: var(--radius-md);
   background: var(--surface-solid);
@@ -2266,7 +2271,6 @@ a { color: inherit; text-decoration: none; }
   box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-xl);
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-50%) translateY(-4px);
   transition: opacity var(--dur-fast), transform var(--dur-fast);
   text-transform: none;
   letter-spacing: normal;
@@ -2276,12 +2280,21 @@ a { color: inherit; text-decoration: none; }
   font-weight: 500;
   color: var(--text-secondary);   /* don't inherit the muted label colour */
 }
+/* Anchor variants — keep the bubble inside the panel wherever the icon sits. */
+.info-tooltip-content--center { left: 50%; transform: translateX(-50%) translateY(-4px); }
+.info-tooltip-content--left   { left: -10px; transform: translateY(-4px); }
+.info-tooltip-content--right  { right: -10px; transform: translateY(-4px); }
 .info-tooltip:hover .info-tooltip-content,
 .info-tooltip:focus-within .info-tooltip-content {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
   pointer-events: auto;
 }
+.info-tooltip:hover .info-tooltip-content--center,
+.info-tooltip:focus-within .info-tooltip-content--center { transform: translateX(-50%) translateY(0); }
+.info-tooltip:hover .info-tooltip-content--left,
+.info-tooltip:focus-within .info-tooltip-content--left,
+.info-tooltip:hover .info-tooltip-content--right,
+.info-tooltip:focus-within .info-tooltip-content--right { transform: translateY(0); }
 .tax-def-title {
   font-size: 10.5px;
   font-weight: 700;
@@ -2409,6 +2422,17 @@ a { color: inherit; text-decoration: none; }
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
+/* Prose variant — for explanatory sentences (risk factor / strategy hover),
+   not compact data values. Wraps, lighter weight, calmer colour. */
+.chart-tip--prose { max-width: 250px; }
+.chart-tip--prose .chart-tip-detail {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-variant-numeric: normal;
+  white-space: normal;
+}
 
 /* Allocation — fixed-height stage so chart views (donut/treemap) are the
    same size and swapping never resizes the panel */
@@ -2431,8 +2455,8 @@ a { color: inherit; text-decoration: none; }
 .alloc-cap b { color: var(--text-secondary); font-weight: 600; }
 .alloc-rows { display: flex; flex-direction: column; }
 .alloc-row {
-  display: grid; grid-template-columns: 132px 1fr 84px; align-items: center; gap: 14px;
-  padding: 8px 10px; margin: 0 -10px; border-radius: 10px; cursor: default;
+  display: grid; grid-template-columns: 128px 1fr 108px; align-items: center; gap: 12px;
+  padding: 5px 10px; margin: 0 -10px; border-radius: 9px; cursor: default;
   transition: background var(--dur-fast);
 }
 .alloc-row:hover { background: var(--surface-2); }
@@ -2449,11 +2473,12 @@ a { color: inherit; text-decoration: none; }
   animation: alloc-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes alloc-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.alloc-val { text-align: right; }
+/* value inline (pct + cash on one line) — keeps rows as tight as the risk bars */
+.alloc-val { display: flex; align-items: baseline; justify-content: flex-end; gap: 7px; }
 .alloc-pct { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.alloc-cash { font-size: 11px; color: var(--text-quaternary); margin-top: 1px; }
+.alloc-cash { font-size: 11px; color: var(--text-quaternary); }
 @media (max-width: 520px) {
-  .alloc-row { grid-template-columns: 104px 1fr 72px; gap: 10px; }
+  .alloc-row { grid-template-columns: 96px 1fr 96px; gap: 10px; }
 }
 
 /* Treemap */
@@ -2562,9 +2587,17 @@ a { color: inherit; text-decoration: none; }
 }
 .rg-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-quaternary); }
 .rg-factors { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
-.rg-factor { display: grid; grid-template-columns: 104px 1fr 92px; align-items: center; gap: 12px; font-size: 11.5px; color: var(--text-tertiary); }
-.rg-factor-track { height: 8px; border-radius: 99px; background: var(--border-default); overflow: hidden; }
-.rg-factor-fill { height: 100%; border-radius: 99px; }
+/* Label width matches .risk-bar-row so the left edges line up; the right
+   column is narrow (just ×0.40) so the track itself runs long. */
+.rg-factor { display: grid; grid-template-columns: 104px 1fr 52px; align-items: center; gap: 12px; font-size: 11.5px; color: var(--text-tertiary); }
+.rg-factor--interactive { cursor: help; }
+.rg-factor-track { height: 8px; border-radius: 99px; background: var(--border-default); }
+.rg-factor-fill { height: 100%; border-radius: 99px; transition: box-shadow var(--dur-fast), filter var(--dur-fast); }
+.rg-factor--interactive:hover .rg-factor-fill {
+  filter: saturate(1.12) brightness(1.1);
+  box-shadow: 0 0 12px 1px var(--rg-glow, var(--accent));
+}
+.rg-factor--interactive:hover .rg-factor-label { color: var(--text-secondary); }
 .rg-factor-weight { text-align: right; color: var(--text-quaternary); }
 .rg-divider { height: 1px; background: var(--hairline); margin: 16px 0; }
 

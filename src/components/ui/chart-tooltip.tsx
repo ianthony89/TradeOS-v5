@@ -8,6 +8,8 @@ export interface TipState {
   y:      number
   name:   string
   detail: string
+  /** 'data' (default) = compact value tooltip; 'prose' = wrapped explanatory text. */
+  variant?: 'data' | 'prose'
 }
 
 /**
@@ -19,8 +21,8 @@ export function useChartTooltip() {
   const [tip, setTip] = useState<TipState | null>(null)
   return {
     tip,
-    show: (e: { clientX: number; clientY: number }, name: string, detail: string) =>
-      setTip({ x: e.clientX, y: e.clientY, name, detail }),
+    show: (e: { clientX: number; clientY: number }, name: string, detail: string, variant: 'data' | 'prose' = 'data') =>
+      setTip({ x: e.clientX, y: e.clientY, name, detail, variant }),
     move: (e: { clientX: number; clientY: number }) =>
       setTip(t => (t ? { ...t, x: e.clientX, y: e.clientY } : t)),
     hide: () => setTip(null),
@@ -30,7 +32,7 @@ export function useChartTooltip() {
 export function ChartTooltip({ tip }: { tip: TipState | null }) {
   if (!tip || typeof document === 'undefined') return null
   return createPortal(
-    <div className="chart-tip" style={{ left: tip.x + 14, top: tip.y + 14 }}>
+    <div className={`chart-tip${tip.variant === 'prose' ? ' chart-tip--prose' : ''}`} style={{ left: tip.x + 14, top: tip.y + 14 }}>
       <span className="chart-tip-name">{tip.name}</span>
       <span className="chart-tip-detail">{tip.detail}</span>
     </div>,

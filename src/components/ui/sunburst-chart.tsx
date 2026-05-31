@@ -7,8 +7,8 @@ import { useChartTooltip, ChartTooltip } from './chart-tooltip'
 
 const SIZE = 220
 const CX = SIZE / 2, CY = SIZE / 2
-const IN1 = 42, IN2 = 70    // inner ring (sectors)
-const OUT1 = 73, OUT2 = 100 // outer ring (holdings)
+const IN1 = 50, IN2 = 72    // inner ring (sectors) — hole enlarged so the
+const OUT1 = 75, OUT2 = 100 // centre label clears the ring on both sides
 
 /** Ring-sector path; f0/f1 are fractions of the full circle (0–1). */
 function arc(r1: number, r2: number, f0: number, f1: number): string {
@@ -20,13 +20,6 @@ function arc(r1: number, r2: number, f0: number, f1: number): string {
   const x3 = CX + r1 * Math.cos(a1), y3 = CY + r1 * Math.sin(a1)
   const x4 = CX + r1 * Math.cos(a0), y4 = CY + r1 * Math.sin(a0)
   return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r2} ${r2} 0 ${lg} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} A ${r1} ${r1} 0 ${lg} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`
-}
-/** Blend a hex colour toward white (for distinguishing holdings in a sector). */
-function lighten(hex: string, f: number): string {
-  const n = parseInt(hex.replace('#', ''), 16)
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
-  const m = (c: number) => Math.round(c + (255 - c) * f)
-  return `rgb(${m(r)}, ${m(g)}, ${m(b)})`
 }
 
 /**
@@ -50,19 +43,20 @@ export function SunburstChart({
   for (const h of stars) { const a = bySector.get(h.sector) ?? []; a.push(h); bySector.set(h.sector, a) }
   const total = data.reduce((s, x) => s + x.pct, 0) || 100
 
-  type Seg = { key: string; d: string; color: string; name: string; detail: string }
+  type Seg = { key: string; d: string; color: string; opacity: number; name: string; detail: string }
   const inner: Seg[] = []
   const outer: Seg[] = []
   let cum = 0
   for (const s of data) {
     const f0 = cum / total, f1 = (cum + s.pct) / total
-    inner.push({ key: `i-${s.name}`, d: arc(IN1, IN2, f0, f1), color: s.color, name: s.name, detail: `${fmt.money(s.value, 'USD')} · ${fmt.pct(s.pct, 1)}` })
+    inner.push({ key: `i-${s.name}`, d: arc(IN1, IN2, f0, f1), color: s.color, opacity: 1, name: s.name, detail: `${fmt.money(s.value, 'USD')} · ${fmt.pct(s.pct, 1)}` })
     const hs = (bySector.get(s.name) ?? []).slice().sort((a, b) => b.weight - a.weight)
     let hc = cum
     hs.forEach((h, i) => {
       const hf0 = hc / total, hf1 = (hc + h.weight) / total
       hc += h.weight
-      outer.push({ key: `o-${h.symbol}`, d: arc(OUT1, OUT2, hf0, hf1), color: lighten(s.color, 0.1 + (i % 3) * 0.16), name: h.symbol, detail: `${fmt.pct(h.weight, 1)} of portfolio` })
+      // Same sector hue; step opacity down so each holding reads as its own band.
+      outer.push({ key: `o-${h.symbol}`, d: arc(OUT1, OUT2, hf0, hf1), color: s.color, opacity: Math.max(0.4, 0.92 - (i % 4) * 0.17), name: h.symbol, detail: `${fmt.pct(h.weight, 1)} of portfolio` })
     })
     cum += s.pct
   }
@@ -72,7 +66,7 @@ export function SunburstChart({
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         {[...inner, ...outer].map(seg => (
           <path
-            key={seg.key} d={seg.d} fill={seg.color} stroke="var(--bg-base)" strokeWidth={1}
+            key={seg.key} d={seg.d} fill={seg.color} fillOpacity={seg.opacity} stroke="var(--bg-base)" strokeWidth={1}
             className="sun-seg"
             onMouseEnter={e => show(e, seg.name, seg.detail)}
             onMouseMove={move}

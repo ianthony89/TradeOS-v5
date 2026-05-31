@@ -1,6 +1,8 @@
 'use client'
 
-export interface RiskFactor { label: string; weight: number; value: number; color?: string }
+import { useChartTooltip, ChartTooltip } from './chart-tooltip'
+
+export interface RiskFactor { label: string; weight: number; value: number; color?: string; hint?: string }
 
 interface RiskGaugeProps {
   factors:      RiskFactor[]
@@ -21,6 +23,7 @@ interface RiskGaugeProps {
 export function RiskGauge({
   factors, variant = 'full', score = 0, levelLabel = '', levelTone = 'warning', scaleLabels,
 }: RiskGaugeProps) {
+  const { tip, show, move, hide } = useChartTooltip()
   const toneColor =
     levelTone === 'positive' ? 'var(--positive)' :
     levelTone === 'negative' ? 'var(--negative)' : 'var(--warning)'
@@ -48,15 +51,25 @@ export function RiskGauge({
 
       <div className="rg-factors" style={variant === 'factors' ? { marginTop: 0 } : undefined}>
         {factors.map(f => (
-          <div key={f.label} className="rg-factor">
+          <div
+            key={f.label}
+            className={`rg-factor${f.hint ? ' rg-factor--interactive' : ''}`}
+            onMouseEnter={f.hint ? e => show(e, f.label, f.hint!, 'prose') : undefined}
+            onMouseMove={f.hint ? move : undefined}
+            onMouseLeave={f.hint ? hide : undefined}
+          >
             <span className="rg-factor-label">{f.label}</span>
             <div className="rg-factor-track">
-              <div className="rg-factor-fill" style={{ width: `${f.value}%`, background: f.color ?? 'var(--accent)' }} />
+              <div
+                className="rg-factor-fill"
+                style={{ width: `${f.value}%`, background: f.color ?? 'var(--accent)', ['--rg-glow' as string]: f.color ?? 'var(--accent)' }}
+              />
             </div>
             <span className="rg-factor-weight text-tabular">×{f.weight.toFixed(2)}</span>
           </div>
         ))}
       </div>
+      <ChartTooltip tip={tip} />
     </div>
   )
 }

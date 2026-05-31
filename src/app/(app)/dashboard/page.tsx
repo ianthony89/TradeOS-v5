@@ -269,7 +269,7 @@ export default function DashboardPage() {
         tone === 'positive' ? 'var(--positive)' :
         tone === 'warning'  ? 'var(--warning)'  :
                               'var(--accent)'
-      return { name: t(`tax_${cls}`), pct, value, color }
+      return { name: t(`tax_${cls}`), pct, value, color, hint: t(`risk_s_${cls.toLowerCase()}_h`) }
     })
   }, [withWeight, combined, t])
 
@@ -325,7 +325,7 @@ export default function DashboardPage() {
   const risk = useMemo(() => {
     const maxWeight    = Math.max(0, ...withWeight.map(h => h.portfolioWeight))
     const brokenWeight = withWeight.reduce((s, h) => h.unrealizedPlPct < -50 ? s + h.portfolioWeight : s, 0)
-    return computeRiskScore({ maxWeight, speculativeWeight, brokenWeight })
+    return { ...computeRiskScore({ maxWeight, speculativeWeight, brokenWeight }), maxWeight, brokenWeight }
   }, [withWeight, speculativeWeight])
 
   const riskTone = risk.level === 'low' ? 'positive' : risk.level === 'high' ? 'negative' : 'neutral'
@@ -580,20 +580,20 @@ export default function DashboardPage() {
           <PanelBody>
             <div className="rg-section-label">
               {t('risk_drivers')}
-              <InfoTooltip content={t('risk_drivers_help')} />
+              <InfoTooltip content={t('risk_drivers_help')} align="left" />
             </div>
             <RiskGauge
               variant="factors"
               factors={[
-                { label: t('risk_f_concentration'), weight: 0.40, value: risk.factors.concentration, color: '#a78bfa' },
-                { label: t('risk_f_speculative'),   weight: 0.35, value: risk.factors.speculative,   color: 'var(--warning)' },
-                { label: t('risk_f_drawdown'),      weight: 0.25, value: risk.factors.drawdown,      color: 'var(--negative)' },
+                { label: t('risk_f_concentration'), weight: 0.40, value: risk.factors.concentration, color: '#a78bfa',        hint: t('risk_f_concentration_h', { pct: fmt.pct(risk.maxWeight, 1) }) },
+                { label: t('risk_f_speculative'),   weight: 0.35, value: risk.factors.speculative,   color: 'var(--warning)',  hint: t('risk_f_speculative_h',   { pct: fmt.pct(speculativeWeight, 1) }) },
+                { label: t('risk_f_drawdown'),      weight: 0.25, value: risk.factors.drawdown,      color: 'var(--negative)', hint: t('risk_f_drawdown_h',      { pct: fmt.pct(risk.brokenWeight, 1) }) },
               ]}
             />
             <div className="rg-divider" />
             <div className="rg-section-label">
               {t('risk_by_strategy')}
-              <InfoTooltip content={t('risk_strategy_help')} />
+              <InfoTooltip content={t('risk_strategy_help')} align="left" />
             </div>
             <RiskByStrategy bars={strategyBars} />
 
