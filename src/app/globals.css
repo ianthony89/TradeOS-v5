@@ -2268,10 +2268,10 @@ a { color: inherit; text-decoration: none; }
 .info-tooltip-content {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 50%;
   z-index: 60;
   width: max-content;
-  max-width: 280px;
+  max-width: 240px;
   padding: 12px 14px;
   border-radius: var(--radius-md);
   background: var(--surface-solid);
@@ -2279,15 +2279,17 @@ a { color: inherit; text-decoration: none; }
   box-shadow: inset 0 1px 0 var(--glass-specular), var(--shadow-xl);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-4px);
+  transform: translateX(-50%) translateY(-4px);
   transition: opacity var(--dur-fast), transform var(--dur-fast);
   text-transform: none;
   letter-spacing: normal;
+  white-space: normal;
+  line-height: 1.45;
 }
 .info-tooltip:hover .info-tooltip-content,
 .info-tooltip:focus-within .info-tooltip-content {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(-50%) translateY(0);
   pointer-events: auto;
 }
 .tax-def-title {
@@ -2534,57 +2536,6 @@ a { color: inherit; text-decoration: none; }
 .rg-factor-fill { height: 100%; border-radius: 4px; background: var(--accent); }
 .rg-factor-weight { text-align: right; color: var(--text-quaternary); }
 .rg-divider { height: 1px; background: var(--hairline); margin: 16px 0; }
-
-/* Starfield — holdings as soft glowing stars over a night sky */
-.starfield {
-  width: 100%;
-  border-radius: 14px;
-  overflow: hidden;
-  background:
-    radial-gradient(60% 80% at 22% 24%, rgba(45, 70, 150, 0.30), transparent 70%),
-    radial-gradient(55% 75% at 78% 76%, rgba(110, 70, 200, 0.22), transparent 70%),
-    radial-gradient(120% 120% at 50% 0%, rgba(20, 28, 60, 0.55), rgba(4, 7, 18, 0.92));
-}
-.starfield { height: 100%; }
-.starfield svg { display: block; width: 100%; height: 100%; }
-.sf-twinkle { animation: sf-twinkle 3.4s ease-in-out infinite; }
-@keyframes sf-twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
-
-/* Each star drifts gently (the whole thing feels alive, not static) */
-.sf-float {
-  animation-name: sf-float;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-@keyframes sf-float {
-  0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(var(--dx, 0), var(--dy, 0)); }
-}
-/* Orbs breathe in brightness + scale a touch */
-.sf-orb {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: sf-orb 4.6s ease-in-out infinite;
-}
-@keyframes sf-orb {
-  0%, 100% { opacity: 0.78; transform: scale(0.94); }
-  50%      { opacity: 1;    transform: scale(1.06); }
-}
-.sf-star { cursor: pointer; }
-.sf-star:hover { animation: sf-starpulse 1s ease-in-out infinite; }
-@keyframes sf-starpulse {
-  0%, 100% { filter: brightness(1.4) drop-shadow(0 0 3px rgba(255, 255, 255, 0.7)); }
-  50%      { filter: brightness(2.2) drop-shadow(0 0 12px #fff); }
-}
-
-/* Light theme — warmer "dusk" cosmos so it reads differently from dark mode */
-[data-theme="light"] .starfield {
-  background:
-    radial-gradient(60% 80% at 24% 20%, rgba(56, 132, 158, 0.34), transparent 70%),
-    radial-gradient(58% 78% at 80% 80%, rgba(168, 92, 158, 0.26), transparent 70%),
-    radial-gradient(120% 120% at 50% 0%, rgba(26, 32, 58, 0.7), rgba(10, 14, 32, 0.96));
-  border: 1px solid rgba(140, 170, 220, 0.14);
-}
 
 /* Risk guide — how to read & act on the score */
 .rg-guide {

@@ -4,15 +4,13 @@ import { useT } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
 import type { DonutSlice } from './donut-chart'
 import { DonutChart }     from './donut-chart'
-import { TreemapChart }   from './treemap-chart'
-import { StarfieldChart, type StarItem } from './starfield-chart'
+import { TreemapChart, type StarItem } from './treemap-chart'
 
-export type AllocView = 'donut' | 'tree' | 'stars'
+export type AllocView = 'donut' | 'tree'
 
 export const ALLOC_VIEWS: { id: AllocView; label: string }[] = [
   { id: 'donut', label: 'Donut'   },
   { id: 'tree',  label: 'Treemap' },
-  { id: 'stars', label: 'Stars'   },
 ]
 
 export function nextAllocView(v: AllocView): AllocView {
@@ -55,7 +53,6 @@ export function AllocationViews({
           <DonutChart slices={slices} centerValue={centerValue} centerLabel={t('alloc_center')} size={220} thickness={28} />
         )}
         {view === 'tree'   && <TreemapChart slices={slices} stars={stars} />}
-        {view === 'stars'  && <StarfieldChart stars={stars} />}
       </div>
 
       <div className="donut-legend">

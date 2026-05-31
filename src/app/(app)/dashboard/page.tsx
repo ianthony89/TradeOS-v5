@@ -95,13 +95,6 @@ export default function DashboardPage() {
 
   useEffect(() => { loadHoldings() }, [loadHoldings])
 
-  /* Allocation default: Stars on desktop, Donut on phones. Runs once on mount
-     (server renders the safe 'donut' default, so no hydration mismatch). */
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (window.matchMedia('(min-width: 900px)').matches) setAllocView('stars')
-  }, [])
-
   /* Fetch the Hot List once on mount (prices are live) for the top row */
   useEffect(() => {
     let active = true
@@ -324,7 +317,7 @@ export default function DashboardPage() {
   const allocStars = useMemo(() =>
     withWeight.map(h => {
       const sector = getSector(h.symbol, h.assetType)
-      return { symbol: h.symbol, sector: t(sectorKey(sector)), weight: h.portfolioWeight, color: getSectorColor(sector), pl: h.unrealizedPlPct }
+      return { symbol: h.symbol, sector: t(sectorKey(sector)), weight: h.portfolioWeight, color: getSectorColor(sector) }
     }),
   [withWeight, t])
 

@@ -1,9 +1,16 @@
 'use client'
 
 import type { DonutSlice } from './donut-chart'
-import type { StarItem }   from './starfield-chart'
 import { fmt } from '@/lib/utils/format'
 import { useChartTooltip, ChartTooltip } from './chart-tooltip'
+
+/** A holding within a sector (used by the treemap to list a sector's names). */
+export interface StarItem {
+  symbol: string
+  sector: string
+  weight: number
+  color:  string
+}
 
 /**
  * Sector treemap. Block size ∝ market value. Largest sector fills the left
