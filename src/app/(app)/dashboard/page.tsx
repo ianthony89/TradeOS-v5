@@ -554,7 +554,7 @@ export default function DashboardPage() {
 
       {/* Allocation donut + Risk by strategy */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
-        <Panel>
+        <Panel className="panel--fill">
           <PanelHead
             title={t('dash_sector_alloc')}
             meta={t('meta_by_market_value')}
@@ -570,7 +570,7 @@ export default function DashboardPage() {
               </button>
             }
           />
-          <PanelBody>
+          <PanelBody className="panel-body--fill">
             <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} total={combined} view={allocView} />
           </PanelBody>
         </Panel>

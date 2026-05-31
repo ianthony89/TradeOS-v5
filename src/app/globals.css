@@ -2439,6 +2439,33 @@ a { color: inherit; text-decoration: none; }
 .alloc { display: flex; flex-direction: column; align-items: center; }
 .alloc-stage { width: 100%; height: 236px; display: flex; justify-content: center; align-items: center; }
 
+/* Fill the panel height so the diversification footer can pin to the bottom —
+   kills the empty space under short views (list / treemap / sunburst). */
+.panel--fill { display: flex; flex-direction: column; }
+.panel-body--fill { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.alloc-views { flex: 1 1 auto; display: flex; flex-direction: column; }
+
+.alloc-insight {
+  margin-top: auto;                 /* sink to the bottom of the panel */
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+}
+.alloc-insight-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-quaternary); margin-bottom: 8px;
+}
+.alloc-insight-verdict {
+  margin-left: auto; padding: 2px 9px; border-radius: 99px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em; text-transform: none;
+  background: var(--accent-soft); color: var(--accent);
+}
+.alloc-insight-verdict[data-tone="warning"]  { background: var(--warning-soft);  color: var(--warning); }
+.alloc-insight-verdict[data-tone="positive"] { background: var(--positive-soft); color: var(--positive); }
+.alloc-insight-read { margin: 0; font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
+
 /* Ranked allocation list (spectrum + sorted bars) */
 .alloc-list { width: 100%; }
 .alloc-list-head { display: flex; justify-content: flex-end; margin-bottom: 12px; }
