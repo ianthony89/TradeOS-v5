@@ -51,7 +51,7 @@ export default function DashboardPage() {
   /* Curated Hot List (live prices) for the top ticker row */
   const [hotItems, setHotItems] = useState<Array<{ symbol: string; price: number; changePct: number; currency: string }>>([])
   const [toast, setToast] = useState<ToastData | null>(null)
-  const [allocView, setAllocView] = useState<AllocView>('donut')
+  const [allocView, setAllocView] = useState<AllocView>('list')
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -571,7 +571,7 @@ export default function DashboardPage() {
             }
           />
           <PanelBody>
-            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} view={allocView} />
+            <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} total={combined} view={allocView} />
           </PanelBody>
         </Panel>
 

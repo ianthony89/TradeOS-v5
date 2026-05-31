@@ -101,18 +101,18 @@
   --font-sans:    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', Inter, system-ui, sans-serif;
   --font-mono:    ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 
-  /* Sector palette — dark mode */
-  --sector-tech:           #3d8bff;
-  --sector-healthcare:     #10b981;
-  --sector-financials:     #8b6dff;
-  --sector-consumer-disc:  #94a3b8;   /* grey */
-  --sector-consumer-stap:  #84cc16;
-  --sector-comm:           #ec4899;
-  --sector-energy:         #f97316;
-  --sector-utilities:      #06b6d4;
-  --sector-etf:            #eab308;    /* yellow */
-  --sector-crypto:         #fbbf24;
-  --sector-other:          #64748b;
+  /* Sector palette — dark mode (distinct, well-spaced hues) */
+  --sector-tech:           #3b82f6;   /* blue */
+  --sector-healthcare:     #22c55e;   /* green */
+  --sector-financials:     #ec4899;   /* pink */
+  --sector-consumer-disc:  #f97316;   /* orange */
+  --sector-consumer-stap:  #a3e635;   /* lime */
+  --sector-comm:           #06b6d4;   /* cyan */
+  --sector-energy:         #ef4444;   /* red */
+  --sector-utilities:      #a855f7;   /* violet */
+  --sector-etf:            #eab308;   /* gold */
+  --sector-crypto:         #f59e0b;   /* amber */
+  --sector-other:          #94a3b8;   /* slate */
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -172,17 +172,17 @@
   --shadow-focus: 0 0 0 3px rgba(37,99,235,0.22);
 
   /* Sector palette — light mode (deeper for contrast against light bg) */
-  --sector-tech:           #2563eb;
-  --sector-healthcare:     #059669;
-  --sector-financials:     #7c3aed;
-  --sector-consumer-disc:  #64748b;   /* grey */
-  --sector-consumer-stap:  #65a30d;
-  --sector-comm:           #db2777;
-  --sector-energy:         #ea580c;
-  --sector-utilities:      #0891b2;
-  --sector-etf:            #ca8a04;    /* yellow */
-  --sector-crypto:         #ca8a04;
-  --sector-other:          #475569;
+  --sector-tech:           #2563eb;   /* blue */
+  --sector-healthcare:     #16a34a;   /* green */
+  --sector-financials:     #db2777;   /* pink */
+  --sector-consumer-disc:  #ea580c;   /* orange */
+  --sector-consumer-stap:  #65a30d;   /* lime */
+  --sector-comm:           #0891b2;   /* cyan */
+  --sector-energy:         #dc2626;   /* red */
+  --sector-utilities:      #9333ea;   /* violet */
+  --sector-etf:            #ca8a04;   /* gold */
+  --sector-crypto:         #d97706;   /* amber */
+  --sector-other:          #64748b;   /* slate */
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -2420,10 +2420,51 @@ a { color: inherit; text-decoration: none; }
   font-variant-numeric: tabular-nums;
 }
 
-/* Allocation — fixed-height stage so every view (donut/treemap/stars) is the
+/* Allocation — fixed-height stage so chart views (donut/treemap) are the
    same size and swapping never resizes the panel */
 .alloc { display: flex; flex-direction: column; align-items: center; }
 .alloc-stage { width: 100%; height: 236px; display: flex; justify-content: center; align-items: center; }
+
+/* Ranked allocation list (spectrum + sorted bars) */
+.alloc-list { width: 100%; }
+.alloc-list-head { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.alloc-spectrum { display: flex; height: 9px; gap: 2px; margin-bottom: 7px; }
+.alloc-spec {
+  border-radius: 3px; cursor: default; transform-origin: center;
+  transition: filter var(--dur-fast), transform var(--dur-fast);
+}
+.alloc-spec:hover { filter: brightness(1.15); transform: scaleY(1.35); }
+.alloc-cap {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: var(--text-quaternary); margin-bottom: 14px;
+}
+.alloc-cap b { color: var(--text-secondary); font-weight: 600; }
+.alloc-rows { display: flex; flex-direction: column; }
+.alloc-row {
+  display: grid; grid-template-columns: 132px 1fr 84px; align-items: center; gap: 14px;
+  padding: 8px 10px; margin: 0 -10px; border-radius: 10px; cursor: default;
+  transition: background var(--dur-fast);
+}
+.alloc-row:hover { background: var(--surface-2); }
+.alloc-name { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.alloc-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.alloc-nm {
+  font-size: 13px; color: var(--text-secondary); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.alloc-row:hover .alloc-nm { color: var(--text-primary); }
+.alloc-track { height: 8px; border-radius: 5px; background: var(--border-default); overflow: hidden; }
+.alloc-fill {
+  height: 100%; border-radius: 5px; transform-origin: left center;
+  animation: alloc-grow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes alloc-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.alloc-val { text-align: right; }
+.alloc-pct { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.alloc-cash { font-size: 11px; color: var(--text-quaternary); margin-top: 1px; }
+@media (max-width: 520px) {
+  .alloc-row { grid-template-columns: 104px 1fr 72px; gap: 10px; }
+}
 
 /* Treemap */
 .tm-wrap { display: flex; gap: 5px; height: 100%; width: 100%; }

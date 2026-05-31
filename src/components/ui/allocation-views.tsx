@@ -5,10 +5,12 @@ import { fmt } from '@/lib/utils/format'
 import type { DonutSlice } from './donut-chart'
 import { DonutChart }     from './donut-chart'
 import { TreemapChart, type StarItem } from './treemap-chart'
+import { AllocationList } from './allocation-list'
 
-export type AllocView = 'donut' | 'tree'
+export type AllocView = 'list' | 'donut' | 'tree'
 
 export const ALLOC_VIEWS: { id: AllocView; label: string }[] = [
+  { id: 'list',  label: 'List'    },
   { id: 'donut', label: 'Donut'   },
   { id: 'tree',  label: 'Treemap' },
 ]
@@ -33,11 +35,13 @@ export function AllocationViews({
   slices,
   centerValue,
   stars = [],
+  total = 0,
   view,
 }: {
   slices:       DonutSlice[]
   centerValue?: string
   stars?:       StarItem[]
+  total?:       number
   view:         AllocView
 }) {
   const t = useT()
@@ -46,13 +50,18 @@ export function AllocationViews({
     return <div className="text-tertiary" style={{ fontSize: 12 }}>{t('alloc_empty')}</div>
   }
 
+  // The ranked list sizes to its content (no fixed stage / separate legend).
+  if (view === 'list') {
+    return <AllocationList slices={slices} stars={stars} total={total} />
+  }
+
   return (
     <div className="alloc">
       <div className="alloc-stage">
         {view === 'donut' && (
           <DonutChart slices={slices} centerValue={centerValue} centerLabel={t('alloc_center')} size={220} thickness={28} />
         )}
-        {view === 'tree'   && <TreemapChart slices={slices} stars={stars} />}
+        {view === 'tree' && <TreemapChart slices={slices} stars={stars} />}
       </div>
 
       <div className="donut-legend">
