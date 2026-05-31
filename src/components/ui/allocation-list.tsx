@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useT } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
-import type { DonutSlice } from './donut-chart'
-import type { StarItem }   from './treemap-chart'
+import type { DonutSlice, StarItem } from './donut-chart'
 import { useChartTooltip, ChartTooltip } from './chart-tooltip'
 
 /**

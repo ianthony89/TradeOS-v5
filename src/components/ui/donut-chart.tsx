@@ -11,6 +11,14 @@ export interface DonutSlice {
   color:  string     // CSS color or var(--…)
 }
 
+/** A single holding within a sector (used by the ranked allocation list). */
+export interface StarItem {
+  symbol: string
+  sector: string
+  weight: number
+  color:  string
+}
+
 interface DonutChartProps {
   slices:        DonutSlice[]
   centerValue?:  string

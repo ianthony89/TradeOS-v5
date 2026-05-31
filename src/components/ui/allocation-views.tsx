@@ -3,17 +3,14 @@
 import { Layers } from 'lucide-react'
 import { useT } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
-import type { DonutSlice } from './donut-chart'
-import { SunburstChart }  from './sunburst-chart'
-import { TreemapChart, type StarItem } from './treemap-chart'
+import { DonutChart, type DonutSlice, type StarItem } from './donut-chart'
 import { AllocationList } from './allocation-list'
 
-export type AllocView = 'list' | 'sun' | 'tree'
+export type AllocView = 'donut' | 'list'
 
 export const ALLOC_VIEWS: { id: AllocView; label: string }[] = [
-  { id: 'list', label: 'List'     },
-  { id: 'tree', label: 'Treemap'  },
-  { id: 'sun',  label: 'Sunburst' },
+  { id: 'donut', label: 'Donut' },
+  { id: 'list',  label: 'List'  },
 ]
 
 export function nextAllocView(v: AllocView): AllocView {
@@ -53,18 +50,15 @@ export function AllocationViews({
 
   return (
     <div className="alloc-views">
-      {view === 'list' ? (
-        // The ranked list sizes to its content (no fixed stage / separate legend).
-        <AllocationList slices={slices} stars={stars} total={total} />
-      ) : (
-        <div className="alloc">
-          <div className="alloc-stage">
-            {view === 'sun' && (
-              <SunburstChart slices={slices} stars={stars} centerValue={centerValue} centerLabel={t('alloc_center')} />
-            )}
-            {view === 'tree' && <TreemapChart slices={slices} stars={stars} />}
-          </div>
+      {/* The ranked list sizes to its content. */}
+      {view === 'list' && <AllocationList slices={slices} stars={stars} total={total} />}
 
+      {/* Donut + legend, centred in the space above the footer. */}
+      {view === 'donut' && (
+        <div className="alloc alloc--center">
+          <div className="alloc-stage">
+            <DonutChart slices={slices} centerValue={centerValue} centerLabel={t('alloc_center')} />
+          </div>
           <div className="donut-legend">
             {chunk(slices, 3).map((row, i) => (
               <div key={i} className="donut-legend-row">
