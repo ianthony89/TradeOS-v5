@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Lightbulb, Target, Pencil, Check, X, Plus, Trash2,
+  TrendingUp, TrendingDown, AlertTriangle, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useI18n } from '@/lib/i18n/context'
@@ -146,9 +147,6 @@ export default function PositionHubPage() {
           <div className={`pos-hero-return ${pos ? 'pos' : 'neg'}`}>
             {pos ? '+' : ''}{fmt.money(holding.unrealizedPl, cur)} · {pos ? '+' : ''}{fmt.pct(holding.unrealizedPlPct, 1)} {t('pos_total_return')}
           </div>
-          <div className="pos-hero-market">
-            {fmt.money(holding.currentPrice, cur)} · <span className={holding.todayPl >= 0 ? 'pos' : 'neg'}>{holding.todayPl >= 0 ? '+' : ''}{fmt.money(holding.todayPl, cur)} {t('pos_today')}</span>
-          </div>
         </div>
 
         <div className="pos-hero-badges">
@@ -157,6 +155,13 @@ export default function PositionHubPage() {
           <span className="pos-weight-pill">{fmt.pct(weight, 1)} {t('pos_of_book')}</span>
           <span className="pos-meta-pill"><span className="pos-meta-dot" style={{ background: getSectorColor(sector) }} />{t(sectorKey(sector))}</span>
           <span className="pos-meta-pill">{cur}</span>
+        </div>
+
+        {/* secondary market metrics — present but clearly subordinate */}
+        <div className="pos-hero-metrics">
+          <HeroMetric label={t('pos_current_price')} value={fmt.money(holding.currentPrice, cur)} />
+          <HeroMetric label={t('pos_avg_cost')}      value={fmt.money(holding.avgCost, cur)} />
+          <HeroMetric label={t('pos_today_pl')}       value={`${holding.todayPl >= 0 ? '+' : ''}${fmt.money(holding.todayPl, cur)}`} tone={holding.todayPl >= 0 ? 'pos' : 'neg'} />
         </div>
       </div>
 
@@ -184,7 +189,7 @@ export default function PositionHubPage() {
             setIntel(next); refreshLog(next)
           }} />
 
-        <TargetCard intel={intel} currency={cur} t={t} lang={lang}
+        <TargetCard intel={intel} currency={cur} currentPrice={holding.currentPrice} t={t} lang={lang}
           onSave={async (f) => {
             if (!userId) return
             await PI.saveTargets(sb, userId, holding.symbol, symParam, f)
@@ -229,6 +234,15 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
   )
 }
 
+function HeroMetric({ label, value, tone }: { label: string; value: string; tone?: 'pos' | 'neg' }) {
+  return (
+    <div className="pos-hero-metric">
+      <div className="pos-hero-metric-label">{label}</div>
+      <div className={`pos-hero-metric-value text-tabular${tone ? ' ' + tone : ''}`}>{value}</div>
+    </div>
+  )
+}
+
 // ── Investment Thesis (display → edit) ────────────────────────
 function ThesisCard({ intel, t, lang, onSave }: {
   intel: PI.PositionIntel
@@ -268,23 +282,40 @@ function ThesisCard({ intel, t, lang, onSave }: {
           </div>
         </>
       ) : empty ? (
-        <div className="pos-empty">{t('pos_thesis_empty')}</div>
+        <div className="pos-empty-rich">
+          <Lightbulb size={22} />
+          <div className="pos-empty-title">{t('pos_thesis_empty_title')}</div>
+          <div className="pos-empty-sub">{t('pos_thesis_empty')}</div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={startEdit}><Plus size={13} />{t('pos_thesis_add')}</button>
+        </div>
       ) : (
         <>
-          <ReadField label={t('pos_thesis_field')} value={intel.thesis} />
-          <ReadField label={t('pos_bull')} tone="positive" value={intel.bullCase} />
-          <ReadField label={t('pos_bear')} tone="negative" value={intel.bearCase} />
-          <ReadField label={t('pos_invalidation')} tone="warning" value={intel.invalidation} />
+          {intel.thesis && <div className="pos-thesis-main">{intel.thesis}</div>}
+          <div className="pos-thesis-cases">
+            <ThesisBlock icon={<TrendingUp size={13} />}    tone="positive" label={t('pos_bull')} value={intel.bullCase} />
+            <ThesisBlock icon={<TrendingDown size={13} />}  tone="negative" label={t('pos_bear')} value={intel.bearCase} />
+          </div>
+          <ThesisBlock icon={<AlertTriangle size={13} />} tone="warning" label={t('pos_invalidation')} value={intel.invalidation} />
         </>
       )}
     </div>
   )
 }
 
+function ThesisBlock({ icon, tone, label, value }: { icon: ReactNode; tone: string; label: string; value: string }) {
+  return (
+    <div className="pos-case" style={{ ['--case' as string]: TONE_VAR[tone] }}>
+      <div className="pos-case-label">{icon}{label}</div>
+      <div className="pos-case-body">{value || <span className="pos-read-empty">—</span>}</div>
+    </div>
+  )
+}
+
 // ── Target Planner (display → edit) ───────────────────────────
-function TargetCard({ intel, currency, t, lang, onSave }: {
+function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
   intel: PI.PositionIntel
   currency: string
+  currentPrice: number
   t: (k: string, v?: Record<string, string | number>) => string
   lang: 'en' | 'zh'
   onSave: (f: { targetPrice: number | null; trimAbove: number | null; addBelow: number | null; fairValue: number | null; targetCurrency: string; planNotes: string }) => Promise<void>
@@ -330,21 +361,41 @@ function TargetCard({ intel, currency, t, lang, onSave }: {
           </div>
         </>
       ) : empty ? (
-        <div className="pos-empty">{t('pos_planner_empty')}</div>
+        <div className="pos-empty-rich">
+          <Target size={22} />
+          <div className="pos-empty-title">{t('pos_planner_empty_title')}</div>
+          <div className="pos-empty-sub">{t('pos_planner_empty')}</div>
+          <button type="button" className="btn btn-primary btn-sm" onClick={startEdit}><Plus size={13} />{t('pos_planner_add')}</button>
+        </div>
       ) : (
         <>
-          <div className="pos-targets">
-            <ReadTarget label={t('pos_target_price')} value={intel.targetPrice} sym={sym} />
-            <ReadTarget label={t('pos_fair_value')}   value={intel.fairValue}   sym={sym} />
-            <ReadTarget label={t('pos_trim_above')} tone="warning"  value={intel.trimAbove} sym={sym} />
-            <ReadTarget label={t('pos_add_below')}  tone="positive" value={intel.addBelow}  sym={sym} />
+          <div className="pos-tgt-ladder">
+            <TgtLevel icon={<ArrowUp size={14} />}   tone="warning"  label={t('pos_trim_above')}   value={intel.trimAbove}   sym={sym} />
+            <TgtLevel icon={<Target size={14} />}    tone="accent"   label={t('pos_target_price')} value={intel.targetPrice} sym={sym} primary />
+            <TgtLevel icon={<ArrowDown size={14} />} tone="positive" label={t('pos_add_below')}    value={intel.addBelow}    sym={sym} />
           </div>
-          {intel.planNotes && <ReadField label={t('pos_notes')} value={intel.planNotes} />}
+          <div className="pos-tgt-foot">
+            <span>{t('pos_fair_value')} · <b>{tgtStr(intel.fairValue, sym)}</b></span>
+            <span>{t('pos_current_price')} · <b>{sym}{currentPrice.toFixed(2)}</b></span>
+          </div>
+          {intel.planNotes && <div className="pos-tgt-notes">{intel.planNotes}</div>}
         </>
       )}
     </div>
   )
 }
+
+function TgtLevel({ icon, tone, label, value, sym, primary }: { icon: ReactNode; tone: string; label: string; value: number | null; sym: string; primary?: boolean }) {
+  return (
+    <div className={`pos-tgt-level${primary ? ' pos-tgt-level--primary' : ''}`} style={{ ['--lvl' as string]: TONE_VAR[tone] }}>
+      <span className="pos-tgt-level-icon">{icon}</span>
+      <span className="pos-tgt-level-label">{label}</span>
+      <span className="pos-tgt-level-val text-tabular">{value != null ? `${sym}${value.toFixed(2)}` : <span className="pos-read-empty">—</span>}</span>
+    </div>
+  )
+}
+
+function tgtStr(value: number | null, sym: string): string { return value != null ? `${sym}${value.toFixed(2)}` : '—' }
 
 // ── Decision Log ──────────────────────────────────────────────
 function DecisionLog({ log, t, lang, openedLabel, onAdd, onDelete }: {
@@ -421,15 +472,6 @@ function Field({ label, hint, tone, value, onChange, rows = 2 }: {
   )
 }
 
-function ReadField({ label, tone, value }: { label: string; tone?: string; value: string }) {
-  return (
-    <div className="pos-read-group">
-      <div className="pos-read-label" style={tone ? { color: TONE_VAR[tone] } : undefined}>{label}</div>
-      <div className="pos-read-value">{value || <span className="pos-read-empty">—</span>}</div>
-    </div>
-  )
-}
-
 function NumField({ label, tone, sym, value, onChange }: { label: string; tone?: string; sym: string; value: string; onChange: (v: string) => void }) {
   return (
     <div>
@@ -438,15 +480,6 @@ function NumField({ label, tone, sym, value, onChange }: { label: string; tone?:
         <span className="pos-num-sym">{sym}</span>
         <input className="pos-field" inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} />
       </div>
-    </div>
-  )
-}
-
-function ReadTarget({ label, tone, value, sym }: { label: string; tone?: string; value: number | null; sym: string }) {
-  return (
-    <div className="pos-read-tgt">
-      <div className="pos-tgt-label" style={tone ? { color: TONE_VAR[tone] } : undefined}>{label}</div>
-      <div className="pos-tgt-value text-tabular">{value != null ? `${sym}${value.toFixed(2)}` : <span className="pos-read-empty">—</span>}</div>
     </div>
   )
 }
