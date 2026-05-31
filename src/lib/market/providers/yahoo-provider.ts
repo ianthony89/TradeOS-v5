@@ -4,9 +4,16 @@
 //  Does NOT handle: news (Finnhub is cleaner)
 // ============================================================
 
-import yahooFinance from 'yahoo-finance2'
+import YahooFinance from 'yahoo-finance2'
 import type { Quote, Candle, NewsItem, MarketDataProvider } from '../types'
 import { detectAssetType } from '../asset-type'
+
+// yahoo-finance2 v3 exports the API as a class that MUST be instantiated.
+// Using the default export directly (the old v2 singleton style) throws
+// "Call `const yahooFinance = new YahooFinance()` first" on every call — which
+// silently killed all Yahoo quotes (US equities limped along on the Finnhub
+// fallback; FX pairs and Malaysian .KL names, which have no fallback, failed).
+const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] })
 
 export class YahooProvider implements MarketDataProvider {
   // ── getQuote ───────────────────────────────────────────────
