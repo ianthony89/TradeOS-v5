@@ -2629,8 +2629,13 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 /* field example helper (guided edit) */
 .pos-field-ex { font-size: 11px; color: var(--text-quaternary); margin-top: 5px; line-height: 1.5; }
 
-/* target presets */
-.pos-presets { display: flex; gap: 6px; margin-top: 7px; }
+/* target presets (now show the actual price) */
+.pos-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+/* clickable example chips under an edit field */
+.pos-ex-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+/* thesis-type template picker (guided start) */
+.pos-tpl { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 16px; }
+.pos-tpl-label { font-size: 11px; font-weight: 600; color: var(--text-quaternary); margin-right: 2px; }
 
 /* guided framework empty state */
 .pos-framework { padding: 4px 0 2px; }

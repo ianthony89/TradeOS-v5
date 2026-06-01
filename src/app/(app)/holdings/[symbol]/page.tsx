@@ -17,6 +17,7 @@ import {
 } from '@/lib/portfolio/taxonomy'
 import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
 import { stockName } from '@/lib/portfolio/stock-names'
+import { THESIS_TYPES, thesisTemplate, type ThesisType } from '@/lib/portfolio/thesis-templates'
 import { StockLogo } from '@/components/brand/stock-logo'
 import * as PI from '@/lib/portfolio/position-intel'
 
@@ -127,6 +128,7 @@ export default function PositionHubPage() {
   const action   = classifyAction({ symbol: holding.symbol, name: holding.name, assetType: holding.assetType, unrealizedPlPct: holding.unrealizedPlPct, portfolioWeight: weight })
   const cur      = holding.currency
   const pos      = holding.unrealizedPl >= 0
+  const rs       = reviewStatus(intel.nextReviewAt)
 
   return (
     <div className="pos-hub">
@@ -152,6 +154,7 @@ export default function PositionHubPage() {
         <div className="pos-hero-badges">
           <Badge tone={STRATEGY_TONE[strategy]} label={t(`tax_${strategy}`)} />
           <Badge tone={ACTION_TONE[action]} label={t(`tax_${action}`)} />
+          {rs && <Badge tone={rs.tone} label={t(`pos_rev_${rs.key}`)} />}
           <span className="pos-weight-pill">{fmt.pct(weight, 1)} {t('pos_of_book')}</span>
           <span className="pos-meta-pill"><span className="pos-meta-dot" style={{ background: getSectorColor(sector) }} />{t(sectorKey(sector))}</span>
           <span className="pos-meta-pill">{cur}</span>
@@ -231,6 +234,21 @@ function dateShort(at: string, lang: 'en' | 'zh'): string {
   })
 }
 
+/** Hero review signal from the scheduled next-review date. null = no cadence. */
+function reviewStatus(nextReviewAt: string | null): { key: string; tone: string } | null {
+  if (!nextReviewAt) return null
+  const diff = new Date(nextReviewAt).getTime() - Date.now()
+  if (diff < 0)                 return { key: 'due',  tone: 'negative' }
+  if (diff < 7 * 86_400_000)    return { key: 'soon', tone: 'warning' }
+  return { key: 'ok', tone: 'positive' }
+}
+
+/** Split an "e.g. a · b · c" hint into clickable example chips. */
+function exampleChips(s: string): string[] {
+  return s.replace(/^(e\.g\.\s*|例如[:：]\s*)/i, '').split('·').map(x => x.trim()).filter(Boolean)
+}
+function cap(s: string): string { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
+
 // ── Small presentational pieces ───────────────────────────────
 function Badge({ tone, label }: { tone: string; label: string }) {
   return <span className="pos-badge" style={{ background: `color-mix(in srgb, ${TONE_VAR[tone]} 14%, transparent)`, color: TONE_VAR[tone] }}>{label}</span>
@@ -274,6 +292,11 @@ function ThesisCard({ intel, t, lang, onSave, onConviction }: {
     setEditing(true)
   }
   async function save() { setSaving(true); await onSave(d); setSaving(false); setEditing(false) }
+  function applyTemplate(type: ThesisType) {
+    const tpl = thesisTemplate(type, lang)
+    setD({ thesis: tpl.thesis, bullCase: tpl.bullCase, bearCase: tpl.bearCase, invalidation: tpl.invalidation })
+    setEditing(true)
+  }
 
   const empty = !intel.thesis && !intel.bullCase && !intel.bearCase && !intel.invalidation
 
@@ -298,10 +321,10 @@ function ThesisCard({ intel, t, lang, onSave, onConviction }: {
 
       {editing ? (
         <>
-          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} examples={t('pos_ex_thesis')} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
-          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} examples={t('pos_ex_bull')} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
-          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} examples={t('pos_ex_bear')} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
-          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} examples={t('pos_ex_invalidation')} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
+          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} chips={exampleChips(t('pos_ex_thesis'))} onPick={v => setD({ ...d, thesis: cap(v) })} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
+          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} chips={exampleChips(t('pos_ex_bull'))} onPick={v => setD({ ...d, bullCase: cap(v) })} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
+          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} chips={exampleChips(t('pos_ex_bear'))} onPick={v => setD({ ...d, bearCase: cap(v) })} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
+          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} chips={exampleChips(t('pos_ex_invalidation'))} onPick={v => setD({ ...d, invalidation: cap(v) })} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
           <div className="pos-save-row">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}><X size={13} />{t('pos_cancel')}</button>
             <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}><Check size={13} />{t('pos_save')}</button>
@@ -310,11 +333,17 @@ function ThesisCard({ intel, t, lang, onSave, onConviction }: {
       ) : empty ? (
         <div className="pos-framework">
           <div className="pos-fw-title">{t('pos_thesis_empty_title')}</div>
+          <div className="pos-tpl">
+            <span className="pos-tpl-label">{t('pos_start_template')}</span>
+            {THESIS_TYPES.map(tt => (
+              <button key={tt} type="button" className="pos-chip" onClick={() => applyTemplate(tt)}>{thesisTemplate(tt, lang).label}</button>
+            ))}
+          </div>
           <FwPrompt n="1"                q={t('pos_thesis_hint')}       ex={t('pos_ex_thesis')} />
           <FwPrompt n="2" tone="positive" q={t('pos_bull_hint')}         ex={t('pos_ex_bull')} />
           <FwPrompt n="3" tone="negative" q={t('pos_bear_hint')}         ex={t('pos_ex_bear')} />
           <FwPrompt n="4" tone="warning"  q={t('pos_invalidation_hint')} ex={t('pos_ex_invalidation')} />
-          <button type="button" className="btn btn-primary btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_thesis_add')}</button>
+          <button type="button" className="btn btn-ghost btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_scratch')}</button>
         </div>
       ) : (
         <>
@@ -515,14 +544,19 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
 }
 
 // ── Field primitives ──────────────────────────────────────────
-function Field({ label, hint, tone, value, onChange, rows = 2, examples }: {
-  label: string; hint?: string; tone?: string; value: string; onChange: (v: string) => void; rows?: number; examples?: string
+function Field({ label, hint, tone, value, onChange, rows = 2, chips, onPick }: {
+  label: string; hint?: string; tone?: string; value: string; onChange: (v: string) => void
+  rows?: number; chips?: string[]; onPick?: (v: string) => void
 }) {
   return (
     <div className="pos-field-group">
       <div className="pos-field-head" style={tone ? { color: TONE_VAR[tone] } : undefined}>{label}{hint && <span className="pos-field-hint">{hint}</span>}</div>
       <textarea className="pos-field" rows={rows} value={value} onChange={e => onChange(e.target.value)} />
-      {examples && <div className="pos-field-ex">{examples}</div>}
+      {chips && chips.length > 0 && (
+        <div className="pos-ex-chips">
+          {chips.map(c => <button key={c} type="button" className="pos-chip pos-chip--xs" onClick={() => onPick?.(c)}>{c}</button>)}
+        </div>
+      )}
     </div>
   )
 }
@@ -539,10 +573,13 @@ function NumField({ label, tone, sym, value, onChange, presets, base }: {
       </div>
       {presets && base ? (
         <div className="pos-presets">
-          {presets.map(p => (
-            <button key={p} type="button" className="pos-chip pos-chip--xs"
-              onClick={() => onChange((base * (1 + p / 100)).toFixed(2))}>{p > 0 ? '+' : ''}{p}%</button>
-          ))}
+          {presets.map(p => {
+            const px = base * (1 + p / 100)
+            return (
+              <button key={p} type="button" className="pos-chip pos-chip--xs"
+                onClick={() => onChange(px.toFixed(2))}>{p > 0 ? '+' : ''}{p}% · {sym}{px >= 100 ? Math.round(px) : px.toFixed(2)}</button>
+            )
+          })}
         </div>
       ) : null}
     </div>
