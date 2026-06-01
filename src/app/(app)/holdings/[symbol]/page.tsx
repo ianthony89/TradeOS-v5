@@ -154,6 +154,12 @@ export default function PositionHubPage() {
         <div className="pos-hero-badges">
           <Badge tone={STRATEGY_TONE[strategy]} label={t(`tax_${strategy}`)} />
           <Badge tone={ACTION_TONE[action]} label={t(`tax_${action}`)} />
+          <HeroConviction value={intel.confidence} t={t}
+            onSet={async (c) => {
+              if (!userId) return
+              setIntel({ ...intel, confidence: c })
+              await PI.saveMeta(sb, userId, holding.symbol, symParam, { confidence: c })
+            }} />
           {rs && <Badge tone={rs.tone} label={t(`pos_rev_${rs.key}`)} />}
           <span className="pos-weight-pill">{fmt.pct(weight, 1)} {t('pos_of_book')}</span>
           <span className="pos-meta-pill"><span className="pos-meta-dot" style={{ background: getSectorColor(sector) }} />{t(sectorKey(sector))}</span>
@@ -190,11 +196,6 @@ export default function PositionHubPage() {
             await PI.saveThesis(sb, userId, holding.symbol, symParam, f)
             const next = { ...intel, ...f, thesisUpdatedAt: new Date().toISOString() }
             setIntel(next); refreshLog(next)
-          }}
-          onConviction={async (c) => {
-            if (!userId) return
-            setIntel({ ...intel, confidence: c })
-            await PI.saveMeta(sb, userId, holding.symbol, symParam, { confidence: c })
           }} />
 
         <TargetCard intel={intel} currency={cur} currentPrice={holding.currentPrice} t={t} lang={lang}
@@ -273,15 +274,44 @@ function HeroMetric({ label, value, tone }: { label: string; value: string; tone
   )
 }
 
-// ── Investment Thesis (display → edit, guided) ────────────────
+// ── Conviction — position-level signal, lives in the Hero ─────
 const CONV_TONE: Record<'high' | 'medium' | 'low', string> = { high: 'positive', medium: 'accent', low: 'warning' }
 
-function ThesisCard({ intel, t, lang, onSave, onConviction }: {
+function HeroConviction({ value, t, onSet }: {
+  value: 'high' | 'medium' | 'low' | null
+  t: (k: string, v?: Record<string, string | number>) => string
+  onSet: (c: 'high' | 'medium' | 'low') => void
+}) {
+  const [open, setOpen] = useState(false)
+  if (open) {
+    return (
+      <span className="pos-hero-conv">
+        {(['high', 'medium', 'low'] as const).map(c => (
+          <button key={c} type="button"
+            className={`pos-chip pos-chip--xs${value === c ? ' pos-chip--on' : ''}`}
+            style={value === c ? { ['--chip' as string]: TONE_VAR[CONV_TONE[c]] } : undefined}
+            onClick={() => { onSet(c); setOpen(false) }}>{t(`pos_conv_${c}`)}</button>
+        ))}
+      </span>
+    )
+  }
+  if (!value) {
+    return <button type="button" className="pos-chip pos-chip--xs" onClick={() => setOpen(true)}>{t('pos_convb_set')}</button>
+  }
+  return (
+    <button type="button" className="pos-badge pos-conv-badge"
+      style={{ background: `color-mix(in srgb, ${TONE_VAR[CONV_TONE[value]]} 14%, transparent)`, color: TONE_VAR[CONV_TONE[value]] }}
+      onClick={() => setOpen(true)} title={t('pos_conviction')}>{t(`pos_convb_${value}`)}</button>
+  )
+}
+
+// ── Investment Thesis (display → edit, guided) ────────────────
+
+function ThesisCard({ intel, t, lang, onSave }: {
   intel: PI.PositionIntel
   t: (k: string, v?: Record<string, string | number>) => string
   lang: 'en' | 'zh'
   onSave: (f: { thesis: string; bullCase: string; bearCase: string; invalidation: string }) => Promise<void>
-  onConviction: (c: 'high' | 'medium' | 'low') => void
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving]   = useState(false)
@@ -306,17 +336,6 @@ function ThesisCard({ intel, t, lang, onSave, onConviction }: {
         <Lightbulb size={13} />{t('pos_thesis')}
         {intel.thesisUpdatedAt && !editing && <span className="pos-upd">{t('pos_updated', { time: fmt.relativeTime(intel.thesisUpdatedAt, lang) })}</span>}
         {!editing && <button type="button" className="pos-edit-btn" onClick={startEdit}><Pencil size={12} />{empty ? t('pos_add') : t('pos_edit')}</button>}
-      </div>
-
-      {/* conviction — quick toggle, always available */}
-      <div className="pos-conv">
-        <span className="pos-conv-label">{t('pos_conviction')}</span>
-        {(['high', 'medium', 'low'] as const).map(c => (
-          <button key={c} type="button"
-            className={`pos-chip${intel.confidence === c ? ' pos-chip--on' : ''}`}
-            style={intel.confidence === c ? { ['--chip' as string]: TONE_VAR[CONV_TONE[c]] } : undefined}
-            onClick={() => onConviction(c)}>{t(`pos_conv_${c}`)}</button>
-        ))}
       </div>
 
       {editing ? (
@@ -359,10 +378,10 @@ function ThesisCard({ intel, t, lang, onSave, onConviction }: {
   )
 }
 
-function FwPrompt({ n, tone, q, ex }: { n: string; tone?: string; q: string; ex: string }) {
+function FwPrompt({ n, icon, tone, q, ex }: { n?: string; icon?: ReactNode; tone?: string; q: string; ex: string }) {
   return (
     <div className="pos-fw-item">
-      <span className="pos-fw-num" style={tone ? { ['--chip' as string]: TONE_VAR[tone] } : undefined}>{n}</span>
+      <span className="pos-fw-num" style={tone ? { ['--chip' as string]: TONE_VAR[tone] } : undefined}>{icon ?? n}</span>
       <div><div className="pos-fw-q">{q}</div><div className="pos-fw-ex">{ex}</div></div>
     </div>
   )
@@ -429,9 +448,10 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
       ) : empty ? (
         <div className="pos-framework">
           <div className="pos-fw-title">{t('pos_planner_empty_title')}</div>
-          <FwPrompt n="1" tone="accent"   q={t('pos_target_price')} ex={t('pos_fw_target')} />
-          <FwPrompt n="2" tone="warning"  q={t('pos_trim_above')}   ex={t('pos_fw_trim')} />
-          <FwPrompt n="3" tone="positive" q={t('pos_add_below')}    ex={t('pos_fw_add')} />
+          <div className="pos-fw-intro">{t('pos_planner_intro')}</div>
+          <FwPrompt icon={<Target size={13} />}    tone="accent"   q={t('pos_target_price')} ex={t('pos_fw_target')} />
+          <FwPrompt icon={<ArrowUp size={13} />}   tone="warning"  q={t('pos_trim_above')}   ex={t('pos_fw_trim')} />
+          <FwPrompt icon={<ArrowDown size={13} />} tone="positive" q={t('pos_add_below')}    ex={t('pos_fw_add')} />
           <button type="button" className="btn btn-primary btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_planner_add')}</button>
         </div>
       ) : (
