@@ -6,6 +6,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Lightbulb, Target, Pencil, Check, X, Plus, Trash2,
   TrendingUp, TrendingDown, AlertTriangle, ArrowUp, ArrowDown,
+  Flag, Minus, LogOut, FileText, MessageSquare, type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useI18n } from '@/lib/i18n/context'
@@ -296,7 +297,7 @@ function HeroConviction({ value, t, onSet }: {
     )
   }
   if (!value) {
-    return <button type="button" className="pos-chip pos-chip--xs" onClick={() => setOpen(true)}>{t('pos_convb_set')}</button>
+    return <button type="button" className="pos-badge pos-conv-badge pos-conv-unset" onClick={() => setOpen(true)} title={t('pos_conviction')}>{t('pos_convb_set')}</button>
   }
   return (
     <button type="button" className="pos-badge pos-conv-badge"
@@ -506,15 +507,15 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
     setBusy(true); await onAdd(draft); setBusy(false); setDraft('')
   }
 
-  const KIND: Record<string, { tone: string; key: string }> = {
-    opened:         { tone: 'accent',   key: 'pos_log_opened' },
-    added:          { tone: 'positive', key: 'pos_log_added' },
-    reduced:        { tone: 'warning',  key: 'pos_log_reduced' },
-    exited:         { tone: 'negative', key: 'pos_log_exited' },
-    thesis_updated: { tone: 'accent',   key: 'pos_log_thesis' },
-    target_updated: { tone: 'warning',  key: 'pos_log_target' },
-    manual:         { tone: 'neutral',  key: 'pos_log_review' },
-    review:         { tone: 'neutral',  key: 'pos_log_review' },
+  const KIND: Record<string, { tone: string; key: string; Icon: LucideIcon }> = {
+    opened:         { tone: 'accent',   key: 'pos_log_opened', Icon: Flag },
+    added:          { tone: 'positive', key: 'pos_log_added',  Icon: Plus },
+    reduced:        { tone: 'warning',  key: 'pos_log_reduced',Icon: Minus },
+    exited:         { tone: 'negative', key: 'pos_log_exited', Icon: LogOut },
+    thesis_updated: { tone: 'accent',   key: 'pos_log_thesis', Icon: FileText },
+    target_updated: { tone: 'warning',  key: 'pos_log_target', Icon: Target },
+    manual:         { tone: 'neutral',  key: 'pos_log_review', Icon: MessageSquare },
+    review:         { tone: 'neutral',  key: 'pos_log_review', Icon: MessageSquare },
   }
 
   return (
@@ -544,12 +545,13 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
         <div className="pos-timeline">
           {log.map(e => {
             const meta = KIND[e.kind] ?? KIND.manual
+            const KindIcon = meta.Icon
             const body = e.synthetic ? (e.kind === 'opened' ? openedLabel : t(`${meta.key}_body`)) : e.body
             return (
               <div key={e.id} className="pos-tl-item">
                 <span className="pos-tl-dot" style={{ background: TONE_VAR[meta.tone] }} />
                 <div className="pos-tl-head">
-                  <span className="pos-tl-kind" style={{ ['--chip' as string]: TONE_VAR[meta.tone] }}>{t(meta.key)}</span>
+                  <span className="pos-tl-kind" style={{ ['--chip' as string]: TONE_VAR[meta.tone] }}><KindIcon size={11} />{t(meta.key)}</span>
                   <span className="pos-tl-date">{dateShort(e.at, lang)}</span>
                   {!e.synthetic && <button type="button" className="pos-tl-del" onClick={() => onDelete(e.id)} aria-label="Delete"><Trash2 size={12} /></button>}
                 </div>
