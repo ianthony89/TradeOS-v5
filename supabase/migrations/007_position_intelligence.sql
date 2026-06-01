@@ -41,6 +41,12 @@ CREATE TABLE IF NOT EXISTS position_intelligence (
   fair_value        DECIMAL(18,6),
   target_currency   TEXT NOT NULL DEFAULT 'USD',
   plan_notes        TEXT,
+  -- Conviction + review scheduling (Phase 2A foundation). The future Alert
+  -- Engine reads next_review_at to flag "Review Due / Overdue". No
+  -- notifications wired now — columns only.
+  confidence            TEXT,          -- 'high' | 'medium' | 'low' | null
+  review_frequency_days INT,           -- 30 / 60 / 90 / 180, null = off
+  next_review_at        TIMESTAMPTZ,
   -- Per-section edit timestamps (drive the "Updated X ago" line + the
   -- synthesized Decision Log milestones). Distinct from the row-level
   -- updated_at trigger.
@@ -52,8 +58,11 @@ CREATE TABLE IF NOT EXISTS position_intelligence (
 );
 -- (idempotent re-add for a DB where the table pre-existed without them)
 ALTER TABLE position_intelligence
-  ADD COLUMN IF NOT EXISTS thesis_updated_at  TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS targets_updated_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS thesis_updated_at     TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS targets_updated_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS confidence            TEXT,
+  ADD COLUMN IF NOT EXISTS review_frequency_days INT,
+  ADD COLUMN IF NOT EXISTS next_review_at        TIMESTAMPTZ;
 
 -- ── journal_entries (Review Log) — ensure it exists ──────────
 CREATE TABLE IF NOT EXISTS journal_entries (

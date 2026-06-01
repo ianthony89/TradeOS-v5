@@ -187,6 +187,11 @@ export default function PositionHubPage() {
             await PI.saveThesis(sb, userId, holding.symbol, symParam, f)
             const next = { ...intel, ...f, thesisUpdatedAt: new Date().toISOString() }
             setIntel(next); refreshLog(next)
+          }}
+          onConviction={async (c) => {
+            if (!userId) return
+            setIntel({ ...intel, confidence: c })
+            await PI.saveMeta(sb, userId, holding.symbol, symParam, { confidence: c })
           }} />
 
         <TargetCard intel={intel} currency={cur} currentPrice={holding.currentPrice} t={t} lang={lang}
@@ -201,6 +206,13 @@ export default function PositionHubPage() {
       <DecisionLog
         log={log} t={t} lang={lang}
         openedLabel={t('pos_log_opened_body', { qty: fmt.qty(holding.quantity), price: fmt.money(holding.avgCost, cur) })}
+        freq={intel.reviewFrequencyDays} nextReviewAt={intel.nextReviewAt}
+        onReview={async (days) => {
+          if (!userId) return
+          const next = PI.computeNextReview(days)
+          setIntel({ ...intel, reviewFrequencyDays: days, nextReviewAt: next })
+          await PI.saveMeta(sb, userId, holding.symbol, symParam, { reviewFrequencyDays: days, nextReviewAt: next })
+        }}
         onAdd={async (body) => {
           if (!userId || !body.trim()) return
           await PI.addReview(sb, userId, symParam, body.trim())
@@ -243,12 +255,15 @@ function HeroMetric({ label, value, tone }: { label: string; value: string; tone
   )
 }
 
-// ── Investment Thesis (display → edit) ────────────────────────
-function ThesisCard({ intel, t, lang, onSave }: {
+// ── Investment Thesis (display → edit, guided) ────────────────
+const CONV_TONE: Record<'high' | 'medium' | 'low', string> = { high: 'positive', medium: 'accent', low: 'warning' }
+
+function ThesisCard({ intel, t, lang, onSave, onConviction }: {
   intel: PI.PositionIntel
   t: (k: string, v?: Record<string, string | number>) => string
   lang: 'en' | 'zh'
   onSave: (f: { thesis: string; bullCase: string; bearCase: string; invalidation: string }) => Promise<void>
+  onConviction: (c: 'high' | 'medium' | 'low') => void
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving]   = useState(false)
@@ -270,23 +285,36 @@ function ThesisCard({ intel, t, lang, onSave }: {
         {!editing && <button type="button" className="pos-edit-btn" onClick={startEdit}><Pencil size={12} />{empty ? t('pos_add') : t('pos_edit')}</button>}
       </div>
 
+      {/* conviction — quick toggle, always available */}
+      <div className="pos-conv">
+        <span className="pos-conv-label">{t('pos_conviction')}</span>
+        {(['high', 'medium', 'low'] as const).map(c => (
+          <button key={c} type="button"
+            className={`pos-chip${intel.confidence === c ? ' pos-chip--on' : ''}`}
+            style={intel.confidence === c ? { ['--chip' as string]: TONE_VAR[CONV_TONE[c]] } : undefined}
+            onClick={() => onConviction(c)}>{t(`pos_conv_${c}`)}</button>
+        ))}
+      </div>
+
       {editing ? (
         <>
-          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={2} />
-          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
-          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
-          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={1} />
+          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} examples={t('pos_ex_thesis')} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
+          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} examples={t('pos_ex_bull')} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
+          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} examples={t('pos_ex_bear')} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
+          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} examples={t('pos_ex_invalidation')} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
           <div className="pos-save-row">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}><X size={13} />{t('pos_cancel')}</button>
             <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}><Check size={13} />{t('pos_save')}</button>
           </div>
         </>
       ) : empty ? (
-        <div className="pos-empty-rich">
-          <Lightbulb size={22} />
-          <div className="pos-empty-title">{t('pos_thesis_empty_title')}</div>
-          <div className="pos-empty-sub">{t('pos_thesis_empty')}</div>
-          <button type="button" className="btn btn-primary btn-sm" onClick={startEdit}><Plus size={13} />{t('pos_thesis_add')}</button>
+        <div className="pos-framework">
+          <div className="pos-fw-title">{t('pos_thesis_empty_title')}</div>
+          <FwPrompt n="1"                q={t('pos_thesis_hint')}       ex={t('pos_ex_thesis')} />
+          <FwPrompt n="2" tone="positive" q={t('pos_bull_hint')}         ex={t('pos_ex_bull')} />
+          <FwPrompt n="3" tone="negative" q={t('pos_bear_hint')}         ex={t('pos_ex_bear')} />
+          <FwPrompt n="4" tone="warning"  q={t('pos_invalidation_hint')} ex={t('pos_ex_invalidation')} />
+          <button type="button" className="btn btn-primary btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_thesis_add')}</button>
         </div>
       ) : (
         <>
@@ -298,6 +326,15 @@ function ThesisCard({ intel, t, lang, onSave }: {
           <ThesisBlock icon={<AlertTriangle size={13} />} tone="warning" label={t('pos_invalidation')} value={intel.invalidation} />
         </>
       )}
+    </div>
+  )
+}
+
+function FwPrompt({ n, tone, q, ex }: { n: string; tone?: string; q: string; ex: string }) {
+  return (
+    <div className="pos-fw-item">
+      <span className="pos-fw-num" style={tone ? { ['--chip' as string]: TONE_VAR[tone] } : undefined}>{n}</span>
+      <div><div className="pos-fw-q">{q}</div><div className="pos-fw-ex">{ex}</div></div>
     </div>
   )
 }
@@ -349,10 +386,10 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
       {editing ? (
         <>
           <div className="pos-targets">
-            <NumField label={t('pos_target_price')} sym={sym} value={d.targetPrice} onChange={v => setD({ ...d, targetPrice: v })} />
+            <NumField label={t('pos_target_price')} sym={sym} value={d.targetPrice} onChange={v => setD({ ...d, targetPrice: v })} presets={[25, 50, 100]} base={currentPrice} />
             <NumField label={t('pos_fair_value')}   sym={sym} value={d.fairValue}   onChange={v => setD({ ...d, fairValue: v })} />
-            <NumField label={t('pos_trim_above')} tone="warning"  sym={sym} value={d.trimAbove} onChange={v => setD({ ...d, trimAbove: v })} />
-            <NumField label={t('pos_add_below')}  tone="positive" sym={sym} value={d.addBelow}  onChange={v => setD({ ...d, addBelow: v })} />
+            <NumField label={t('pos_trim_above')} tone="warning"  sym={sym} value={d.trimAbove} onChange={v => setD({ ...d, trimAbove: v })} presets={[20, 30, 50]} base={currentPrice} />
+            <NumField label={t('pos_add_below')}  tone="positive" sym={sym} value={d.addBelow}  onChange={v => setD({ ...d, addBelow: v })} presets={[-10, -20, -30]} base={currentPrice} />
           </div>
           <Field label={t('pos_notes')} value={d.planNotes} onChange={v => setD({ ...d, planNotes: v })} rows={2} />
           <div className="pos-save-row">
@@ -361,11 +398,12 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
           </div>
         </>
       ) : empty ? (
-        <div className="pos-empty-rich">
-          <Target size={22} />
-          <div className="pos-empty-title">{t('pos_planner_empty_title')}</div>
-          <div className="pos-empty-sub">{t('pos_planner_empty')}</div>
-          <button type="button" className="btn btn-primary btn-sm" onClick={startEdit}><Plus size={13} />{t('pos_planner_add')}</button>
+        <div className="pos-framework">
+          <div className="pos-fw-title">{t('pos_planner_empty_title')}</div>
+          <FwPrompt n="1" tone="accent"   q={t('pos_target_price')} ex={t('pos_fw_target')} />
+          <FwPrompt n="2" tone="warning"  q={t('pos_trim_above')}   ex={t('pos_fw_trim')} />
+          <FwPrompt n="3" tone="positive" q={t('pos_add_below')}    ex={t('pos_fw_add')} />
+          <button type="button" className="btn btn-primary btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_planner_add')}</button>
         </div>
       ) : (
         <>
@@ -398,11 +436,16 @@ function TgtLevel({ icon, tone, label, value, sym, primary }: { icon: ReactNode;
 function tgtStr(value: number | null, sym: string): string { return value != null ? `${sym}${value.toFixed(2)}` : '—' }
 
 // ── Decision Log ──────────────────────────────────────────────
-function DecisionLog({ log, t, lang, openedLabel, onAdd, onDelete }: {
+const REVIEW_OPTS: (number | null)[] = [null, 30, 60, 90, 180]
+
+function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, onAdd, onDelete }: {
   log: PI.DecisionEntry[]
   t: (k: string, v?: Record<string, string | number>) => string
   lang: 'en' | 'zh'
   openedLabel: string
+  freq: number | null
+  nextReviewAt: string | null
+  onReview: (days: number | null) => void
   onAdd: (body: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }) {
@@ -429,6 +472,17 @@ function DecisionLog({ log, t, lang, openedLabel, onAdd, onDelete }: {
     <div className="panel">
       <div className="pos-section-label">{t('pos_decision_log')}</div>
 
+      {/* review cadence — foundation for the future Alert Engine */}
+      <div className="pos-review">
+        <span className="pos-review-label">{t('pos_review_every')}</span>
+        {REVIEW_OPTS.map(dd => (
+          <button key={dd ?? 'off'} type="button"
+            className={`pos-chip${freq === dd ? ' pos-chip--on' : ''}`}
+            onClick={() => onReview(dd)}>{dd === null ? t('pos_review_off') : t('pos_review_days', { n: dd })}</button>
+        ))}
+        {nextReviewAt && <span className="pos-review-next">{t('pos_review_next', { date: dateShort(nextReviewAt, lang) })}</span>}
+      </div>
+
       <div className="pos-add-review">
         <input className="pos-field" placeholder={t('pos_log_placeholder')} value={draft}
           onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add() }} />
@@ -446,8 +500,8 @@ function DecisionLog({ log, t, lang, openedLabel, onAdd, onDelete }: {
               <div key={e.id} className="pos-tl-item">
                 <span className="pos-tl-dot" style={{ background: TONE_VAR[meta.tone] }} />
                 <div className="pos-tl-head">
+                  <span className="pos-tl-kind" style={{ ['--chip' as string]: TONE_VAR[meta.tone] }}>{t(meta.key)}</span>
                   <span className="pos-tl-date">{dateShort(e.at, lang)}</span>
-                  <span className="pos-tl-kind">{t(meta.key)}</span>
                   {!e.synthetic && <button type="button" className="pos-tl-del" onClick={() => onDelete(e.id)} aria-label="Delete"><Trash2 size={12} /></button>}
                 </div>
                 {body && <div className="pos-tl-body">{body}</div>}
@@ -461,18 +515,21 @@ function DecisionLog({ log, t, lang, openedLabel, onAdd, onDelete }: {
 }
 
 // ── Field primitives ──────────────────────────────────────────
-function Field({ label, hint, tone, value, onChange, rows = 2 }: {
-  label: string; hint?: string; tone?: string; value: string; onChange: (v: string) => void; rows?: number
+function Field({ label, hint, tone, value, onChange, rows = 2, examples }: {
+  label: string; hint?: string; tone?: string; value: string; onChange: (v: string) => void; rows?: number; examples?: string
 }) {
   return (
     <div className="pos-field-group">
       <div className="pos-field-head" style={tone ? { color: TONE_VAR[tone] } : undefined}>{label}{hint && <span className="pos-field-hint">{hint}</span>}</div>
       <textarea className="pos-field" rows={rows} value={value} onChange={e => onChange(e.target.value)} />
+      {examples && <div className="pos-field-ex">{examples}</div>}
     </div>
   )
 }
 
-function NumField({ label, tone, sym, value, onChange }: { label: string; tone?: string; sym: string; value: string; onChange: (v: string) => void }) {
+function NumField({ label, tone, sym, value, onChange, presets, base }: {
+  label: string; tone?: string; sym: string; value: string; onChange: (v: string) => void; presets?: number[]; base?: number
+}) {
   return (
     <div>
       <div className="pos-tgt-label" style={tone ? { color: TONE_VAR[tone] } : undefined}>{label}</div>
@@ -480,6 +537,14 @@ function NumField({ label, tone, sym, value, onChange }: { label: string; tone?:
         <span className="pos-num-sym">{sym}</span>
         <input className="pos-field" inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} />
       </div>
+      {presets && base ? (
+        <div className="pos-presets">
+          {presets.map(p => (
+            <button key={p} type="button" className="pos-chip pos-chip--xs"
+              onClick={() => onChange((base * (1 + p / 100)).toFixed(2))}>{p > 0 ? '+' : ''}{p}%</button>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

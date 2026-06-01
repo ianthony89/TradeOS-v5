@@ -22,12 +22,16 @@ export interface PositionIntel {
   targetCurrency:   string
   planNotes:        string
   targetsUpdatedAt: string | null
+  confidence:           'high' | 'medium' | 'low' | null
+  reviewFrequencyDays:  number | null
+  nextReviewAt:         string | null
 }
 
 export const EMPTY_INTEL: PositionIntel = {
   thesis: '', bullCase: '', bearCase: '', invalidation: '', thesisUpdatedAt: null,
   targetPrice: null, trimAbove: null, addBelow: null, fairValue: null,
   targetCurrency: 'USD', planNotes: '', targetsUpdatedAt: null,
+  confidence: null, reviewFrequencyDays: null, nextReviewAt: null,
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -47,6 +51,9 @@ function fromRow(r: any): PositionIntel {
     targetCurrency:   r.target_currency ?? 'USD',
     planNotes:        r.plan_notes     ?? '',
     targetsUpdatedAt: r.targets_updated_at ?? null,
+    confidence:          (r.confidence ?? null) as PositionIntel['confidence'],
+    reviewFrequencyDays: r.review_frequency_days != null ? Number(r.review_frequency_days) : null,
+    nextReviewAt:        r.next_review_at ?? null,
   }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -87,6 +94,26 @@ export async function saveTargets(
     fair_value: f.fairValue, target_currency: f.targetCurrency, plan_notes: f.planNotes,
     targets_updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,symbol_normalized' })
+}
+
+/** Patch conviction / review-cadence fields (only the keys provided). */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function saveMeta(
+  sb: SupabaseClient, userId: string, symbol: string, symbolNorm: string,
+  f: { confidence?: string | null; reviewFrequencyDays?: number | null; nextReviewAt?: string | null },
+): Promise<void> {
+  const patch: Record<string, any> = { user_id: userId, symbol, symbol_normalized: symbolNorm }
+  if ('confidence' in f)          patch.confidence = f.confidence
+  if ('reviewFrequencyDays' in f) patch.review_frequency_days = f.reviewFrequencyDays
+  if ('nextReviewAt' in f)        patch.next_review_at = f.nextReviewAt
+  await sb.from('position_intelligence').upsert(patch, { onConflict: 'user_id,symbol_normalized' })
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** Next review date = now + N days (ISO), or null when cadence is off. */
+export function computeNextReview(days: number | null): string | null {
+  if (!days || days <= 0) return null
+  return new Date(Date.now() + days * 86_400_000).toISOString()
 }
 
 // ── Decision Log (reuses journal_entries) ─────────────────────
