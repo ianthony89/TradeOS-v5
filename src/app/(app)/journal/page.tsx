@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n/context'
 import { fmt } from '@/lib/utils/format'
 import { Panel, PanelHead, PanelBody } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
+import { DeltaBadge } from '@/components/ui/delta-badge'
 import { SymCell } from '@/components/brand/stock-logo'
 import { stockName } from '@/lib/portfolio/stock-names'
 import { reviewStatus, type ReviewStatus } from '@/lib/portfolio/review-status'
@@ -19,10 +20,6 @@ const CADENCES = [30, 60, 90, 180]
 const TONE_VAR: Record<string, string> = {
   accent: 'var(--accent)', positive: 'var(--positive)', negative: 'var(--negative)', warning: 'var(--warning)',
 }
-function gradeColor(g: QualityGrade): string {
-  return g === 'A+' || g === 'A' ? 'var(--positive)' : g === 'B' ? 'var(--accent)' : g === 'C' ? 'var(--warning)' : 'var(--negative)'
-}
-
 interface Pos {
   symbol: string; symbolNormalized: string; name: string; currency: string
   currentPrice: number; avgCost: number; unrealizedPl: number; unrealizedPlPct: number
@@ -102,10 +99,11 @@ export default function JournalPage() {
   const untracked = enriched.filter(e => !e.intel?.reviewFrequencyDays)
   const queueCount = overdue.length + dueToday.length + soon.length
 
-  const symDisplay = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const h of holdings) m.set(h.symbolNormalized, h.symbol)
-    return m
+  const holdingMeta = useMemo(() => {
+    const sym = new Map<string, string>()
+    const ret = new Map<string, number>()
+    for (const h of holdings) { sym.set(h.symbolNormalized, h.symbol); ret.set(h.symbolNormalized, h.unrealizedPlPct) }
+    return { sym, ret }
   }, [holdings])
   const history = decisions.filter(d => d.body.trim()).slice(0, 50)
 
@@ -191,13 +189,19 @@ export default function JournalPage() {
             <div className="jr-empty">{t('jr_history_empty')}</div>
           ) : (
             <div className="jr-hist">
-              {history.map(d => (
-                <Link key={d.id} href={`/holdings/${encodeURIComponent(d.symbol)}`} className="jr-hist-item">
-                  <span className="jr-hist-sym">{symDisplay.get(d.symbol) ?? d.symbol}</span>
-                  <span className="jr-hist-body">{d.body}</span>
-                  <span className="jr-hist-date">{fmtDate(d.at, lang)}</span>
-                </Link>
-              ))}
+              {history.map(d => {
+                const ret = holdingMeta.ret.get(d.symbol)
+                return (
+                  <Link key={d.id} href={`/holdings/${encodeURIComponent(d.symbol)}`} className="jr-hist-item">
+                    <span className="jr-hist-sym">{holdingMeta.sym.get(d.symbol) ?? d.symbol}</span>
+                    <span className="jr-hist-body">{d.body}</span>
+                    <span className="jr-hist-meta">
+                      {ret != null && <DeltaBadge value={ret} variant="pill" />}
+                      <span className="jr-hist-date">{fmtDate(d.at, lang)}</span>
+                    </span>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </PanelBody>
@@ -260,7 +264,7 @@ function ReviewRow({ e, t, lang, onSave }: {
         <SymCell symbol={pos.symbol} name={stockName(pos.symbol, pos.name, lang)} currency={pos.currency} logoSize={24} />
         <span className="jr-row-meta">
           <span className={`jr-status jr-status--${status?.tone ?? 'positive'}`}>{statusLabel}</span>
-          <span className="jr-grade" style={{ color: gradeColor(grade) }}>{grade}</span>
+          <span className="jr-grade">{grade}</span>
           <ChevronDown size={15} className="jr-chev" />
         </span>
       </button>
@@ -292,13 +296,13 @@ function ReviewRow({ e, t, lang, onSave }: {
             </div>
             <textarea className="jr-note" rows={2} placeholder={t('jr_note_ph')} value={note} onChange={ev => setNote(ev.target.value)} />
             <div className="jr-actions">
-              <Link href={`/holdings/${encodeURIComponent(pos.symbolNormalized)}`} className="btn btn-ghost btn-sm">
-                <ArrowUpRight size={13} />{t('jr_open_hub')}
-              </Link>
-              <button type="button" className="btn btn-primary btn-sm" disabled={cad == null || saving}
+              <button type="button" className="btn btn-ghost btn-sm" disabled={cad == null || saving}
                 onClick={save} title={cad == null ? t('jr_pick_cadence') : undefined}>
                 <Check size={13} />{t('jr_save')}
               </button>
+              <Link href={`/holdings/${encodeURIComponent(pos.symbolNormalized)}`} className="btn btn-primary btn-sm">
+                {t('jr_open_hub')}<ArrowUpRight size={13} />
+              </Link>
             </div>
           </div>
         </div>
@@ -355,7 +359,7 @@ function UntrackedRow({ pos, grade, t, lang, onStart }: {
   return (
     <div className="jr-untracked-row">
       <SymCell symbol={pos.symbol} name={stockName(pos.symbol, pos.name, lang)} currency={pos.currency} logoSize={24} />
-      <span className="jr-grade" style={{ color: gradeColor(grade) }}>{grade}</span>
+      <span className="jr-grade">{grade}</span>
       <div className="jr-cads">
         {CADENCES.map(d => (
           <button key={d} type="button" className={`pos-chip${cad === d ? ' pos-chip--on' : ''}`} onClick={() => setCad(d)}>
