@@ -168,6 +168,33 @@ export async function loadDecisionLog(
     at:   r.created_at,
   }))
 }
+
+export interface DecisionEntryWithSymbol extends DecisionEntry {
+  symbol: string   // symbol_normalized as stored
+}
+
+/**
+ * Bulk-load a user's most recent decisions across ALL positions (newest
+ * first). Powers the Review Hub history feed + the "last reviewed" per
+ * position. Reads journal_entries only — no new tables.
+ */
+export async function loadRecentDecisions(
+  sb: SupabaseClient, userId: string, limit = 200,
+): Promise<DecisionEntryWithSymbol[]> {
+  const { data } = await sb
+    .from('journal_entries')
+    .select('id, symbol, content, title, entry_type, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  return (data ?? []).map((r: any) => ({
+    id:     r.id,
+    symbol: r.symbol ?? '',
+    kind:   (r.entry_type ?? 'manual') as DecisionKind,
+    body:   r.content ?? r.title ?? '',
+    at:     r.created_at,
+  }))
+}
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export async function addReview(

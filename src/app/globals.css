@@ -2042,6 +2042,81 @@ a { color: inherit; text-decoration: none; }
 .rq-item:hover .rq-cta { opacity: 1; }
 
 /* ─────────────────────────────────────────────────────────────
+   Review Workspace / Journal (Phase 2C)
+   ───────────────────────────────────────────────────────────── */
+.jr-page > .panel { margin-bottom: 18px; }
+/* 1 · Review Pulse */
+.jr-pulse { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+.jr-pulse-cell { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface-solid), #101627); border: 1px solid var(--border-default); }
+.jr-pulse-n { font-size: 26px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.jr-pulse-label { font-size: 11px; color: var(--text-tertiary); }
+@media (max-width: 720px) { .jr-pulse { grid-template-columns: repeat(2, 1fr); } }
+
+/* 2 · Review Queue */
+.jr-empty { padding: 12px 14px; border-radius: var(--radius); background: var(--positive-soft);
+  border: 1px solid rgba(16, 185, 129, 0.18); color: var(--positive); font-size: 12.5px; }
+.jr-group { margin-bottom: 14px; }
+.jr-group:last-child { margin-bottom: 0; }
+.jr-group-head { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-quaternary); margin-bottom: 8px; }
+.jr-group-n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px;
+  background: rgba(140,170,220,0.10); color: var(--text-tertiary); font-size: 10.5px; }
+
+.jr-row { border: 1px solid var(--border-default); border-radius: var(--radius); margin-bottom: 7px; overflow: hidden; background: rgba(140,170,220,0.03); }
+.jr-row--open { border-color: var(--border-strong); background: rgba(140,170,220,0.05); }
+.jr-row-head { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px; background: none; border: none; cursor: pointer; text-align: left; }
+.jr-row-meta { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.jr-status { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.jr-status--negative { color: var(--negative); }
+.jr-status--warning  { color: var(--warning); }
+.jr-status--positive { color: var(--text-tertiary); }
+.jr-grade { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jr-chev { color: var(--text-quaternary); transition: transform var(--dur-fast); }
+.jr-row--open .jr-chev { transform: rotate(180deg); }
+
+/* expanded detail */
+.jr-detail { padding: 4px 13px 13px; border-top: 1px solid var(--hairline); }
+.jr-memo { display: flex; flex-direction: column; gap: 9px; margin: 12px 0; }
+.jr-memo-item { }
+.jr-memo-label { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.jr-memo-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 3px 0 0; }
+.jr-memo-none { font-size: 12px; color: var(--text-quaternary); font-style: italic; }
+.jr-targets { margin: 12px 0; padding: 10px 12px; border-radius: 9px; background: rgba(140,170,220,0.04); }
+.jr-targets-label { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-quaternary); margin-bottom: 6px; }
+.jr-target-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-tertiary); padding: 2px 0; }
+.jr-target-v { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.jr-target-dist { color: var(--text-quaternary); font-size: 11.5px; margin-left: 4px; }
+.jr-last { font-size: 11.5px; color: var(--text-tertiary); margin: 10px 0; }
+.jr-last span { color: var(--text-secondary); }
+
+/* the mark-reviewed form */
+.jr-form { border-top: 1px solid var(--hairline); padding-top: 12px; }
+.jr-form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 7px; }
+.jr-req { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--warning); margin-left: 4px; }
+.jr-cads { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 9px; }
+.jr-note { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 9px;
+  padding: 8px 11px; color: var(--text-primary); font-size: 12.5px; font-family: inherit; line-height: 1.5; resize: vertical; }
+.jr-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 10px; }
+
+/* untracked */
+.jr-untracked { display: flex; flex-direction: column; gap: 8px; }
+.jr-untracked-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 4px; border-bottom: 1px solid var(--hairline); }
+.jr-untracked-row:last-child { border-bottom: none; }
+.jr-untracked-row .jr-cads { margin-bottom: 0; margin-left: auto; }
+
+/* 3 · Review History */
+.jr-hist { display: flex; flex-direction: column; }
+.jr-hist-item { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 12px;
+  padding: 9px 4px; text-decoration: none; border-bottom: 1px solid var(--hairline); transition: background var(--dur-fast); }
+.jr-hist-item:last-child { border-bottom: none; }
+.jr-hist-item:hover { background: rgba(140,170,220,0.05); }
+.jr-hist-sym { font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.jr-hist-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; min-width: 0; }
+.jr-hist-date { font-size: 11px; color: var(--text-quaternary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ─────────────────────────────────────────────────────────────
    Watchlist
    ───────────────────────────────────────────────────────────── */
 .watch-summary {
