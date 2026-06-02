@@ -2492,13 +2492,18 @@ a { color: inherit; text-decoration: none; }
 .pos-hero-sym { font-size: 25px; font-weight: 700; letter-spacing: -0.02em; }
 .pos-hero-name { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
 .pos-hero-right { text-align: right; }
-.pos-hero-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.pos-hero-return { font-size: 14px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.pos-hero-value { font-size: 34px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.pos-hero-return { font-size: 16px; font-weight: 700; margin-top: 5px; font-variant-numeric: tabular-nums; }
 .pos-hero-badges { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* secondary market metrics strip — subordinate to the portfolio numbers */
 .pos-hero-metrics { grid-column: 1 / -1; display: flex; gap: 30px; padding-top: 15px; border-top: 1px solid var(--hairline); }
 .pos-hero-metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-quaternary); }
 .pos-hero-metric-value { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-top: 3px; }
+/* position-quality meter — front-end completeness (thesis/plan/conviction/review) */
+.pos-quality { display: flex; align-items: center; gap: 4px; margin-top: 6px; cursor: default; }
+.pos-quality-seg { width: 16px; height: 5px; border-radius: 99px; background: var(--border-default); }
+.pos-quality-seg.on { background: var(--chip, var(--accent)); }
+.pos-quality-n { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-left: 5px; font-variant-numeric: tabular-nums; }
 .pos-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 11px; border-radius: 99px; }
 .pos-weight-pill { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); padding: 4px 11px; border-radius: 99px;
   background: rgba(140,170,220,0.08); font-variant-numeric: tabular-nums; }
@@ -2543,17 +2548,15 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 .pos-read-empty { color: var(--text-quaternary); }
 
 /* investment thesis — the hero section of the page */
-.pos-thesis-main { font-size: 15px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; margin-bottom: 16px; }
-.pos-thesis-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-.pos-case {
-  background: var(--bg-elevated); border: 1px solid var(--border-default);
-  border-left: 3px solid var(--case, var(--accent)); border-radius: 10px; padding: 12px 14px;
+/* thesis read mode — an investment memo (prose with eyebrow headings, no boxes) */
+.pos-memo-lead { font-size: 16px; line-height: 1.65; color: var(--text-primary); margin: 0 0 18px; white-space: pre-wrap; }
+.pos-memo-section { margin-bottom: 16px; }
+.pos-memo-section:last-child { margin-bottom: 0; }
+.pos-memo-label {
+  display: inline-flex; align-items: center; gap: 5px; margin-bottom: 5px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
 }
-.pos-case-label {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--case, var(--accent));
-}
-.pos-case-body { font-size: 13px; line-height: 1.55; color: var(--text-secondary); white-space: pre-wrap; }
+.pos-memo-body { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); white-space: pre-wrap; }
 
 /* target planner — a decision ladder, not a settings form */
 .pos-targets { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
@@ -2561,19 +2564,25 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 .pos-num-input { position: relative; }
 .pos-num-sym { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-quaternary); font-size: 13px; pointer-events: none; }
 .pos-num-input .pos-field { padding-left: 27px; font-variant-numeric: tabular-nums; font-weight: 600; }
-.pos-tgt-ladder { display: flex; flex-direction: column; gap: 9px; }
-.pos-tgt-level {
+/* read mode — a trading ladder ordered by price, with the live "now" rung */
+.pos-ladder { display: flex; flex-direction: column; gap: 8px; }
+.pos-rung {
   display: flex; align-items: center; gap: 12px; padding: 11px 14px;
   background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: 11px;
 }
-.pos-tgt-level-icon {
+.pos-rung-icon {
   width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   color: var(--lvl, var(--accent)); background: color-mix(in srgb, var(--lvl, var(--accent)) 14%, transparent);
 }
-.pos-tgt-level-label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
-.pos-tgt-level-val { margin-left: auto; font-size: 18px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.pos-tgt-level--primary { border-color: color-mix(in srgb, var(--lvl) 35%, var(--border-default)); background: color-mix(in srgb, var(--lvl) 7%, var(--bg-elevated)); }
-.pos-tgt-level--primary .pos-tgt-level-val { font-size: 20px; }
+.pos-rung-label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.pos-rung-val { margin-left: auto; font-size: 19px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.pos-rung-dist { width: 56px; text-align: right; font-size: 12px; font-weight: 600; color: var(--lvl, var(--accent)); font-variant-numeric: tabular-nums; }
+.pos-rung--primary { border-color: color-mix(in srgb, var(--lvl) 35%, var(--border-default)); background: color-mix(in srgb, var(--lvl) 7%, var(--bg-elevated)); }
+.pos-rung--primary .pos-rung-val { font-size: 22px; }
+.pos-rung--now { background: transparent; border-style: dashed; }
+.pos-rung--now .pos-rung-icon { background: transparent; color: var(--text-quaternary); }
+.pos-rung--now .pos-rung-label { color: var(--text-tertiary); }
+.pos-rung--now .pos-rung-val { font-size: 15px; font-weight: 600; color: var(--text-tertiary); }
 .pos-tgt-foot { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 13px; font-size: 12px; color: var(--text-tertiary); }
 .pos-tgt-foot b { color: var(--text-secondary); font-weight: 600; font-variant-numeric: tabular-nums; }
 .pos-tgt-notes { margin-top: 12px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); white-space: pre-wrap; }
@@ -2597,7 +2606,7 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 .pos-tl-item:last-child { padding-bottom: 0; }
 .pos-tl-dot { position: absolute; left: -24px; top: 3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--bg-base); }
 .pos-tl-head { display: flex; align-items: center; gap: 9px; }
-.pos-tl-date { font-size: 11.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.pos-tl-date { font-size: 11px; color: var(--text-quaternary); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .pos-tl-kind {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
@@ -2608,7 +2617,8 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 .pos-tl-del { margin-left: auto; color: var(--text-quaternary); opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast); }
 .pos-tl-item:hover .pos-tl-del { opacity: 1; }
 .pos-tl-del:hover { color: var(--negative); }
-.pos-tl-body { font-size: 13px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+/* event line promoted to the timeline's title; timestamp demoted below it */
+.pos-tl-title { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-top: 5px; line-height: 1.5; }
 
 /* chips — shared by conviction, target presets, review cadence */
 .pos-chip {

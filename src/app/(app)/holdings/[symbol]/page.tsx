@@ -131,6 +131,17 @@ export default function PositionHubPage() {
   const pos      = holding.unrealizedPl >= 0
   const rs       = reviewStatus(intel.nextReviewAt)
 
+  // Position quality — front-end completeness signal (no AI, no backend).
+  const q = {
+    thesis:     !!(intel.thesis || intel.bullCase || intel.bearCase || intel.invalidation),
+    plan:       intel.targetPrice != null || intel.trimAbove != null || intel.addBelow != null || intel.fairValue != null,
+    conviction: !!intel.confidence,
+    review:     intel.reviewFrequencyDays != null,
+  }
+  const qScore = [q.thesis, q.plan, q.conviction, q.review].filter(Boolean).length
+  const qTone  = qScore >= 4 ? 'positive' : qScore >= 2 ? 'accent' : 'warning'
+  const qTip   = `${q.thesis ? '✓' : '○'} ${t('pos_q_thesis')}   ${q.plan ? '✓' : '○'} ${t('pos_q_plan')}   ${q.conviction ? '✓' : '○'} ${t('pos_conviction')}   ${q.review ? '✓' : '○'} ${t('pos_q_review')}`
+
   return (
     <div className="pos-hub">
       <Link href="/holdings" className="pos-back"><ArrowLeft size={15} />{t('pos_back')}</Link>
@@ -172,6 +183,13 @@ export default function PositionHubPage() {
           <HeroMetric label={t('pos_current_price')} value={fmt.money(holding.currentPrice, cur)} />
           <HeroMetric label={t('pos_avg_cost')}      value={fmt.money(holding.avgCost, cur)} />
           <HeroMetric label={t('pos_today_pl')}       value={`${holding.todayPl >= 0 ? '+' : ''}${fmt.money(holding.todayPl, cur)}`} tone={holding.todayPl >= 0 ? 'pos' : 'neg'} />
+          <div className="pos-hero-metric" title={qTip}>
+            <div className="pos-hero-metric-label">{t('pos_quality')}</div>
+            <div className="pos-quality" style={{ ['--chip' as string]: TONE_VAR[qTone] }}>
+              {[0, 1, 2, 3].map(i => <span key={i} className={`pos-quality-seg${i < qScore ? ' on' : ''}`} />)}
+              <span className="pos-quality-n">{qScore}/4</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -366,14 +384,12 @@ function ThesisCard({ intel, t, lang, onSave }: {
           <button type="button" className="btn btn-ghost btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_scratch')}</button>
         </div>
       ) : (
-        <>
-          {intel.thesis && <div className="pos-thesis-main">{intel.thesis}</div>}
-          <div className="pos-thesis-cases">
-            <ThesisBlock icon={<TrendingUp size={13} />}    tone="positive" label={t('pos_bull')} value={intel.bullCase} />
-            <ThesisBlock icon={<TrendingDown size={13} />}  tone="negative" label={t('pos_bear')} value={intel.bearCase} />
-          </div>
-          <ThesisBlock icon={<AlertTriangle size={13} />} tone="warning" label={t('pos_invalidation')} value={intel.invalidation} />
-        </>
+        <div className="pos-memo">
+          {intel.thesis && <p className="pos-memo-lead">{intel.thesis}</p>}
+          <MemoSection icon={<TrendingUp size={12} />}    tone="positive" label={t('pos_bull')}         value={intel.bullCase} />
+          <MemoSection icon={<TrendingDown size={12} />}  tone="negative" label={t('pos_bear')}         value={intel.bearCase} />
+          <MemoSection icon={<AlertTriangle size={12} />} tone="warning"  label={t('pos_invalidation')} value={intel.invalidation} />
+        </div>
       )}
     </div>
   )
@@ -388,11 +404,12 @@ function FwPrompt({ n, icon, tone, q, ex }: { n?: string; icon?: ReactNode; tone
   )
 }
 
-function ThesisBlock({ icon, tone, label, value }: { icon: ReactNode; tone: string; label: string; value: string }) {
+function MemoSection({ icon, tone, label, value }: { icon: ReactNode; tone: string; label: string; value: string }) {
+  if (!value) return null
   return (
-    <div className="pos-case" style={{ ['--case' as string]: TONE_VAR[tone] }}>
-      <div className="pos-case-label">{icon}{label}</div>
-      <div className="pos-case-body">{value || <span className="pos-read-empty">—</span>}</div>
+    <div className="pos-memo-section">
+      <div className="pos-memo-label" style={{ color: TONE_VAR[tone] }}>{icon}{label}</div>
+      <p className="pos-memo-body">{value}</p>
     </div>
   )
 }
@@ -457,15 +474,10 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
         </div>
       ) : (
         <>
-          <div className="pos-tgt-ladder">
-            <TgtLevel icon={<ArrowUp size={14} />}   tone="warning"  label={t('pos_trim_above')}   value={intel.trimAbove}   sym={sym} />
-            <TgtLevel icon={<Target size={14} />}    tone="accent"   label={t('pos_target_price')} value={intel.targetPrice} sym={sym} primary />
-            <TgtLevel icon={<ArrowDown size={14} />} tone="positive" label={t('pos_add_below')}    value={intel.addBelow}    sym={sym} />
-          </div>
-          <div className="pos-tgt-foot">
-            <span>{t('pos_fair_value')} · <b>{tgtStr(intel.fairValue, sym)}</b></span>
-            <span>{t('pos_current_price')} · <b>{sym}{currentPrice.toFixed(2)}</b></span>
-          </div>
+          <TargetLadder intel={intel} currentPrice={currentPrice} sym={sym} t={t} />
+          {intel.fairValue != null && (
+            <div className="pos-tgt-foot"><span>{t('pos_fair_value')} · <b>{tgtStr(intel.fairValue, sym)}</b></span></div>
+          )}
           {intel.planNotes && <div className="pos-tgt-notes">{intel.planNotes}</div>}
         </>
       )}
@@ -473,12 +485,32 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
   )
 }
 
-function TgtLevel({ icon, tone, label, value, sym, primary }: { icon: ReactNode; tone: string; label: string; value: number | null; sym: string; primary?: boolean }) {
+function TargetLadder({ intel, currentPrice, sym, t }: {
+  intel: PI.PositionIntel; currentPrice: number; sym: string
+  t: (k: string, v?: Record<string, string | number>) => string
+}) {
+  type Rung = { key: string; label: string; value: number; tone: string; icon: ReactNode; primary?: boolean; isNow?: boolean }
+  const rungs: Rung[] = []
+  if (intel.trimAbove   != null) rungs.push({ key: 'trim',   label: t('pos_trim_above'),   value: intel.trimAbove,   tone: 'warning',  icon: <ArrowUp size={14} /> })
+  if (intel.targetPrice != null) rungs.push({ key: 'target', label: t('pos_target_price'), value: intel.targetPrice, tone: 'accent',   icon: <Target size={14} />, primary: true })
+  if (intel.addBelow    != null) rungs.push({ key: 'add',    label: t('pos_add_below'),    value: intel.addBelow,    tone: 'positive', icon: <ArrowDown size={14} /> })
+  rungs.push({ key: 'now', label: t('pos_now'), value: currentPrice, tone: 'neutral', icon: <Minus size={14} />, isNow: true })
+  rungs.sort((a, b) => b.value - a.value)
   return (
-    <div className={`pos-tgt-level${primary ? ' pos-tgt-level--primary' : ''}`} style={{ ['--lvl' as string]: TONE_VAR[tone] }}>
-      <span className="pos-tgt-level-icon">{icon}</span>
-      <span className="pos-tgt-level-label">{label}</span>
-      <span className="pos-tgt-level-val text-tabular">{value != null ? `${sym}${value.toFixed(2)}` : <span className="pos-read-empty">—</span>}</span>
+    <div className="pos-ladder">
+      {rungs.map(r => {
+        const dist = currentPrice ? ((r.value - currentPrice) / currentPrice) * 100 : 0
+        return (
+          <div key={r.key} className={`pos-rung${r.isNow ? ' pos-rung--now' : ''}${r.primary ? ' pos-rung--primary' : ''}`} style={{ ['--lvl' as string]: TONE_VAR[r.tone] }}>
+            <span className="pos-rung-icon">{r.icon}</span>
+            <span className="pos-rung-label">{r.label}</span>
+            <span className="pos-rung-val text-tabular">{sym}{r.value.toFixed(2)}</span>
+            {r.isNow
+              ? <span className="pos-rung-dist" />
+              : <span className="pos-rung-dist text-tabular">{dist >= 0 ? '+' : ''}{dist.toFixed(1)}%</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -552,10 +584,10 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
                 <span className="pos-tl-dot" style={{ background: TONE_VAR[meta.tone] }} />
                 <div className="pos-tl-head">
                   <span className="pos-tl-kind" style={{ ['--chip' as string]: TONE_VAR[meta.tone] }}><KindIcon size={11} />{t(meta.key)}</span>
-                  <span className="pos-tl-date">{dateShort(e.at, lang)}</span>
                   {!e.synthetic && <button type="button" className="pos-tl-del" onClick={() => onDelete(e.id)} aria-label="Delete"><Trash2 size={12} /></button>}
                 </div>
-                {body && <div className="pos-tl-body">{body}</div>}
+                {body && <div className="pos-tl-title">{body}</div>}
+                <div className="pos-tl-date">{dateShort(e.at, lang)}</div>
               </div>
             )
           })}
