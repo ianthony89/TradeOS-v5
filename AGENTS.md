@@ -88,12 +88,12 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 
 ### Current phase
 
-**Status: Phase 1 COMPLETE & live. Phase 2A (Position Intelligence Hub) COMPLETE & FROZEN.** _Last updated: 2026-06-02._
+**Status: Phase 1 live. Phase 2A (Position Hub) + Phase 2B (Dashboard Attention Layer) COMPLETE & FROZEN.** _Last updated: 2026-06-03._
 
 Shipped surfaces:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
 - App shell (sidebar / topbar / mobile nav)
-- Dashboard (intelligence-first cockpit + Action Center) — current panel set in § 4
+- Dashboard (intelligence-first cockpit + **Attention Layer**, Phase 2B) — current panel set in § 4. The **Attention Layer** = a unified **Attention Feed** (price + review-due + missing-thesis/targets on the Top-5 by weight + watchlist-triggered, prioritized, capped 5, one item per position) and a **Review Queue** (full review schedule, overdue→due→soon). Every item deep-links into the Position Hub (`/holdings/[symbol]`; watchlist triggers → `/watchlist`). Engine `lib/portfolio/attention.ts` (rules-based, no AI) replaced the old `action-center.ts`. **Dashboard = Attention Layer; Position Hub = Decision Layer. FROZEN — bug fixes only.**
 - Holdings (decision workspace)
 - **Position Hub** (Phase 2A — per-position intelligence at `/holdings/[symbol]`): Hero, Overview, Investment Thesis (10 starter templates + sentence-based **Strengthen Thesis** building blocks that append), Target Planner (price ladder), Decision Log, plus **lightweight** Conviction (hero badge) + Review Schedule (cadence chips). **Position Quality** = a frozen **5-dimension** completeness grade — Investment Thesis · Target Plan · Decision Log · Conviction · Review Schedule → A+/A/B/C/D, rendered as a `Complete:` ✓ list + `Missing:` • list. Client-Supabase + RLS via `position_intelligence` + `journal_entries` (**migration 007 must be applied** or Conviction/Review won't persist). **This surface is FROZEN — bug fixes only, no redesigns, no new sections.**
 - Watchlist (radar system — symbol / target / distance / status, persisted to `watchlist_items`)
@@ -101,14 +101,17 @@ Shipped surfaces:
 - Admin (invite-only onboarding: generate single-use codes + approve users + members list)
 - Market intelligence (live sessions, FX, sync indicators)
 
-**Phase 2A** — ✅ DONE & frozen: Position Intelligence Hub (above).
+**Phase 2A** — ✅ DONE & frozen: Position Intelligence Hub.
+**Phase 2B** — ✅ DONE & frozen: Dashboard Attention Layer (Attention Feed + Review Queue).
+**Phase 2C (next)** — **Review Hub**: a dedicated cross-position review workspace (the Review Queue is the dashboard teaser; the Hub is the full surface). Architecture-review-first, same as every module.
 **Phase 2 (remaining)** — Planned: cross-position Journal / Planner / AI insights / Price alerts.
-Conviction UI, Review Schedule UI, AI analysis, news/earnings feeds, and an alert engine are **explicitly deferred by owner decision** (DB foundations OK; no new user-facing UI). Roadmap cards stay honest "Coming soon" with claimed nav slots — NOT fake shells. Do not populate them with invented data or fake panels.
+AI analysis, news/earnings feeds, and an alert engine are **explicitly deferred by owner decision** (DB foundations OK; no new user-facing UI). Roadmap cards stay honest "Coming soon" with claimed nav slots — NOT fake shells. Do not populate them with invented data or fake panels.
 
 ### Recent changes (newest first)
 
 Audit trail of the last sprint (latest commits on `main`). For an auditor: this is where the dashboard actually stands today.
 
+- **2026-06-03** — **Dashboard Attention Layer (Phase 2B) shipped & FROZEN.** New rules-based engine `lib/portfolio/attention.ts` (no AI) fuses price + review-due + missing-thesis/targets (Top-5 by weight) + watchlist-triggered into one prioritized **Attention Feed**; a **Review Queue** lists the full schedule (overdue→due→soon) with an explicit "Review →" CTA. Every item deep-links into the Position Hub (`/watchlist` for unowned watch triggers). Replaced the price-only `action-center.ts` (deleted); added `loadAllPositionIntel` bulk loader + shared `review-status.ts` (Hub kept its frozen inline copy); `IntelCard` gained a deep-link href. Polish: 60/40 split, neutral cards with a thin left accent (reduced color noise), terse `{symbol} · issue` copy. EN+ZH. Hero/Allocation/Risk/Movers/Holdings untouched. `24f60c2`, `5a1c13e`.
 - **2026-06-02** — **Position Hub (Phase 2A) finalized & FROZEN.** Position Quality became a **5-dimension** `Complete:` / `Missing:` readout on its own hero line — added **Decision Log** as a tracked dimension; grade rebased to 5=A+, 4=A, 3=B, 2=C, ≤1=D `472cd44`. **Strengthen Thesis** building blocks are now **complete sentences that append** to the thesis (never keyword chips, never overwrite) `53a46c3`. Thesis library expanded to **10 production-ready starter templates** (Growth · Compounder · Value · Dividend · Turnaround · Speculation · ETF · Cyclical · AI Theme · Small Cap), each 80–90% pre-written across Why/Bull/Bear/Invalidation, EN+ZH `50318fe`, `10cdecf`. Owner kept Conviction + Review Schedule (lightweight) so positions can reach A+, then **froze the whole Position Quality model + Position Hub** (bug fixes only).
 - **2026-06-01** — Allocation **finalized: Donut (default) + ranked List**. Sunburst & Treemap were trialled and **removed** (too many edge cases); the `StarItem` type now lives in `donut-chart.tsx`. The diversification footer shows on the **List only** (it unbalanced the donut). `bf33553`, `4ce21e1`.
 - **2026-05-31** — **Diversification footer** on the List: "effective sectors" (inverse Herfindahl index) + verdict pill (Concentrated / Balanced / Diversified) + top-2 concentration read. Pins to the panel bottom, mirrors the Risk "Suggested actions" box. `d064cc4`.
