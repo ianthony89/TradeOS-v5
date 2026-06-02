@@ -2487,23 +2487,22 @@ a { color: inherit; text-decoration: none; }
 .pos-hub .panel { padding: 20px 22px; margin-bottom: 18px; }
 
 /* hero */
-.pos-hero { display: grid; grid-template-columns: 1fr auto; gap: 16px 20px; }
-.pos-hero-id { display: flex; align-items: center; gap: 14px; }
-.pos-hero-sym { font-size: 25px; font-weight: 700; letter-spacing: -0.02em; }
-.pos-hero-name { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+.pos-hero { display: grid; grid-template-columns: 1fr auto; gap: 13px 20px; }
+.pos-hero-id { display: flex; align-items: center; gap: 13px; }
+.pos-hero-sym { font-size: 23px; font-weight: 700; letter-spacing: -0.02em; }
+.pos-hero-name { font-size: 13px; color: var(--text-tertiary); margin-top: 1px; }
 .pos-hero-right { text-align: right; }
-.pos-hero-value { font-size: 34px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.pos-hero-return { font-size: 16px; font-weight: 700; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.pos-hero-value { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.pos-hero-return { font-size: 16px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
 .pos-hero-badges { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* secondary market metrics strip — subordinate to the portfolio numbers */
-.pos-hero-metrics { grid-column: 1 / -1; display: flex; gap: 30px; padding-top: 15px; border-top: 1px solid var(--hairline); }
+.pos-hero-metrics { grid-column: 1 / -1; display: flex; gap: 30px; padding-top: 13px; border-top: 1px solid var(--hairline); }
 .pos-hero-metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-quaternary); }
 .pos-hero-metric-value { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-top: 3px; }
-/* position-quality meter — front-end completeness (thesis/plan/conviction/review) */
-.pos-quality { display: flex; align-items: center; gap: 4px; margin-top: 6px; cursor: default; }
-.pos-quality-seg { width: 16px; height: 5px; border-radius: 99px; background: var(--border-default); }
-.pos-quality-seg.on { background: var(--chip, var(--accent)); }
-.pos-quality-n { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-left: 5px; font-variant-numeric: tabular-nums; }
+/* position quality — front-end completeness as a letter grade + missing item */
+.pos-quality { display: flex; align-items: baseline; gap: 8px; margin-top: 3px; cursor: default; }
+.pos-quality-grade { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.pos-quality-miss { font-size: 11px; color: var(--text-quaternary); }
 .pos-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 11px; border-radius: 99px; }
 .pos-weight-pill { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); padding: 4px 11px; border-radius: 99px;
   background: rgba(140,170,220,0.08); font-variant-numeric: tabular-nums; }
@@ -2548,14 +2547,14 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 .pos-read-empty { color: var(--text-quaternary); }
 
 /* investment thesis — the hero section of the page */
-/* thesis read mode — an investment memo (prose with eyebrow headings, no boxes) */
-.pos-memo-lead { font-size: 16px; line-height: 1.65; color: var(--text-primary); margin: 0 0 18px; white-space: pre-wrap; }
-.pos-memo-section { margin-bottom: 16px; }
+/* thesis read mode — an investment memo (prose with primary headings, no boxes) */
+.pos-memo-section { margin-bottom: 17px; }
 .pos-memo-section:last-child { margin-bottom: 0; }
 .pos-memo-label {
-  display: inline-flex; align-items: center; gap: 5px; margin-bottom: 5px;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 5px; margin-bottom: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
 }
+.pos-memo-lead { margin: 0; font-size: 16px; line-height: 1.6; color: var(--text-primary); white-space: pre-wrap; }
 .pos-memo-body { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); white-space: pre-wrap; }
 
 /* target planner — a decision ladder, not a settings form */
@@ -2607,18 +2606,15 @@ textarea.pos-field { resize: vertical; min-height: 54px; }
 .pos-tl-dot { position: absolute; left: -24px; top: 3px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--bg-base); }
 .pos-tl-head { display: flex; align-items: center; gap: 9px; }
 .pos-tl-date { font-size: 11px; color: var(--text-quaternary); margin-top: 4px; font-variant-numeric: tabular-nums; }
-.pos-tl-kind {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--chip, var(--text-tertiary));
-  background: color-mix(in srgb, var(--chip, var(--text-tertiary)) 16%, transparent);
-  padding: 2px 7px 2px 6px; border-radius: 5px;
+.pos-tl-type {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
 }
 .pos-tl-del { margin-left: auto; color: var(--text-quaternary); opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast); }
 .pos-tl-item:hover .pos-tl-del { opacity: 1; }
 .pos-tl-del:hover { color: var(--negative); }
-/* event line promoted to the timeline's title; timestamp demoted below it */
-.pos-tl-title { font-size: 14px; font-weight: 500; color: var(--text-primary); margin-top: 5px; line-height: 1.5; }
+/* event type promoted to a heading; body is detail; timestamp demoted */
+.pos-tl-detail { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
 
 /* chips — shared by conviction, target presets, review cadence */
 .pos-chip {

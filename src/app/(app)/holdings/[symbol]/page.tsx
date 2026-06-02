@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   ArrowLeft, Lightbulb, Target, Pencil, Check, X, Plus, Trash2,
   TrendingUp, TrendingDown, AlertTriangle, ArrowUp, ArrowDown,
-  Flag, Minus, LogOut, FileText, MessageSquare, type LucideIcon,
+  Flag, Minus, LogOut, FileText, MessageSquare, Scale, type LucideIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useI18n } from '@/lib/i18n/context'
@@ -41,7 +41,7 @@ function mapRow(row: any): Holding {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 const TONE_VAR: Record<string, string> = {
-  accent: 'var(--accent)', positive: 'var(--positive)',
+  accent: 'var(--accent)', accent2: 'var(--accent-2)', positive: 'var(--positive)',
   warning: 'var(--warning)', negative: 'var(--negative)', neutral: 'var(--text-tertiary)',
 }
 
@@ -140,7 +140,17 @@ export default function PositionHubPage() {
   }
   const qScore = [q.thesis, q.plan, q.conviction, q.review].filter(Boolean).length
   const qTone  = qScore >= 4 ? 'positive' : qScore >= 2 ? 'accent' : 'warning'
-  const qTip   = `${q.thesis ? '✓' : '○'} ${t('pos_q_thesis')}   ${q.plan ? '✓' : '○'} ${t('pos_q_plan')}   ${q.conviction ? '✓' : '○'} ${t('pos_conviction')}   ${q.review ? '✓' : '○'} ${t('pos_q_review')}`
+  const qGrade = qScore === 4 ? 'A+' : qScore === 3 ? 'A' : qScore === 2 ? 'B' : 'C'
+  const qMissingList = [
+    !q.thesis     && t('pos_q_thesis'),
+    !q.plan       && t('pos_q_plan'),
+    !q.conviction && t('pos_conviction'),
+    !q.review     && t('pos_q_review'),
+  ].filter(Boolean) as string[]
+  const qMissing = qMissingList.length === 0 ? t('pos_q_complete')
+    : qMissingList.length === 1 ? t('pos_missing_one', { item: qMissingList[0] })
+    : t('pos_missing_n', { n: qMissingList.length })
+  const qTip = `${q.thesis ? '✓' : '○'} ${t('pos_q_thesis')}   ${q.plan ? '✓' : '○'} ${t('pos_q_plan')}   ${q.conviction ? '✓' : '○'} ${t('pos_conviction')}   ${q.review ? '✓' : '○'} ${t('pos_q_review')}`
 
   return (
     <div className="pos-hub">
@@ -185,9 +195,9 @@ export default function PositionHubPage() {
           <HeroMetric label={t('pos_today_pl')}       value={`${holding.todayPl >= 0 ? '+' : ''}${fmt.money(holding.todayPl, cur)}`} tone={holding.todayPl >= 0 ? 'pos' : 'neg'} />
           <div className="pos-hero-metric" title={qTip}>
             <div className="pos-hero-metric-label">{t('pos_quality')}</div>
-            <div className="pos-quality" style={{ ['--chip' as string]: TONE_VAR[qTone] }}>
-              {[0, 1, 2, 3].map(i => <span key={i} className={`pos-quality-seg${i < qScore ? ' on' : ''}`} />)}
-              <span className="pos-quality-n">{qScore}/4</span>
+            <div className="pos-quality">
+              <span className="pos-quality-grade" style={{ color: TONE_VAR[qTone] }}>{qGrade}</span>
+              <span className="pos-quality-miss">{qMissing}</span>
             </div>
           </div>
         </div>
@@ -385,7 +395,7 @@ function ThesisCard({ intel, t, lang, onSave }: {
         </div>
       ) : (
         <div className="pos-memo">
-          {intel.thesis && <p className="pos-memo-lead">{intel.thesis}</p>}
+          <MemoSection tone="accent" label={t('pos_why')} value={intel.thesis} lead />
           <MemoSection icon={<TrendingUp size={12} />}    tone="positive" label={t('pos_bull')}         value={intel.bullCase} />
           <MemoSection icon={<TrendingDown size={12} />}  tone="negative" label={t('pos_bear')}         value={intel.bearCase} />
           <MemoSection icon={<AlertTriangle size={12} />} tone="warning"  label={t('pos_invalidation')} value={intel.invalidation} />
@@ -404,12 +414,12 @@ function FwPrompt({ n, icon, tone, q, ex }: { n?: string; icon?: ReactNode; tone
   )
 }
 
-function MemoSection({ icon, tone, label, value }: { icon: ReactNode; tone: string; label: string; value: string }) {
+function MemoSection({ icon, tone, label, value, lead }: { icon?: ReactNode; tone: string; label: string; value: string; lead?: boolean }) {
   if (!value) return null
   return (
     <div className="pos-memo-section">
       <div className="pos-memo-label" style={{ color: TONE_VAR[tone] }}>{icon}{label}</div>
-      <p className="pos-memo-body">{value}</p>
+      <p className={lead ? 'pos-memo-lead' : 'pos-memo-body'}>{value}</p>
     </div>
   )
 }
@@ -475,9 +485,6 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
       ) : (
         <>
           <TargetLadder intel={intel} currentPrice={currentPrice} sym={sym} t={t} />
-          {intel.fairValue != null && (
-            <div className="pos-tgt-foot"><span>{t('pos_fair_value')} · <b>{tgtStr(intel.fairValue, sym)}</b></span></div>
-          )}
           {intel.planNotes && <div className="pos-tgt-notes">{intel.planNotes}</div>}
         </>
       )}
@@ -493,6 +500,7 @@ function TargetLadder({ intel, currentPrice, sym, t }: {
   const rungs: Rung[] = []
   if (intel.trimAbove   != null) rungs.push({ key: 'trim',   label: t('pos_trim_above'),   value: intel.trimAbove,   tone: 'warning',  icon: <ArrowUp size={14} /> })
   if (intel.targetPrice != null) rungs.push({ key: 'target', label: t('pos_target_price'), value: intel.targetPrice, tone: 'accent',   icon: <Target size={14} />, primary: true })
+  if (intel.fairValue   != null) rungs.push({ key: 'fair',   label: t('pos_fair_value'),   value: intel.fairValue,   tone: 'accent2',  icon: <Scale size={14} /> })
   if (intel.addBelow    != null) rungs.push({ key: 'add',    label: t('pos_add_below'),    value: intel.addBelow,    tone: 'positive', icon: <ArrowDown size={14} /> })
   rungs.push({ key: 'now', label: t('pos_now'), value: currentPrice, tone: 'neutral', icon: <Minus size={14} />, isNow: true })
   rungs.sort((a, b) => b.value - a.value)
@@ -515,7 +523,6 @@ function TargetLadder({ intel, currentPrice, sym, t }: {
   )
 }
 
-function tgtStr(value: number | null, sym: string): string { return value != null ? `${sym}${value.toFixed(2)}` : '—' }
 
 // ── Decision Log ──────────────────────────────────────────────
 const REVIEW_OPTS: (number | null)[] = [null, 30, 60, 90, 180]
@@ -539,15 +546,15 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
     setBusy(true); await onAdd(draft); setBusy(false); setDraft('')
   }
 
-  const KIND: Record<string, { tone: string; key: string; Icon: LucideIcon }> = {
-    opened:         { tone: 'accent',   key: 'pos_log_opened', Icon: Flag },
-    added:          { tone: 'positive', key: 'pos_log_added',  Icon: Plus },
-    reduced:        { tone: 'warning',  key: 'pos_log_reduced',Icon: Minus },
-    exited:         { tone: 'negative', key: 'pos_log_exited', Icon: LogOut },
-    thesis_updated: { tone: 'accent',   key: 'pos_log_thesis', Icon: FileText },
-    target_updated: { tone: 'warning',  key: 'pos_log_target', Icon: Target },
-    manual:         { tone: 'neutral',  key: 'pos_log_review', Icon: MessageSquare },
-    review:         { tone: 'neutral',  key: 'pos_log_review', Icon: MessageSquare },
+  const KIND: Record<string, { tone: string; tkey: string; Icon: LucideIcon }> = {
+    opened:         { tone: 'accent',   tkey: 'pos_logt_opened',  Icon: Flag },
+    added:          { tone: 'positive', tkey: 'pos_logt_added',   Icon: Plus },
+    reduced:        { tone: 'warning',  tkey: 'pos_logt_reduced', Icon: Minus },
+    exited:         { tone: 'negative', tkey: 'pos_logt_exited',  Icon: LogOut },
+    thesis_updated: { tone: 'accent',   tkey: 'pos_logt_thesis',  Icon: FileText },
+    target_updated: { tone: 'warning',  tkey: 'pos_logt_target',  Icon: Target },
+    manual:         { tone: 'neutral',  tkey: 'pos_logt_review',  Icon: MessageSquare },
+    review:         { tone: 'neutral',  tkey: 'pos_logt_review',  Icon: MessageSquare },
   }
 
   return (
@@ -578,15 +585,15 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
           {log.map(e => {
             const meta = KIND[e.kind] ?? KIND.manual
             const KindIcon = meta.Icon
-            const body = e.synthetic ? (e.kind === 'opened' ? openedLabel : t(`${meta.key}_body`)) : e.body
+            const body = e.synthetic ? (e.kind === 'opened' ? openedLabel : '') : e.body
             return (
               <div key={e.id} className="pos-tl-item">
                 <span className="pos-tl-dot" style={{ background: TONE_VAR[meta.tone] }} />
                 <div className="pos-tl-head">
-                  <span className="pos-tl-kind" style={{ ['--chip' as string]: TONE_VAR[meta.tone] }}><KindIcon size={11} />{t(meta.key)}</span>
+                  <span className="pos-tl-type" style={{ color: TONE_VAR[meta.tone] }}><KindIcon size={12} />{t(meta.tkey)}</span>
                   {!e.synthetic && <button type="button" className="pos-tl-del" onClick={() => onDelete(e.id)} aria-label="Delete"><Trash2 size={12} /></button>}
                 </div>
-                {body && <div className="pos-tl-title">{body}</div>}
+                {body && <div className="pos-tl-detail">{body}</div>}
                 <div className="pos-tl-date">{dateShort(e.at, lang)}</div>
               </div>
             )
