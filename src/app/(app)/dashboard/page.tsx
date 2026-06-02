@@ -633,12 +633,15 @@ export default function DashboardPage() {
                 {reviewQueue.map(r => (
                   <Link key={r.symbolNormalized} href={`/holdings/${encodeURIComponent(r.symbolNormalized)}`} className="rq-item">
                     <span className="rq-item-sym">{r.symbol}</span>
-                    <span className={`rq-item-status rq-status--${r.rs.tone}`}>
-                      {r.rs.state === 'overdue'
-                        ? t('attn_rq_overdue_n', { n: Math.abs(r.rs.days) })
-                        : r.rs.state === 'due'
-                          ? t('attn_rq_due_today')
-                          : t('attn_rq_soon_n', { n: r.rs.days })}
+                    <span className="rq-item-right">
+                      <span className={`rq-item-status rq-status--${r.rs.tone}`}>
+                        {r.rs.state === 'overdue'
+                          ? t('attn_rq_overdue_n', { n: Math.abs(r.rs.days) })
+                          : r.rs.state === 'due'
+                            ? t('attn_rq_due_today')
+                            : t('attn_rq_soon_n', { n: r.rs.days })}
+                      </span>
+                      <span className="rq-cta">{t('attn_rq_review')}<ArrowRight size={12} /></span>
                     </span>
                   </Link>
                 ))}
