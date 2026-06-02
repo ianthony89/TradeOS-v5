@@ -132,22 +132,21 @@ export default function PositionHubPage() {
   const rs       = reviewStatus(intel.nextReviewAt)
 
   // Position quality — front-end completeness signal (no AI, no backend).
-  const q = {
-    thesis:     !!(intel.thesis || intel.bullCase || intel.bearCase || intel.invalidation),
-    plan:       intel.targetPrice != null || intel.trimAbove != null || intel.addBelow != null || intel.fairValue != null,
-    conviction: !!intel.confidence,
-    review:     intel.reviewFrequencyDays != null,
-  }
-  const qScore = [q.thesis, q.plan, q.conviction, q.review].filter(Boolean).length
-  const qTone  = qScore >= 4 ? 'positive' : qScore >= 2 ? 'accent' : 'warning'
-  const qGrade = qScore === 4 ? 'A+' : qScore === 3 ? 'A' : qScore === 2 ? 'B' : 'C'
-  const qMissingList = [
-    !q.thesis     && t('pos_q_thesis'),
-    !q.plan       && t('pos_q_plan'),
-    !q.conviction && t('pos_conviction'),
-    !q.review     && t('pos_q_review'),
-  ].filter(Boolean) as string[]
-  const qTip = `${q.thesis ? '✓' : '○'} ${t('pos_q_thesis')}   ${q.plan ? '✓' : '○'} ${t('pos_q_plan')}   ${q.conviction ? '✓' : '○'} ${t('pos_conviction')}   ${q.review ? '✓' : '○'} ${t('pos_q_review')}`
+  // Five dimensions, shown as a Complete list + a Missing list. Decision Log
+  // counts as done once there is at least one real (non-synthetic) entry.
+  const qDims = [
+    { done: !!(intel.thesis || intel.bullCase || intel.bearCase || intel.invalidation), label: t('pos_q_thesis') },
+    { done: intel.targetPrice != null || intel.trimAbove != null || intel.addBelow != null || intel.fairValue != null, label: t('pos_q_plan') },
+    { done: log.some(e => !e.synthetic), label: t('pos_q_log') },
+    { done: !!intel.confidence, label: t('pos_conviction') },
+    { done: intel.reviewFrequencyDays != null, label: t('pos_q_review') },
+  ]
+  const qScore    = qDims.filter(d => d.done).length
+  const qComplete = qDims.filter(d => d.done).map(d => d.label)
+  const qMissing  = qDims.filter(d => !d.done).map(d => d.label)
+  const qTone  = qScore >= 5 ? 'positive' : qScore >= 3 ? 'accent' : 'warning'
+  const qGrade = qScore >= 5 ? 'A+' : qScore === 4 ? 'A' : qScore === 3 ? 'B' : qScore === 2 ? 'C' : 'D'
+  const qTip = qDims.map(d => `${d.done ? '✓' : '○'} ${d.label}`).join('   ')
 
   return (
     <div className="pos-hub">
@@ -190,22 +189,30 @@ export default function PositionHubPage() {
           <HeroMetric label={t('pos_current_price')} value={fmt.money(holding.currentPrice, cur)} />
           <HeroMetric label={t('pos_avg_cost')}      value={fmt.money(holding.avgCost, cur)} />
           <HeroMetric label={t('pos_today_pl')}       value={`${holding.todayPl >= 0 ? '+' : ''}${fmt.money(holding.todayPl, cur)}`} tone={holding.todayPl >= 0 ? 'pos' : 'neg'} />
-          <div className="pos-hero-metric" title={qTip}>
-            <div className="pos-hero-metric-label">{t('pos_quality')}</div>
-            <div className="pos-quality">
-              <span className="pos-quality-grade" style={{ color: TONE_VAR[qTone] }}>{qGrade}</span>
-              {qMissingList.length === 0 ? (
-                <span className="pos-quality-miss">{t('pos_q_complete')}</span>
-              ) : (
-                <div className="pos-quality-missing">
-                  <span className="pos-quality-miss-label">{t('pos_missing_label')}</span>
-                  <ul className="pos-quality-miss-list">
-                    {qMissingList.map(m => <li key={m}>{m}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
+        </div>
+
+        {/* position quality — completeness readout: a grade + what's done / left */}
+        <div className="pos-quality-row" title={qTip}>
+          <div className="pos-quality-head">
+            <span className="pos-quality-cap">{t('pos_quality')}</span>
+            <span className="pos-quality-grade" style={{ color: TONE_VAR[qTone] }}>{qGrade}</span>
           </div>
+          {qComplete.length > 0 && (
+            <div className="pos-quality-col">
+              <span className="pos-quality-col-label">{t('pos_complete_label')}</span>
+              <ul className="pos-quality-list pos-quality-list--done">
+                {qComplete.map(m => <li key={m}>{m}</li>)}
+              </ul>
+            </div>
+          )}
+          {qMissing.length > 0 && (
+            <div className="pos-quality-col">
+              <span className="pos-quality-col-label">{t('pos_missing_label')}</span>
+              <ul className="pos-quality-list pos-quality-list--miss">
+                {qMissing.map(m => <li key={m}>{m}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 

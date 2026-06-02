@@ -2499,15 +2499,21 @@ a { color: inherit; text-decoration: none; }
 .pos-hero-metrics { grid-column: 1 / -1; display: flex; gap: 30px; padding-top: 13px; border-top: 1px solid var(--hairline); }
 .pos-hero-metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-quaternary); }
 .pos-hero-metric-value { font-size: 15px; font-weight: 600; color: var(--text-secondary); margin-top: 3px; }
-/* position quality — front-end completeness as a letter grade + missing list */
-.pos-quality { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin-top: 3px; cursor: default; }
-.pos-quality-grade { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; line-height: 1; font-variant-numeric: tabular-nums; }
-.pos-quality-miss { font-size: 11px; color: var(--text-quaternary); }
-.pos-quality-missing { display: flex; flex-direction: column; gap: 2px; }
-.pos-quality-miss-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-quaternary); }
-.pos-quality-miss-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
-.pos-quality-miss-list li { position: relative; padding-left: 11px; font-size: 11.5px; color: var(--text-tertiary); line-height: 1.45; }
-.pos-quality-miss-list li::before { content: '•'; position: absolute; left: 1px; color: var(--text-quaternary); }
+/* position quality — completeness readout on its own line: a grade plus a
+   Complete column (✓) and a Missing column (•) */
+.pos-quality-row { grid-column: 1 / -1; display: flex; align-items: flex-start; flex-wrap: wrap;
+  gap: 14px 28px; padding-top: 13px; border-top: 1px solid var(--hairline); cursor: default; }
+.pos-quality-head { display: flex; flex-direction: column; gap: 4px; }
+.pos-quality-cap { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-quaternary); }
+.pos-quality-grade { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; line-height: 1; font-variant-numeric: tabular-nums; }
+.pos-quality-col { display: flex; flex-direction: column; gap: 5px; }
+.pos-quality-col-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-quaternary); }
+.pos-quality-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.pos-quality-list li { position: relative; padding-left: 18px; font-size: 12px; line-height: 1.4; }
+.pos-quality-list--done li { color: var(--text-secondary); }
+.pos-quality-list--done li::before { content: '✓'; position: absolute; left: 0; color: var(--positive); font-weight: 700; }
+.pos-quality-list--miss li { color: var(--text-tertiary); }
+.pos-quality-list--miss li::before { content: '•'; position: absolute; left: 5px; color: var(--text-quaternary); }
 .pos-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; padding: 4px 11px; border-radius: 99px; }
 .pos-weight-pill { font-size: 11.5px; font-weight: 600; color: var(--text-secondary); padding: 4px 11px; border-radius: 99px;
   background: rgba(140,170,220,0.08); font-variant-numeric: tabular-nums; }
