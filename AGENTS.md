@@ -88,26 +88,28 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 
 ### Current phase
 
-**Status: Phase 1 COMPLETE & live in production.** _Last updated: 2026-06-01._
+**Status: Phase 1 COMPLETE & live. Phase 2A (Position Intelligence Hub) COMPLETE & FROZEN.** _Last updated: 2026-06-02._
 
 Shipped surfaces:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
 - App shell (sidebar / topbar / mobile nav)
 - Dashboard (intelligence-first cockpit + Action Center) — current panel set in § 4
 - Holdings (decision workspace)
+- **Position Hub** (Phase 2A — per-position intelligence at `/holdings/[symbol]`): Hero, Overview, Investment Thesis (10 starter templates + sentence-based **Strengthen Thesis** building blocks that append), Target Planner (price ladder), Decision Log, plus **lightweight** Conviction (hero badge) + Review Schedule (cadence chips). **Position Quality** = a frozen **5-dimension** completeness grade — Investment Thesis · Target Plan · Decision Log · Conviction · Review Schedule → A+/A/B/C/D, rendered as a `Complete:` ✓ list + `Missing:` • list. Client-Supabase + RLS via `position_intelligence` + `journal_entries` (**migration 007 must be applied** or Conviction/Review won't persist). **This surface is FROZEN — bug fixes only, no redesigns, no new sections.**
 - Watchlist (radar system — symbol / target / distance / status, persisted to `watchlist_items`)
 - Settings (theme / language / currency / manual+live FX / **two-step Change PIN**: verify old → set new)
 - Admin (invite-only onboarding: generate single-use codes + approve users + members list)
 - Market intelligence (live sessions, FX, sync indicators)
 
-**Phase 2** — Planned: Journal / Planner / AI insights / Price alerts.
-These are honest "Coming soon" roadmap cards with claimed nav slots.
-They are NOT fake shells. Do not populate them with invented data or fake panels.
+**Phase 2A** — ✅ DONE & frozen: Position Intelligence Hub (above).
+**Phase 2 (remaining)** — Planned: cross-position Journal / Planner / AI insights / Price alerts.
+Conviction UI, Review Schedule UI, AI analysis, news/earnings feeds, and an alert engine are **explicitly deferred by owner decision** (DB foundations OK; no new user-facing UI). Roadmap cards stay honest "Coming soon" with claimed nav slots — NOT fake shells. Do not populate them with invented data or fake panels.
 
 ### Recent changes (newest first)
 
 Audit trail of the last sprint (latest commits on `main`). For an auditor: this is where the dashboard actually stands today.
 
+- **2026-06-02** — **Position Hub (Phase 2A) finalized & FROZEN.** Position Quality became a **5-dimension** `Complete:` / `Missing:` readout on its own hero line — added **Decision Log** as a tracked dimension; grade rebased to 5=A+, 4=A, 3=B, 2=C, ≤1=D `472cd44`. **Strengthen Thesis** building blocks are now **complete sentences that append** to the thesis (never keyword chips, never overwrite) `53a46c3`. Thesis library expanded to **10 production-ready starter templates** (Growth · Compounder · Value · Dividend · Turnaround · Speculation · ETF · Cyclical · AI Theme · Small Cap), each 80–90% pre-written across Why/Bull/Bear/Invalidation, EN+ZH `50318fe`, `10cdecf`. Owner kept Conviction + Review Schedule (lightweight) so positions can reach A+, then **froze the whole Position Quality model + Position Hub** (bug fixes only).
 - **2026-06-01** — Allocation **finalized: Donut (default) + ranked List**. Sunburst & Treemap were trialled and **removed** (too many edge cases); the `StarItem` type now lives in `donut-chart.tsx`. The diversification footer shows on the **List only** (it unbalanced the donut). `bf33553`, `4ce21e1`.
 - **2026-05-31** — **Diversification footer** on the List: "effective sectors" (inverse Herfindahl index) + verdict pill (Concentrated / Balanced / Diversified) + top-2 concentration read. Pins to the panel bottom, mirrors the Risk "Suggested actions" box. `d064cc4`.
 - **2026-05-31** — **🔑 Live FX fixed** (the long-standing "Live rate won't update" bug). Root cause was a `yahoo-finance2` v3 API change that silently broke every Yahoo quote — full detail in § 15. This also restored Malaysian `.KL` quotes. `bef7b8f`.
