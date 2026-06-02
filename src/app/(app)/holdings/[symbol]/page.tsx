@@ -273,10 +273,6 @@ function reviewStatus(nextReviewAt: string | null): { key: string; tone: string 
   return { key: 'ok', tone: 'positive' }
 }
 
-/** Split an "e.g. a · b · c" hint into clickable example chips. */
-function exampleChips(s: string): string[] {
-  return s.replace(/^(e\.g\.\s*|例如[:：]\s*)/i, '').split('·').map(x => x.trim()).filter(Boolean)
-}
 function cap(s: string): string { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
 /** Append a chip phrase to a field instead of replacing it — editing should
  *  add information, never lose it. */
@@ -350,16 +346,19 @@ function ThesisCard({ intel, t, lang, onSave }: {
 }) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving]   = useState(false)
+  const [activeType, setActiveType] = useState<ThesisType | null>(null)
   const [d, setD] = useState({ thesis: intel.thesis, bullCase: intel.bullCase, bearCase: intel.bearCase, invalidation: intel.invalidation })
 
   function startEdit() {
     setD({ thesis: intel.thesis, bullCase: intel.bullCase, bearCase: intel.bearCase, invalidation: intel.invalidation })
+    setActiveType(null)
     setEditing(true)
   }
   async function save() { setSaving(true); await onSave(d); setSaving(false); setEditing(false) }
   function applyTemplate(type: ThesisType) {
     const tpl = thesisTemplate(type, lang)
     setD({ thesis: tpl.thesis, bullCase: tpl.bullCase, bearCase: tpl.bearCase, invalidation: tpl.invalidation })
+    setActiveType(type)
     setEditing(true)
   }
 
@@ -375,10 +374,19 @@ function ThesisCard({ intel, t, lang, onSave }: {
 
       {editing ? (
         <>
-          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} chips={exampleChips(t('pos_ex_thesis'))} onPick={v => setD({ ...d, thesis: appendChip(d.thesis, v) })} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
-          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} chips={exampleChips(t('pos_ex_bull'))} onPick={v => setD({ ...d, bullCase: appendChip(d.bullCase, v) })} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
-          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} chips={exampleChips(t('pos_ex_bear'))} onPick={v => setD({ ...d, bearCase: appendChip(d.bearCase, v) })} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
-          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} chips={exampleChips(t('pos_ex_invalidation'))} onPick={v => setD({ ...d, invalidation: appendChip(d.invalidation, v) })} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
+          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
+          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
+          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
+          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
+          {activeType && (
+            <div className="pos-blocks">
+              <span className="pos-blocks-label">{t('pos_add_point')}</span>
+              {thesisTemplate(activeType, lang).chips.map(c => (
+                <button key={c} type="button" className="pos-chip pos-chip--xs"
+                  onClick={() => setD(prev => ({ ...prev, thesis: appendChip(prev.thesis, c) }))}>{c}</button>
+              ))}
+            </div>
+          )}
           <div className="pos-save-row">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}><X size={13} />{t('pos_cancel')}</button>
             <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}><Check size={13} />{t('pos_save')}</button>
@@ -611,19 +619,13 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
 }
 
 // ── Field primitives ──────────────────────────────────────────
-function Field({ label, hint, tone, value, onChange, rows = 2, chips, onPick }: {
-  label: string; hint?: string; tone?: string; value: string; onChange: (v: string) => void
-  rows?: number; chips?: string[]; onPick?: (v: string) => void
+function Field({ label, hint, tone, value, onChange, rows = 2 }: {
+  label: string; hint?: string; tone?: string; value: string; onChange: (v: string) => void; rows?: number
 }) {
   return (
     <div className="pos-field-group">
       <div className="pos-field-head" style={tone ? { color: TONE_VAR[tone] } : undefined}>{label}{hint && <span className="pos-field-hint">{hint}</span>}</div>
       <textarea className="pos-field" rows={rows} value={value} onChange={e => onChange(e.target.value)} />
-      {chips && chips.length > 0 && (
-        <div className="pos-ex-chips">
-          {chips.map(c => <button key={c} type="button" className="pos-chip pos-chip--xs" onClick={() => onPick?.(c)}>{c}</button>)}
-        </div>
-      )}
     </div>
   )
 }
