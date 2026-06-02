@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import Link from 'next/link'
 import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge, Lightbulb, Repeat } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
@@ -28,7 +29,10 @@ import { SymCell }        from '@/components/brand/stock-logo'
 import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
 import { stockName }      from '@/lib/portfolio/stock-names'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
-import { buildActionSuggestions } from '@/lib/portfolio/action-center'
+import { buildAttentionFeed, type AttentionPosition } from '@/lib/portfolio/attention'
+import { reviewStatus } from '@/lib/portfolio/review-status'
+import { loadAllPositionIntel } from '@/lib/portfolio/position-intel'
+import { computeWatchStatus, type WatchDirection } from '@/lib/portfolio/watchlist-status'
 
 /** USD-equivalent of a native amount (MYR ÷ FX). Module-scope = stable. */
 function usdEquiv(amt: number, currency: string, fx: number): number {
@@ -52,6 +56,10 @@ export default function DashboardPage() {
   const [hotItems, setHotItems] = useState<Array<{ symbol: string; price: number; changePct: number; currency: string }>>([])
   const [toast, setToast] = useState<ToastData | null>(null)
   const [allocView, setAllocView] = useState<AllocView>('donut')
+
+  /* Phase 2B Attention Layer — per-position intelligence + watchlist triggers */
+  const [intelMap, setIntelMap] = useState<Map<string, import('@/lib/portfolio/position-intel').PositionIntel>>(new Map())
+  const [watchTriggered, setWatchTriggered] = useState<string[]>([])
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -94,6 +102,48 @@ export default function DashboardPage() {
   }, [supabase, setHoldings])
 
   useEffect(() => { loadHoldings() }, [loadHoldings])
+
+  /* Attention Layer data — all position intel + watchlist triggers.
+     Reuses Phase 2A rows (no new tables). Quotes for watched symbols are
+     fetched once so we can compute TRIGGERED. Graceful if intel is empty
+     (migration 007 not applied yet) — feed falls back to price + watchlist. */
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !alive) return
+
+      const im = await loadAllPositionIntel(supabase, user.id)
+      if (alive) setIntelMap(im)
+
+      const { data: rows } = await supabase
+        .from('watchlist_items')
+        .select('symbol, symbol_normalized, alert_price, alert_direction')
+        .eq('user_id', user.id)
+      const wl = (rows ?? []).map(r => ({
+        symbol: r.symbol as string,
+        norm:   r.symbol_normalized as string,
+        target: Number(r.alert_price),
+        dir:    (r.alert_direction ?? null) as WatchDirection | null,
+      }))
+      if (!wl.length) { if (alive) setWatchTriggered([]); return }
+
+      try {
+        const res  = await fetch('/api/quotes', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ symbols: wl.map(w => w.norm) }),
+        })
+        const json = await res.json()
+        const px   = new Map<string, number>()
+        for (const q of (json.quotes ?? []) as Array<{ symbol: string; price: number }>) px.set(q.symbol, q.price)
+        const trig = wl
+          .filter(w => computeWatchStatus(px.get(w.norm) ?? 0, w.target, w.dir).status === 'TRIGGERED')
+          .map(w => w.symbol)
+        if (alive) setWatchTriggered(trig)
+      } catch { /* keep none */ }
+    })()
+    return () => { alive = false }
+  }, [supabase])
 
   /* Fetch the Hot List once on mount (prices are live) for the top row */
   useEffect(() => {
@@ -285,17 +335,38 @@ export default function DashboardPage() {
       })),
   [live])
 
-  /* Action Center — rules-based suggestions, prioritized, capped at 3 */
-  const actions = useMemo(
-    () => buildActionSuggestions(
-      withWeight.map(h => ({
-        symbol: h.symbol, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
-      })),
-      sectorSlices.map(s => ({ name: s.name, pct: s.pct })),
-      (v) => fmt.pct(v, 1),
-    ),
-    [withWeight, sectorSlices],
+  /* ── Attention Layer (Phase 2B) ──────────────────────────────
+     One prioritized feed (price + review + documentation gaps +
+     watchlist) plus the complete review queue. Every item deep-links
+     into the Position Hub (Decision Layer). */
+  const top5Norm = useMemo(
+    () => new Set([...withWeight].sort((a, b) => b.portfolioWeight - a.portfolioWeight).slice(0, 5).map(h => h.symbolNormalized)),
+    [withWeight],
   )
+  const attentionPositions = useMemo<AttentionPosition[]>(() =>
+    withWeight.map(h => {
+      const intel = intelMap.get(h.symbolNormalized)
+      return {
+        symbol: h.symbol, symbolNormalized: h.symbolNormalized,
+        unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
+        hasThesis:  !!intel && !!(intel.thesis || intel.bullCase || intel.bearCase || intel.invalidation),
+        hasTargets: !!intel && (intel.targetPrice != null || intel.trimAbove != null || intel.addBelow != null || intel.fairValue != null),
+        nextReviewAt: intel?.nextReviewAt ?? null,
+      }
+    }),
+  [withWeight, intelMap])
+  const attention = useMemo(
+    () => buildAttentionFeed({ positions: attentionPositions, topByWeight: top5Norm, watchTriggered, fmtPct: (v) => fmt.pct(v, 1) }),
+    [attentionPositions, top5Norm, watchTriggered],
+  )
+  const reviewQueue = useMemo(() => {
+    const out: { symbol: string; symbolNormalized: string; rs: NonNullable<ReturnType<typeof reviewStatus>> }[] = []
+    for (const p of attentionPositions) {
+      const rs = reviewStatus(p.nextReviewAt)
+      if (rs && rs.state !== 'ok') out.push({ symbol: p.symbol, symbolNormalized: p.symbolNormalized, rs })
+    }
+    return out.sort((a, b) => a.rs.days - b.rs.days)
+  }, [attentionPositions])
 
   /* Hero intelligence row */
   const largest   = topPositions[0]
@@ -365,10 +436,10 @@ export default function DashboardPage() {
               title={t('empty_title')}
               sub={t('empty_desc')}
               actions={
-                <a href="/holdings" className="btn btn-primary btn-sm">
+                <Link href="/holdings" className="btn btn-primary btn-sm">
                   <Upload size={13} />
                   {t('holdings_import')}
-                </a>
+                </Link>
               }
             />
           </PanelBody>
@@ -529,27 +600,54 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Action Center — what deserves attention today */}
-      <div className="action-center">
-        <div className="action-center-head">
-          <span className="action-center-title">{t('action_center')}</span>
-          <span className="action-center-sub">{t('action_center_sub')}</span>
-        </div>
-        {actions.length ? (
-          <div className="action-center-list">
-            {actions.map(a => (
-              <IntelCard
-                key={a.key}
-                severity={a.priority}
-                icon={a.icon}
-                title={t(a.titleKey, a.titleVars)}
-                detail={t(a.detailKey, a.detailVars)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="action-center-clear">{t('action_center_clear')}</div>
-        )}
+      {/* Attention Layer — "what needs my attention today" + the review queue.
+          Every item deep-links into the Position Hub (Decision Layer). */}
+      <div className="attention-row">
+        <Panel>
+          <PanelHead title={t('attn_title')} meta={t('attn_sub')} />
+          <PanelBody>
+            {attention.length ? (
+              <div className="attention-list">
+                {attention.map(a => (
+                  <IntelCard
+                    key={a.key}
+                    severity={a.severity}
+                    icon={a.icon}
+                    href={a.href}
+                    title={t(a.titleKey, a.titleVars)}
+                    detail={t(a.detailKey, a.detailVars)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="attention-clear">{t('attn_clear')}</div>
+            )}
+          </PanelBody>
+        </Panel>
+
+        <Panel>
+          <PanelHead title={t('attn_rq_title')} meta={t('attn_rq_sub')} />
+          <PanelBody>
+            {reviewQueue.length ? (
+              <div className="rq-list">
+                {reviewQueue.map(r => (
+                  <Link key={r.symbolNormalized} href={`/holdings/${encodeURIComponent(r.symbolNormalized)}`} className="rq-item">
+                    <span className="rq-item-sym">{r.symbol}</span>
+                    <span className={`rq-item-status rq-status--${r.rs.tone}`}>
+                      {r.rs.state === 'overdue'
+                        ? t('attn_rq_overdue_n', { n: Math.abs(r.rs.days) })
+                        : r.rs.state === 'due'
+                          ? t('attn_rq_due_today')
+                          : t('attn_rq_soon_n', { n: r.rs.days })}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="attention-clear">{t('attn_rq_empty')}</div>
+            )}
+          </PanelBody>
+        </Panel>
       </div>
 
       {/* Allocation donut + Risk by strategy */}
@@ -620,10 +718,10 @@ export default function DashboardPage() {
             title={t('positions_label')}
             meta={t('dash_top_n_weight', { n: topPositions.length })}
             actions={
-              <a href="/holdings" className="btn btn-ghost btn-sm">
+              <Link href="/holdings" className="btn btn-ghost btn-sm">
                 {t('dash_view_all')}
                 <ArrowRight size={12} />
-              </a>
+              </Link>
             }
           />
           <PanelBody flush>

@@ -70,6 +70,24 @@ export async function loadPositionIntel(
   return data ? fromRow(data) : null
 }
 
+/**
+ * Bulk-load every position's intelligence for a user, keyed by
+ * symbol_normalized. One RLS-scoped query — powers the Dashboard Attention
+ * Feed + Review Queue (Phase 2B) without a per-symbol round-trip.
+ */
+export async function loadAllPositionIntel(
+  sb: SupabaseClient, userId: string,
+): Promise<Map<string, PositionIntel>> {
+  const { data } = await sb
+    .from('position_intelligence')
+    .select('*')
+    .eq('user_id', userId)
+  const map = new Map<string, PositionIntel>()
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+  for (const r of (data ?? []) as any[]) map.set(r.symbol_normalized, fromRow(r))
+  return map
+}
+
 type ThesisFields  = Pick<PositionIntel, 'thesis' | 'bullCase' | 'bearCase' | 'invalidation'>
 type TargetFields  = Pick<PositionIntel, 'targetPrice' | 'trimAbove' | 'addBelow' | 'fairValue' | 'targetCurrency' | 'planNotes'>
 
