@@ -147,9 +147,6 @@ export default function PositionHubPage() {
     !q.conviction && t('pos_conviction'),
     !q.review     && t('pos_q_review'),
   ].filter(Boolean) as string[]
-  const qMissing = qMissingList.length === 0 ? t('pos_q_complete')
-    : qMissingList.length === 1 ? t('pos_missing_one', { item: qMissingList[0] })
-    : t('pos_missing_n', { n: qMissingList.length })
   const qTip = `${q.thesis ? '✓' : '○'} ${t('pos_q_thesis')}   ${q.plan ? '✓' : '○'} ${t('pos_q_plan')}   ${q.conviction ? '✓' : '○'} ${t('pos_conviction')}   ${q.review ? '✓' : '○'} ${t('pos_q_review')}`
 
   return (
@@ -197,7 +194,16 @@ export default function PositionHubPage() {
             <div className="pos-hero-metric-label">{t('pos_quality')}</div>
             <div className="pos-quality">
               <span className="pos-quality-grade" style={{ color: TONE_VAR[qTone] }}>{qGrade}</span>
-              <span className="pos-quality-miss">{qMissing}</span>
+              {qMissingList.length === 0 ? (
+                <span className="pos-quality-miss">{t('pos_q_complete')}</span>
+              ) : (
+                <div className="pos-quality-missing">
+                  <span className="pos-quality-miss-label">{t('pos_missing_label')}</span>
+                  <ul className="pos-quality-miss-list">
+                    {qMissingList.map(m => <li key={m}>{m}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -273,12 +279,12 @@ function reviewStatus(nextReviewAt: string | null): { key: string; tone: string 
   return { key: 'ok', tone: 'positive' }
 }
 
-function cap(s: string): string { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
-/** Append a chip phrase to a field instead of replacing it — editing should
- *  add information, never lose it. */
-function appendChip(existing: string, phrase: string): string {
-  if (!existing.trim()) return cap(phrase)
-  return existing.replace(/\s*$/, '').replace(/[.,;:]\s*$/, '') + ', ' + phrase
+/** Append a complete sentence to a field instead of replacing it — clicking a
+ *  building block adds a new sentence, never overwrites what's already there. */
+function appendChip(existing: string, sentence: string): string {
+  if (!existing.trim()) return sentence
+  const base = existing.replace(/\s+$/, '')
+  return (/[.!?。！？]$/.test(base) ? base + ' ' : base + '. ') + sentence
 }
 
 // ── Small presentational pieces ───────────────────────────────
@@ -401,10 +407,7 @@ function ThesisCard({ intel, t, lang, onSave }: {
               <button key={tt} type="button" className="pos-chip" onClick={() => applyTemplate(tt)}>{thesisTemplate(tt, lang).label}</button>
             ))}
           </div>
-          <FwPrompt n="1"                q={t('pos_thesis_hint')}       ex={t('pos_ex_thesis')} />
-          <FwPrompt n="2" tone="positive" q={t('pos_bull_hint')}         ex={t('pos_ex_bull')} />
-          <FwPrompt n="3" tone="negative" q={t('pos_bear_hint')}         ex={t('pos_ex_bear')} />
-          <FwPrompt n="4" tone="warning"  q={t('pos_invalidation_hint')} ex={t('pos_ex_invalidation')} />
+          <GuidanceList title={t('pos_thesis_guide')} items={[t('pos_g_why'), t('pos_g_must'), t('pos_g_wrong'), t('pos_g_prove')]} />
           <button type="button" className="btn btn-ghost btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_scratch')}</button>
         </div>
       ) : (
@@ -419,11 +422,12 @@ function ThesisCard({ intel, t, lang, onSave }: {
   )
 }
 
-function FwPrompt({ n, icon, tone, q, ex }: { n?: string; icon?: ReactNode; tone?: string; q: string; ex: string }) {
+/** Empty-state guidance: a short title and a bulleted list of what to cover. */
+function GuidanceList({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className="pos-fw-item">
-      <span className="pos-fw-num" style={tone ? { ['--chip' as string]: TONE_VAR[tone] } : undefined}>{icon ?? n}</span>
-      <div><div className="pos-fw-q">{q}</div><div className="pos-fw-ex">{ex}</div></div>
+    <div className="pos-guide">
+      <div className="pos-guide-title">{title}</div>
+      <ul className="pos-guide-list">{items.map(i => <li key={i}>{i}</li>)}</ul>
     </div>
   )
 }
@@ -490,10 +494,7 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
       ) : empty ? (
         <div className="pos-framework">
           <div className="pos-fw-title">{t('pos_planner_empty_title')}</div>
-          <div className="pos-fw-intro">{t('pos_planner_intro')}</div>
-          <FwPrompt icon={<Target size={13} />}    tone="accent"   q={t('pos_target_price')} ex={t('pos_fw_target')} />
-          <FwPrompt icon={<ArrowUp size={13} />}   tone="warning"  q={t('pos_trim_above')}   ex={t('pos_fw_trim')} />
-          <FwPrompt icon={<ArrowDown size={13} />} tone="positive" q={t('pos_add_below')}    ex={t('pos_fw_add')} />
+          <GuidanceList title={t('pos_planner_guide')} items={[t('pos_g_add'), t('pos_g_target'), t('pos_g_trim'), t('pos_g_exit')]} />
           <button type="button" className="btn btn-primary btn-sm pos-fw-cta" onClick={startEdit}><Plus size={13} />{t('pos_planner_add')}</button>
         </div>
       ) : (

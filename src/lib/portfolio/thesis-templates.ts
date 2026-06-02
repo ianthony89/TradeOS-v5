@@ -1,9 +1,9 @@
 // ============================================================
 //  TradeOS v5 — Thesis starter templates (Phase 2A)
 //  Pick a thesis type and the four fields fill with a real first
-//  draft (80-90% done) plus building-block chips you can append.
-//  Template only, no AI. Bilingual content lives here (not the UI
-//  dictionary), same pattern as stock-names.ts.
+//  draft (80-90% done). The chips are complete sentences you can
+//  append to the thesis to strengthen it. Template only, no AI.
+//  Bilingual content lives here (not the UI dictionary).
 //  Voice: a real investor's own notes. No em dashes, no MBA-speak.
 // ============================================================
 
@@ -17,7 +17,7 @@ export interface ThesisTemplate {
   bullCase:     string
   bearCase:     string
   invalidation: string
-  chips:        string[]   // 8-12 building blocks, appended on click
+  chips:        string[]   // complete sentences, appended on click
 }
 
 export const THESIS_TYPES: ThesisType[] = [
@@ -32,7 +32,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'Revenue keeps growing faster than the market expects, and the stock re-rates higher as it does.',
     bearCase: 'Growth slows toward the market average and investors stop paying a premium for it.',
     invalidation: 'Revenue growth stalls for two or three quarters in a row with no clear reason.',
-    chips: ['large market', 'taking market share', 'new products', 'international expansion', 'operating leverage', 'high gross margins', 'recurring revenue', 'founder-led', 'net cash on hand', 'pricing power', 'sticky customers', 'reinvesting heavily'],
+    chips: [
+      'The market it sells into is large and still growing.',
+      'It is steadily taking share from its competitors.',
+      'New products should open up fresh revenue.',
+      'It can keep expanding into new regions.',
+      'As it grows, more of each new dollar drops to profit.',
+      'A large part of the revenue repeats every year.',
+      'The founder still runs it and owns a big stake.',
+      'It has the pricing power to raise prices without losing customers.',
+    ],
   },
   compounder: {
     label: 'Compounder',
@@ -40,7 +49,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'It keeps growing steadily year after year, so the position quietly becomes worth more over time.',
     bearCase: 'The returns it earns on cash fade as it gets bigger, and the steady growth slows down.',
     invalidation: 'Return on capital drops sharply, or management starts spending cash poorly.',
-    chips: ['hard to compete with', 'high returns on cash', 'years of growth left', 'reinvests cash well', 'pricing power', 'recurring revenue', 'low debt', 'buys back stock', 'loyal customers', 'strong brand', 'owner-operator', 'steady free cash flow'],
+    chips: [
+      'It is hard for competitors to take this business away.',
+      'It earns high returns on the cash it puts to work.',
+      'It still has years of growth ahead of it.',
+      'Management reinvests cash at good rates of return.',
+      'It can raise prices a little every year.',
+      'Most of the revenue repeats, so results are predictable.',
+      'It carries very little debt.',
+      'It buys back its own shares over time.',
+    ],
   },
   value: {
     label: 'Value',
@@ -48,7 +66,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'The market notices the value and the price moves up to meet it, or the company returns cash to get there.',
     bearCase: 'It stays cheap because the business keeps getting weaker, so it was cheap for a reason.',
     invalidation: 'Earnings and cash flow keep falling, which means the low price is deserved.',
-    chips: ['trades below book', 'low P/E', 'lots of cash', 'buying back stock', 'assets worth more', 'out of favor', 'insider buying', 'could be acquired', 'strong balance sheet', 'temporary problem', 'high free cash flow yield', 'paying down debt'],
+    chips: [
+      'It trades for less than the assets on its books are worth.',
+      'The earnings multiple is low versus its own history.',
+      'There is a lot of cash on the balance sheet.',
+      'The company is buying back its own shares.',
+      'Insiders have been buying the stock themselves.',
+      'The problem weighing on it looks temporary.',
+      'It generates a high free cash flow yield at this price.',
+      'It could be an attractive takeover target.',
+    ],
   },
   dividend: {
     label: 'Dividend',
@@ -56,7 +83,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'The dividend keeps growing and stays well covered by cash flow, so I get paid to wait.',
     bearCase: 'Cash flow weakens and the dividend starts to look stretched or at risk.',
     invalidation: 'The company cuts or suspends the dividend.',
-    chips: ['covered by cash flow', 'long payout history', 'growing dividend', 'low payout ratio', 'stable business', 'strong balance sheet', 'defensive sector', 'high yield', 'buybacks too', 'pricing power', 'recession-resistant', 'reliable cash flow'],
+    chips: [
+      'The dividend is well covered by free cash flow.',
+      'It has paid and raised the dividend for many years.',
+      'The payout ratio is low, leaving room to keep growing it.',
+      'The underlying business is stable and defensive.',
+      'The balance sheet is strong enough to protect the payout.',
+      'It holds up well even in a weak economy.',
+      'It also returns cash through buybacks.',
+      'Its cash flow is steady and predictable.',
+    ],
   },
   turnaround: {
     label: 'Turnaround',
@@ -64,7 +100,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'The fix works, margins and profits start coming back, and the stock re-rates as confidence returns.',
     bearCase: 'The recovery never really arrives and the business keeps sliding.',
     invalidation: 'Several quarters pass with no sign of improvement in the numbers.',
-    chips: ['new management', 'cutting costs', 'selling weak units', 'debt coming down', 'new product cycle', 'worst is priced in', 'insider buying', 'margins bottoming', 'fresh strategy', 'balance sheet fixed', 'demand recovering', 'low expectations'],
+    chips: [
+      'New management is in place and focused on the fix.',
+      'Costs are being cut and weak units sold off.',
+      'Debt is coming down quarter by quarter.',
+      'A new product cycle should help demand recover.',
+      'Most of the bad news already looks priced in.',
+      'Insiders have started buying the stock.',
+      'Margins appear to be bottoming out.',
+      'Expectations are so low that small wins could move the stock.',
+    ],
   },
   speculation: {
     label: 'Speculation',
@@ -72,7 +117,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'That one thing happens and the stock re-rates sharply higher.',
     bearCase: 'It does not play out and most of the money I put in is at risk.',
     invalidation: 'It becomes clear the bet is not going to work, or the catalyst gets pushed out indefinitely.',
-    chips: ['binary catalyst', 'small position', 'high upside', 'could go to zero', 'early stage', 'story stock', 'needs funding', 'high short interest', 'lottery ticket', 'news-driven', 'wide range of outcomes', 'tight stop'],
+    chips: [
+      'This rides on a single, clear catalyst playing out.',
+      'I am keeping the position small on purpose.',
+      'If it works, the upside is very large.',
+      'If it fails, this could go close to zero.',
+      'The company is still early and unproven.',
+      'It may need to raise more money to survive.',
+      'A lot of the stock is sold short, which could squeeze.',
+      'I will cut it quickly if the story breaks.',
+    ],
   },
   etf: {
     label: 'ETF',
@@ -80,7 +134,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'The whole basket drifts higher over time and I capture the average return without single-stock risk.',
     bearCase: 'The market or theme stays flat or falls, and the fund drops with it.',
     invalidation: 'The long-term reason I bought the theme no longer holds, or fees and tracking get too high.',
-    chips: ['broad diversification', 'low fees', 'passive index', 'core holding', 'long-term hold', 'dollar-cost average', 'whole sector', 'no single-stock risk', 'liquid', 'tax efficient', 'rebalances itself', 'theme exposure'],
+    chips: [
+      'It gives me broad exposure without picking single stocks.',
+      'The fees are very low.',
+      'It simply tracks an index, so there is no manager risk.',
+      'I treat it as a core, long-term holding.',
+      'I can add to it steadily over time.',
+      'It covers a whole sector or theme in one buy.',
+      'It is liquid and easy to trade.',
+      'It rebalances itself so I do not have to.',
+    ],
   },
   cyclical: {
     label: 'Cyclical',
@@ -88,7 +151,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'The cycle turns up, demand and prices recover, and earnings jump off a low base.',
     bearCase: 'The downturn lasts longer than expected and earnings stay depressed.',
     invalidation: 'The cycle keeps getting worse, or it turns out to be a structural decline rather than a cycle.',
-    chips: ['bottom of cycle', 'demand recovering', 'prices rising', 'low inventories', 'operating leverage', 'cheap on normal earnings', 'supply tightening', 'early cyclical', 'balance sheet can wait', 'margins bottoming', 'high beta', 'macro-driven'],
+    chips: [
+      'I am buying near what looks like the low point of the cycle.',
+      'Demand and prices should recover as the cycle turns.',
+      'Inventories are low, which usually comes before a recovery.',
+      'When the cycle turns, profits jump off a low base.',
+      'It looks cheap against normal mid-cycle earnings.',
+      'Supply is tightening across the industry.',
+      'The balance sheet is strong enough to wait out the downturn.',
+      'Margins look like they are bottoming.',
+    ],
   },
   ai: {
     label: 'AI Theme',
@@ -96,7 +168,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'AI demand keeps growing and this company captures a real, growing share of that spending.',
     bearCase: 'AI spending slows or commoditizes, and this company turns out not to be a key winner.',
     invalidation: 'The company loses its edge in AI, or the AI demand it depends on clearly rolls over.',
-    chips: ['AI adoption', 'rising AI spend', 'real revenue not hype', 'key supplier', 'data advantage', 'pricing power', 'early leader', 'compute demand', 'software margins', 'hard to switch away', 'long-term shift', 'broad customer base'],
+    chips: [
+      'Spending on AI keeps rising across the industry.',
+      'This company earns real revenue from AI, not just hype.',
+      'It is a key supplier that AI buildouts depend on.',
+      'It owns data or tools that are hard to replicate.',
+      'Demand for its compute or software keeps growing.',
+      'Customers find it hard to switch away from it.',
+      'It is an early leader in its part of the AI stack.',
+      'This is a long-term shift, not a short fad.',
+    ],
   },
   smallcap: {
     label: 'Small Cap',
@@ -104,7 +185,16 @@ const EN: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'It keeps executing and growing, and the stock re-rates as more investors discover it.',
     bearCase: 'Growth disappoints, or being small and thinly traded makes the stock swing hard against me.',
     invalidation: 'Growth stalls, the balance sheet gets stretched, or the original reason to own it breaks.',
-    chips: ['under the radar', 'founder-led', 'room to grow', 'little coverage', 'could get acquired', 'niche leader', 'insider ownership', 'thinly traded', 'self-funded', 'reinvesting profits', 'early in its story', 'high growth'],
+    chips: [
+      'It is small and still flies under most investors’ radar.',
+      'The founder runs it and owns a large stake.',
+      'It has plenty of room to grow from a small base.',
+      'Almost no analysts cover it yet.',
+      'It could become an acquisition target.',
+      'It is a leader in its small niche.',
+      'It funds its own growth without needing outside money.',
+      'Profits are being reinvested back into the business.',
+    ],
   },
 }
 
@@ -115,7 +205,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '营收持续增长得比市场预期更快,股价也随之上修。',
     bearCase: '增长放缓到接近行业平均,投资者不再愿意为它付溢价。',
     invalidation: '营收连续两三个季度不再增长,而且找不到明确原因。',
-    chips: ['大市场', '抢占份额', '新产品', '海外扩张', '经营杠杆', '高毛利', '经常性收入', '创始人掌舵', '账上有净现金', '定价权', '客户粘性', '积极再投资'],
+    chips: [
+      '它所在的市场很大,而且还在增长。',
+      '它正稳步从对手手里抢份额。',
+      '新产品有望打开新的收入来源。',
+      '它还能继续向新的地区扩张。',
+      '规模变大后,每多赚一块钱更多落到利润里。',
+      '很大一部分收入每年都会重复。',
+      '创始人还在掌舵,而且持有很大股份。',
+      '它有定价权,涨价也不会流失客户。',
+    ],
   },
   compounder: {
     label: '复利',
@@ -123,7 +222,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '它年复一年稳定增长,这个仓位会悄悄变得越来越值钱。',
     bearCase: '随着体量变大,它在现金上赚到的回报下降,稳定的增长也放慢。',
     invalidation: '资本回报率大幅下滑,或者管理层开始乱花钱。',
-    chips: ['难以被竞争', '现金回报高', '还有多年增长', '现金再投得好', '定价权', '经常性收入', '低负债', '持续回购', '客户忠诚', '品牌强', '老板心态', '稳定自由现金流'],
+    chips: [
+      '对手很难把这门生意抢走。',
+      '它把现金再投出去能赚到高回报。',
+      '它前面还有很多年的增长。',
+      '管理层以不错的回报率把现金再投资。',
+      '它每年都能小幅提价。',
+      '收入大多重复,业绩可预测。',
+      '它几乎没有负债。',
+      '它会持续回购自己的股票。',
+    ],
   },
   value: {
     label: '价值',
@@ -131,7 +239,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '市场注意到它的价值,股价向价值靠拢,或公司通过分红回购把价值还给股东。',
     bearCase: '它一直便宜,是因为生意在持续变弱,便宜有便宜的道理。',
     invalidation: '盈利和现金流持续下滑,说明这个低价是应得的。',
-    chips: ['低于账面价值', '低市盈率', '现金充裕', '正在回购', '资产更值钱', '不受市场待见', '内部人增持', '可能被收购', '资产负债表稳健', '问题是暂时的', '自由现金流收益率高', '在还债'],
+    chips: [
+      '股价比账面资产的价值还低。',
+      '相对自身历史,市盈率处在低位。',
+      '资产负债表上有很多现金。',
+      '公司正在回购自己的股票。',
+      '内部人自己也在买入股票。',
+      '压制它的问题看起来是暂时的。',
+      '按现价算,它的自由现金流收益率很高。',
+      '它可能成为有吸引力的收购对象。',
+    ],
   },
   dividend: {
     label: '股息',
@@ -139,7 +256,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '股息持续增长,而且被现金流稳稳覆盖,等的过程中我一直有钱拿。',
     bearCase: '现金流走弱,股息开始显得紧张、有被砍的风险。',
     invalidation: '公司削减或暂停了股息。',
-    chips: ['现金流覆盖', '长期派息记录', '股息在增长', '派息率低', '生意稳定', '资产负债表稳健', '防御性行业', '高股息率', '也在回购', '定价权', '抗衰退', '现金流可靠'],
+    chips: [
+      '股息被自由现金流稳稳覆盖。',
+      '它已经连续很多年派息并提高股息。',
+      '派息率很低,还有继续提高的空间。',
+      '底层生意稳定、偏防御。',
+      '资产负债表足够强,能保护这份派息。',
+      '即便经济疲软,它也撑得住。',
+      '它还通过回购把现金还给股东。',
+      '它的现金流稳定、可预测。',
+    ],
   },
   turnaround: {
     label: '反转',
@@ -147,7 +273,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '整改见效,利润率和利润开始回来,信心恢复带动股价重估。',
     bearCase: '复苏始终没真正到来,生意继续往下滑。',
     invalidation: '好几个季度过去,数字上仍看不到改善迹象。',
-    chips: ['新管理层', '削减成本', '卖掉弱业务', '负债在下降', '新产品周期', '最坏已反映', '内部人增持', '利润率见底', '全新策略', '资产负债表已修复', '需求在恢复', '市场预期很低'],
+    chips: [
+      '新管理层已经到位,专注于扭转局面。',
+      '正在削减成本、卖掉弱业务。',
+      '负债在一个季度一个季度地下降。',
+      '新的产品周期有望带动需求回升。',
+      '大部分坏消息看起来已经反映在股价里。',
+      '内部人已经开始买入股票。',
+      '利润率看起来正在见底。',
+      '市场预期极低,一点小进展就可能推动股价。',
+    ],
   },
   speculation: {
     label: '投机',
@@ -155,7 +290,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '那件事成真,股价快速大幅重估。',
     bearCase: '没成,我投进去的大部分钱都有风险。',
     invalidation: '已经能看出这个赌注成不了,或催化剂被无限期推迟。',
-    chips: ['二元催化剂', '小仓位', '上行空间大', '可能归零', '早期阶段', '故事型股票', '需要融资', '高做空比例', '彩票式机会', '消息驱动', '结果差异极大', '止损要紧'],
+    chips: [
+      '它押的是某一个明确催化剂能否兑现。',
+      '我刻意只放很小的仓位。',
+      '如果成了,上行空间非常大。',
+      '如果失败,这笔可能接近归零。',
+      '公司还处在早期、未经验证。',
+      '它可能需要再融资才能活下去。',
+      '很大比例的股票被做空,可能逼空。',
+      '一旦逻辑破裂,我会很快止损。',
+    ],
   },
   etf: {
     label: 'ETF',
@@ -163,7 +307,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '整篮子随时间上行,我拿到平均回报,又避开了单只股票的风险。',
     bearCase: '这个市场或主题不涨甚至下跌,基金跟着回落。',
     invalidation: '当初看好这个主题的长期理由不再成立,或费用和跟踪误差变得太高。',
-    chips: ['广泛分散', '费用低', '被动指数', '核心持仓', '长期持有', '定投', '整个行业', '无单股风险', '流动性好', '税务高效', '自动再平衡', '主题暴露'],
+    chips: [
+      '它让我获得广泛暴露,不用去挑单只股票。',
+      '费用非常低。',
+      '它只是跟踪指数,没有基金经理的风险。',
+      '我把它当作核心的长期持仓。',
+      '我可以分批长期加仓。',
+      '一次买入就覆盖整个行业或主题。',
+      '它流动性好、买卖方便。',
+      '它会自动再平衡,我不用操心。',
+    ],
   },
   cyclical: {
     label: '周期',
@@ -171,7 +324,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '周期向上,需求和价格回升,利润从低基数上大幅跳升。',
     bearCase: '下行持续的时间比预期更长,利润长期低迷。',
     invalidation: '周期继续恶化,或者发现这其实是结构性衰退、不是周期。',
-    chips: ['周期低点', '需求恢复', '价格上行', '库存很低', '经营杠杆', '按正常盈利算便宜', '供给收紧', '早周期', '资产负债表撑得住', '利润率见底', '高贝塔', '宏观驱动'],
+    chips: [
+      '我在看起来是周期低点的位置买入。',
+      '随着周期反转,需求和价格应会回升。',
+      '库存很低,这通常出现在复苏之前。',
+      '周期一旦反转,利润会从低基数大幅跳升。',
+      '按正常的中周期盈利看,它很便宜。',
+      '整个行业的供给在收紧。',
+      '资产负债表够强,能熬过这轮下行。',
+      '利润率看起来正在见底。',
+    ],
   },
   ai: {
     label: 'AI 主题',
@@ -179,7 +341,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: 'AI 需求持续增长,这家公司在这块支出里拿到真实且不断扩大的份额。',
     bearCase: 'AI 支出放缓或变成同质化竞争,而这家公司其实算不上关键赢家。',
     invalidation: '公司在 AI 上的优势丢失,或它依赖的 AI 需求明显见顶回落。',
-    chips: ['AI 普及', 'AI 投入增加', '真实收入而非概念', '关键供应商', '数据优势', '定价权', '早期领先', '算力需求', '软件高毛利', '难以替换', '长期趋势', '客户基础广'],
+    chips: [
+      '全行业在 AI 上的投入持续增加。',
+      '这家公司从 AI 赚的是真实收入,不是概念。',
+      '它是 AI 建设离不开的关键供应商。',
+      '它拥有难以复制的数据或工具。',
+      '对它的算力或软件的需求持续增长。',
+      '客户很难从它这里切换走。',
+      '在 AI 这一环里,它是早期领先者。',
+      '这是长期的趋势转变,不是短暂的风口。',
+    ],
   },
   smallcap: {
     label: '小盘',
@@ -187,7 +358,16 @@ const ZH: Record<ThesisType, ThesisTemplate> = {
     bullCase: '它持续把事做成、保持增长,随着更多投资者发现它,股价重估。',
     bearCase: '增长不及预期,或者因为盘子小、成交清淡,股价会剧烈波动反噬我。',
     invalidation: '增长停滞,资产负债表被拉紧,或当初持有的理由不再成立。',
-    chips: ['不被关注', '创始人掌舵', '成长空间大', '几乎没研报覆盖', '可能被收购', '细分龙头', '内部人持股', '成交清淡', '自给自足', '利润再投入', '故事还很早', '高增长'],
+    chips: [
+      '它很小,还没被大多数投资者注意到。',
+      '创始人在经营,而且持有很大股份。',
+      '基数小,成长空间很大。',
+      '几乎还没有分析师覆盖它。',
+      '它可能成为被收购的对象。',
+      '它是这个小细分领域的领头羊。',
+      '它靠自己赚的钱供养增长,不用外部融资。',
+      '利润正被重新投回业务里。',
+    ],
   },
 }
 
