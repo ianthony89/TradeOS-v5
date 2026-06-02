@@ -278,6 +278,12 @@ function exampleChips(s: string): string[] {
   return s.replace(/^(e\.g\.\s*|例如[:：]\s*)/i, '').split('·').map(x => x.trim()).filter(Boolean)
 }
 function cap(s: string): string { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s }
+/** Append a chip phrase to a field instead of replacing it — editing should
+ *  add information, never lose it. */
+function appendChip(existing: string, phrase: string): string {
+  if (!existing.trim()) return cap(phrase)
+  return existing.replace(/\s*$/, '').replace(/[.,;:]\s*$/, '') + ', ' + phrase
+}
 
 // ── Small presentational pieces ───────────────────────────────
 function Badge({ tone, label }: { tone: string; label: string }) {
@@ -369,10 +375,10 @@ function ThesisCard({ intel, t, lang, onSave }: {
 
       {editing ? (
         <>
-          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} chips={exampleChips(t('pos_ex_thesis'))} onPick={v => setD({ ...d, thesis: cap(v) })} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
-          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} chips={exampleChips(t('pos_ex_bull'))} onPick={v => setD({ ...d, bullCase: cap(v) })} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
-          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} chips={exampleChips(t('pos_ex_bear'))} onPick={v => setD({ ...d, bearCase: cap(v) })} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
-          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} chips={exampleChips(t('pos_ex_invalidation'))} onPick={v => setD({ ...d, invalidation: cap(v) })} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
+          <Field label={t('pos_thesis_field')} hint={t('pos_thesis_hint')} chips={exampleChips(t('pos_ex_thesis'))} onPick={v => setD({ ...d, thesis: appendChip(d.thesis, v) })} value={d.thesis} onChange={v => setD({ ...d, thesis: v })} rows={3} />
+          <Field label={t('pos_bull')} hint={t('pos_bull_hint')} chips={exampleChips(t('pos_ex_bull'))} onPick={v => setD({ ...d, bullCase: appendChip(d.bullCase, v) })} tone="positive" value={d.bullCase} onChange={v => setD({ ...d, bullCase: v })} rows={2} />
+          <Field label={t('pos_bear')} hint={t('pos_bear_hint')} chips={exampleChips(t('pos_ex_bear'))} onPick={v => setD({ ...d, bearCase: appendChip(d.bearCase, v) })} tone="negative" value={d.bearCase} onChange={v => setD({ ...d, bearCase: v })} rows={2} />
+          <Field label={t('pos_invalidation')} hint={t('pos_invalidation_hint')} chips={exampleChips(t('pos_ex_invalidation'))} onPick={v => setD({ ...d, invalidation: appendChip(d.invalidation, v) })} tone="warning" value={d.invalidation} onChange={v => setD({ ...d, invalidation: v })} rows={2} />
           <div className="pos-save-row">
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}><X size={13} />{t('pos_cancel')}</button>
             <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saving}><Check size={13} />{t('pos_save')}</button>
