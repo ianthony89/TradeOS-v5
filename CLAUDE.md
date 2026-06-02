@@ -8,7 +8,7 @@ This file exists for compatibility with Claude Code's auto-loaded `CLAUDE.md` co
 
 If anything appears to conflict between this file and `AGENTS.md`, **`AGENTS.md` wins**.
 
-**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-03 — Phase 1 live; Phase 2A (Position Hub) + 2B (Dashboard Attention Layer) complete & frozen._
+**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-03 — Phase 1 live; Phase 2A (Position Hub) + 2B (Dashboard Attention Layer) + 2C (Review Hub / Journal) complete & frozen._
 
 For:
 - Who Anthony is
