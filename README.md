@@ -40,7 +40,7 @@ It answers five questions:
 
 The model: **Dashboard detects → Journal reviews → Position Hub decides → Planner simulates.** `/ai` remains a deferred "coming soon" stub (no AI by product decision).
 
-See **[`ROADMAP.md`](./ROADMAP.md)** for phase status and **[`docs/PHASE-2-RETROSPECTIVE.md`](./docs/PHASE-2-RETROSPECTIVE.md)** for the Phase 2 retrospective.
+See **[`ROADMAP.md`](./ROADMAP.md)** for phase status, **[`RELEASES.md`](./RELEASES.md)** for the release log, and **[`docs/PHASE-2-RETROSPECTIVE.md`](./docs/PHASE-2-RETROSPECTIVE.md)** for the Phase 2 retrospective.
 
 ---
 
