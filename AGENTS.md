@@ -88,7 +88,9 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 
 ### Current phase
 
-**Status: Phase 1 live. Phase 2A (Position Hub) + 2B (Dashboard Attention Layer) + 2C (Review Hub / Journal) + 2D (Planner) COMPLETE & FROZEN.** _Last updated: 2026-06-03._
+**Status: Phase 2 COMPLETE, real-portfolio UAT PASSED, v5 FROZEN.** Phase 2A (Position Hub) + 2B (Dashboard Attention Layer) + 2C (Review Hub / Journal) + 2D (Planner) all live & frozen; Phase 2E QA + a live UAT against the real 14-position portfolio are closed (0 P0/P1; 3 P2 fixed). _Last updated: 2026-06-04._
+
+> **Repo + deploy (corrected 2026-06-04):** the Next.js v5 app lives at **`github.com/ianthony89/TradeOS-v5`** (deployed at **`https://tradeos-v5.vercel.app`**). The older `github.com/ianthony89/TradeOS` holds the **legacy vanilla HTML/CSS/JS** app only (do not push v5 there). Earlier in development, v5 commits appeared to push to `TradeOS` but were sandbox-intercepted and never landed; the history was moved to the dedicated `TradeOS-v5` repo and Vercel re-pointed.
 
 Shipped surfaces:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
@@ -113,6 +115,8 @@ Shipped surfaces:
 
 Audit trail of the last sprint (latest commits on `main`). For an auditor: this is where the dashboard actually stands today.
 
+- **2026-06-04** — **Phase 2 CLOSED. Real-portfolio UAT passed on the live app (14 positions).** All four modules validated against real data: Position Hub (thesis/targets/conviction/review persist → A+ quality), Journal (007 applied, review history logging, queue), Planner (Add-Capital proportional sums to cash; Target-Allocation gap math exact), Dashboard (Attention Feed accurate, prioritized). **0 P0/P1.** Three P2s fixed `d54db55`: (1) `computeWatchStatus` now returns **WATCHING** when there's no usable price (`current<=0`) instead of a false **NEAR_TARGET**; (2) Dashboard Review-Queue empty copy → *"No reviews due right now"* (was the misleading *"No reviews scheduled"*). (3) **Cross-page weight drift is EXPECTED, not a bug** — each page (Dashboard / Hub / Planner / Journal) self-fetches its own `/api/quotes` snapshot at load, so weights observed minutes apart drift with the live market; pages are each internally fresh + consistent, freezing them to one shared timestamp would only make them stale, so **behavior is left unchanged by design** (no shared-snapshot complexity added).
+- **2026-06-04** — **Repo migration:** v5 history moved to its own repo `github.com/ianthony89/TradeOS-v5` (deploy `tradeos-v5.vercel.app`); legacy vanilla app stays on `ianthony89/TradeOS`. Phase 2E QA fixes (`25ea10a`, `1b74502`) + P2 fixes (`d54db55`) are on it.
 - **2026-06-03** — **Planner (Phase 2D) shipped & FROZEN.** The `/planner` "Coming soon" stub became a read-only **Portfolio Action Simulator**: one page, three stacked cards — Add Capital (Current-portfolio proportional OR Strategy-target gap deployment), Reduce Concentration (sell value / shares / cash freed / new weight), Target Allocation by strategy (editable Core/Tactical/Spec, default 50/30/20, current mix + Buy/Trim/Hold gap), each with a plain-English suggested-action block. New pure lib `planner.ts`; reuses holdings + FX + `classifyStrategy`; widened `PanelHead` title to `ReactNode`. No execution / writes / persistence / new tables / AI; no Sector mode in v1. EN+ZH. `ef5f7fd`, `adb195c`.
 - **2026-06-03** — **Review Hub / Journal (Phase 2C) shipped & FROZEN.** The `/journal` "Coming soon" stub became the **Review Workspace**: Review Pulse + Review Queue (compact rows expand to thesis/targets/last-reviewed; Mark Reviewed gated on choosing the next cadence, note optional → advances `next_review_at` + logs the note; Open Hub is the primary CTA) + Review History (last 50 decisions, each with the position's current return). Untracked positions can be scheduled inline. New read-only `loadRecentDecisions` bulk loader + shared `position-quality.ts` (mirrors the frozen Hub grade). Schedule-only (no price/watchlist/risk/dashboard signals); reuses `position_intelligence` + `journal_entries`; no new tables, no AI, no alerts. EN+ZH. `c544059`, `f507f85`.
 - **2026-06-03** — **Dashboard Attention Layer (Phase 2B) shipped & FROZEN.** New rules-based engine `lib/portfolio/attention.ts` (no AI) fuses price + review-due + missing-thesis/targets (Top-5 by weight) + watchlist-triggered into one prioritized **Attention Feed**; a **Review Queue** lists the full schedule (overdue→due→soon) with an explicit "Review →" CTA. Every item deep-links into the Position Hub (`/watchlist` for unowned watch triggers). Replaced the price-only `action-center.ts` (deleted); added `loadAllPositionIntel` bulk loader + shared `review-status.ts` (Hub kept its frozen inline copy); `IntelCard` gained a deep-link href. Polish: 60/40 split, neutral cards with a thin left accent (reduced color noise), terse `{symbol} · issue` copy. EN+ZH. Hero/Allocation/Risk/Movers/Holdings untouched. `24f60c2`, `5a1c13e`.
@@ -126,10 +130,11 @@ Audit trail of the last sprint (latest commits on `main`). For an auditor: this 
 
 ### Deployment
 
-- **Live**: `https://trade-os-sigma.vercel.app` (Vercel, auto-deploys on push to `main`)
-- **Repo**: `github.com/ianthony89/TradeOS` — public; `main` = v5, `legacy-4.0` branch = the old single-file HTML/GAS app
+- **Live**: `https://tradeos-v5.vercel.app` (Vercel, auto-deploys on push to `main`)
+- **Repo**: `github.com/ianthony89/TradeOS-v5` — the Next.js v5 app. (The separate `github.com/ianthony89/TradeOS` is the legacy vanilla HTML/CSS/JS app — NOT this codebase. Do not push v5 there.)
 - **Env vars** live in Vercel (7 keys; see `DEPLOY.md`). `.env.local` is gitignored and never committed.
 - After any push to `main`, Vercel redeploys in ~1–2 min.
+- ⚠️ **Pushing from this sandboxed shell can silently no-op** — `git push` may report success while the bytes never reach GitHub. Always verify with `git ls-remote origin main` that the remote SHA matches local; if not, re-push with the sandbox disabled.
 
 ---
 
