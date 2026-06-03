@@ -9,7 +9,8 @@ It answers five questions:
 4. What risks require review?
 5. What do I currently own?
 
-> The legacy single-file (HTML / Google Apps Script) build lives on the [`legacy-4.0`](../../tree/legacy-4.0) branch. `main` is the Next.js rebuild.
+> **Status: Phase 2 complete — `v5.0.0` · frozen.** Live at **[tradeos-v5.vercel.app](https://tradeos-v5.vercel.app)**.
+> This repo (`ianthony89/TradeOS-v5`) is the Next.js rebuild. The legacy single-file (HTML / Google Apps Script) build lives in a separate repo, [`ianthony89/TradeOS`](https://github.com/ianthony89/TradeOS).
 
 ---
 
@@ -22,15 +23,24 @@ It answers five questions:
 - **Yahoo Finance** (primary) + **Finnhub** (fallback) quotes, cached via **Upstash Redis**
 - CSV import for **Moomoo** broker exports (ZH/EN header auto-detect)
 
-## Core surfaces (Phase 1 — complete)
+## Surfaces
 
+**Phase 1 — foundation**
 - **Auth** — email + numeric PIN (PIN is the Supabase password; bcrypt server-side)
-- **Dashboard** — hero holdings value, live market sessions, FX, ticker pulse, Action Center, allocation donut, top movers
+- **Dashboard** — hero holdings value, live market sessions, FX, ticker pulse, allocation donut, risk assessment, top movers
 - **Holdings** — decision workspace: logo, exposure, P/L hierarchy, strategy/action taxonomy
 - **Watchlist** — radar: symbol / target / distance / status (Watching · Near Target · Triggered)
-- **Settings** — theme, language, currency, manual/live FX
+- **Settings** — theme, language (EN/ZH), currency, manual/live FX
 
-Journal / Planner / AI are honest "coming soon" roadmap cards (Phase 2).
+**Phase 2 — intelligence layer (complete & frozen)**
+- **Position Hub** (`/holdings/[symbol]`) — per-position decision cockpit: Investment Thesis (10 starter templates), Target Planner (price ladder), Conviction, Review Schedule, Decision Log, and a 5-dimension **Position Quality** grade. Persists via `position_intelligence` + `journal_entries` (migration 007).
+- **Dashboard Attention Layer** — a prioritized **Attention Feed** ("what needs my attention today") + **Review Queue**, deep-linking into the Position Hub.
+- **Journal** (`/journal`) — a cross-position **Review Workspace**: review pulse, queue, and decision history.
+- **Planner** (`/planner`) — a read-only **Portfolio Action Simulator**: Add Capital, Reduce Concentration, Target Allocation (by strategy).
+
+The model: **Dashboard detects → Journal reviews → Position Hub decides → Planner simulates.** `/ai` remains a deferred "coming soon" stub (no AI by product decision).
+
+See **[`ROADMAP.md`](./ROADMAP.md)** for phase status and **[`docs/PHASE-2-RETROSPECTIVE.md`](./docs/PHASE-2-RETROSPECTIVE.md)** for the Phase 2 retrospective.
 
 ---
 

@@ -90,7 +90,7 @@ This means: **do not assume only Anthony will see this UI**. A new trader should
 
 **Status: Phase 2 COMPLETE, real-portfolio UAT PASSED, v5 FROZEN.** Phase 2A (Position Hub) + 2B (Dashboard Attention Layer) + 2C (Review Hub / Journal) + 2D (Planner) all live & frozen; Phase 2E QA + a live UAT against the real 14-position portfolio are closed (0 P0/P1; 3 P2 fixed). _Last updated: 2026-06-04._
 
-> **Repo + deploy (corrected 2026-06-04):** the Next.js v5 app lives at **`github.com/ianthony89/TradeOS-v5`** (deployed at **`https://tradeos-v5.vercel.app`**). The older `github.com/ianthony89/TradeOS` holds the **legacy vanilla HTML/CSS/JS** app only (do not push v5 there). Earlier in development, v5 commits appeared to push to `TradeOS` but were sandbox-intercepted and never landed; the history was moved to the dedicated `TradeOS-v5` repo and Vercel re-pointed.
+> **Repo + deploy (corrected 2026-06-04):** the Next.js v5 app lives at **`github.com/ianthony89/TradeOS-v5`** (deployed at **`https://tradeos-v5.vercel.app`**). The older `github.com/ianthony89/TradeOS` holds the **legacy vanilla HTML/CSS/JS** app only (do not push v5 there). Earlier in development, v5 commits appeared to push to `TradeOS` but were sandbox-intercepted and never landed; the history was moved to the dedicated `TradeOS-v5` repo and Vercel re-pointed. Tagged **`v5.0.0`**; phase status in [`ROADMAP.md`](./ROADMAP.md), full retrospective in [`docs/PHASE-2-RETROSPECTIVE.md`](./docs/PHASE-2-RETROSPECTIVE.md).
 
 Shipped surfaces:
 - Auth (login / register / forgot PIN / reset PIN / pending approval)
