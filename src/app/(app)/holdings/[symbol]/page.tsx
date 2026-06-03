@@ -18,6 +18,7 @@ import {
 } from '@/lib/portfolio/taxonomy'
 import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
 import { stockName } from '@/lib/portfolio/stock-names'
+import { applyLiveQuote } from '@/lib/portfolio/live-price'
 import { THESIS_TYPES, thesisTemplate, type ThesisType } from '@/lib/portfolio/thesis-templates'
 import { StockLogo } from '@/components/brand/stock-logo'
 import * as PI from '@/lib/portfolio/position-intel'
@@ -61,6 +62,7 @@ export default function PositionHubPage() {
   const [intel,   setIntel]   = useState<PI.PositionIntel>(PI.EMPTY_INTEL)
   const [log,     setLog]     = useState<PI.DecisionEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [err,     setErr]     = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -70,16 +72,19 @@ export default function PositionHubPage() {
       setUserId(user.id)
 
       const { data: rows } = await sb.from('holdings').select('*').eq('user_id', user.id)
-      const mapped  = (rows ?? []).map(mapRow)
+      // Overlay session live quotes so the Hub matches the Dashboard (not the DB snapshot).
+      const quotes  = useHoldingsStore.getState().quotes
+      const mapped  = (rows ?? []).map(mapRow).map(h => ({ ...h, ...applyLiveQuote(h, quotes.get(h.symbolNormalized)) }))
       setHoldings(mapped)
-      const total   = getTotalValue(mapped, fxRate).combined
+      const fx      = fxRate > 0 ? fxRate : 4   // guard: never divide by a zero/blank FX
+      const total   = getTotalValue(mapped, fx).combined
       const target  = mapped.find(h => h.symbolNormalized === symParam) ?? null
       const rawRow  = (rows ?? []).find((r: { symbol_normalized: string }) => r.symbol_normalized === symParam)
       if (!alive) return
       setHolding(target)
       setOpenedAt(rawRow?.created_at ?? null)
       if (target) {
-        const usdEquiv = target.currency === 'MYR' ? target.marketValue / fxRate : target.marketValue
+        const usdEquiv = target.currency === 'MYR' ? target.marketValue / fx : target.marketValue
         setWeight(total > 0 ? (usdEquiv / total) * 100 : 0)
       }
 
@@ -152,6 +157,8 @@ export default function PositionHubPage() {
     <div className="pos-hub">
       <Link href="/holdings" className="pos-back"><ArrowLeft size={15} />{t('pos_back')}</Link>
 
+      {err && <button type="button" className="pos-err" onClick={() => setErr(null)}>{err}</button>}
+
       {/* HERO — portfolio-centric: my position, not the stock */}
       <div className="panel pos-hero">
         <div className="pos-hero-id">
@@ -175,8 +182,10 @@ export default function PositionHubPage() {
           <HeroConviction value={intel.confidence} t={t}
             onSet={async (c) => {
               if (!userId) return
+              const prev = intel.confidence
               setIntel({ ...intel, confidence: c })
-              await PI.saveMeta(sb, userId, holding.symbol, symParam, { confidence: c })
+              try { await PI.saveMeta(sb, userId, holding.symbol, symParam, { confidence: c }) }
+              catch { setErr(t('err_save')); setIntel(i => ({ ...i, confidence: prev })) }
             }} />
           {rs && <Badge tone={rs.tone} label={t(`pos_rev_${rs.key}`)} />}
           <span className="pos-weight-pill">{fmt.pct(weight, 1)} {t('pos_of_book')}</span>
@@ -235,17 +244,21 @@ export default function PositionHubPage() {
         <ThesisCard intel={intel} t={t} lang={lang}
           onSave={async (f) => {
             if (!userId) return
-            await PI.saveThesis(sb, userId, holding.symbol, symParam, f)
-            const next = { ...intel, ...f, thesisUpdatedAt: new Date().toISOString() }
-            setIntel(next); refreshLog(next)
+            try {
+              await PI.saveThesis(sb, userId, holding.symbol, symParam, f)
+              const next = { ...intel, ...f, thesisUpdatedAt: new Date().toISOString() }
+              setIntel(next); refreshLog(next)
+            } catch (e) { setErr(t('err_save')); throw e }
           }} />
 
         <TargetCard intel={intel} currency={cur} currentPrice={holding.currentPrice} t={t} lang={lang}
           onSave={async (f) => {
             if (!userId) return
-            await PI.saveTargets(sb, userId, holding.symbol, symParam, f)
-            const next = { ...intel, ...f, targetsUpdatedAt: new Date().toISOString() }
-            setIntel(next); refreshLog(next)
+            try {
+              await PI.saveTargets(sb, userId, holding.symbol, symParam, f)
+              const next = { ...intel, ...f, targetsUpdatedAt: new Date().toISOString() }
+              setIntel(next); refreshLog(next)
+            } catch (e) { setErr(t('err_save')); throw e }
           }} />
       </div>
 
@@ -255,16 +268,21 @@ export default function PositionHubPage() {
         freq={intel.reviewFrequencyDays} nextReviewAt={intel.nextReviewAt}
         onReview={async (days) => {
           if (!userId) return
+          const prevDays = intel.reviewFrequencyDays, prevNext = intel.nextReviewAt
           const next = PI.computeNextReview(days)
           setIntel({ ...intel, reviewFrequencyDays: days, nextReviewAt: next })
-          await PI.saveMeta(sb, userId, holding.symbol, symParam, { reviewFrequencyDays: days, nextReviewAt: next })
+          try { await PI.saveMeta(sb, userId, holding.symbol, symParam, { reviewFrequencyDays: days, nextReviewAt: next }) }
+          catch { setErr(t('err_save')); setIntel(i => ({ ...i, reviewFrequencyDays: prevDays, nextReviewAt: prevNext })) }
         }}
         onAdd={async (body) => {
           if (!userId || !body.trim()) return
-          await PI.addReview(sb, userId, symParam, body.trim())
-          refreshLog(intel)
+          try { await PI.addReview(sb, userId, symParam, body.trim()); refreshLog(intel) }
+          catch (e) { setErr(t('err_save')); throw e }
         }}
-        onDelete={async (id) => { await PI.deleteDecision(sb, id); refreshLog(intel) }}
+        onDelete={async (id) => {
+          try { await PI.deleteDecision(sb, id); refreshLog(intel) }
+          catch { setErr(t('err_save')) }
+        }}
       />
     </div>
   )
@@ -367,7 +385,10 @@ function ThesisCard({ intel, t, lang, onSave }: {
     setActiveType(null)
     setEditing(true)
   }
-  async function save() { setSaving(true); await onSave(d); setSaving(false); setEditing(false) }
+  async function save() {
+    setSaving(true)
+    try { await onSave(d); setEditing(false) } catch { /* page surfaces the error; keep the draft open */ } finally { setSaving(false) }
+  }
   function applyTemplate(type: ThesisType) {
     const tpl = thesisTemplate(type, lang)
     setD({ thesis: tpl.thesis, bullCase: tpl.bullCase, bearCase: tpl.bearCase, invalidation: tpl.invalidation })
@@ -469,8 +490,10 @@ function TargetCard({ intel, currency, currentPrice, t, lang, onSave }: {
   }
   async function save() {
     setSaving(true)
-    await onSave({ targetPrice: n(d.targetPrice), trimAbove: n(d.trimAbove), addBelow: n(d.addBelow), fairValue: n(d.fairValue), targetCurrency: currency, planNotes: d.planNotes })
-    setSaving(false); setEditing(false)
+    try {
+      await onSave({ targetPrice: n(d.targetPrice), trimAbove: n(d.trimAbove), addBelow: n(d.addBelow), fairValue: n(d.fairValue), targetCurrency: currency, planNotes: d.planNotes })
+      setEditing(false)
+    } catch { /* page surfaces the error; keep the draft open */ } finally { setSaving(false) }
   }
 
   const sym   = currency === 'MYR' ? 'RM' : '$'
@@ -565,7 +588,8 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
 
   async function add() {
     if (!draft.trim()) return
-    setBusy(true); await onAdd(draft); setBusy(false); setDraft('')
+    setBusy(true)
+    try { await onAdd(draft); setDraft('') } catch { /* page surfaces the error; keep the draft */ } finally { setBusy(false) }
   }
 
   const KIND: Record<string, { tone: string; tkey: string; Icon: LucideIcon }> = {

@@ -193,8 +193,10 @@ export default function WatchlistPage() {
 
   /* ── Remove ─────────────────────────────────────────────── */
   async function handleRemove(id: string) {
+    const removed = items.find(i => i.id === id)
     setItems(prev => prev.filter(i => i.id !== id))
-    await supabase.from('watchlist_items').delete().eq('id', id)
+    const { error } = await supabase.from('watchlist_items').delete().eq('id', id)
+    if (error && removed) { setItems(prev => [...prev, removed]); setAddErr(t('error_generic')) }
   }
 
   /* ── Derived: enrich with live status ───────────────────── */

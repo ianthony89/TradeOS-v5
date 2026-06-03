@@ -6,6 +6,8 @@ import { Wallet, Scissors, Target as TargetIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useI18n } from '@/lib/i18n/context'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
+import { useHoldingsStore } from '@/stores/holdings'
+import { applyLiveQuote } from '@/lib/portfolio/live-price'
 import { fmt } from '@/lib/utils/format'
 import { Panel, PanelHead, PanelBody } from '@/components/ui/panel'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -25,13 +27,14 @@ const ACTION_KEY: Record<'ADD' | 'REDUCE' | 'HOLD', string> = { ADD: 'pl_buy', R
 
 interface Pos {
   symbol: string; symbolNormalized: string; name: string; currency: string
-  marketValue: number; currentPrice: number; assetType: string
+  marketValue: number; currentPrice: number; assetType: string; quantity: number; avgCost: number
 }
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function mapHolding(r: any): Pos {
   return {
     symbol: r.symbol, symbolNormalized: r.symbol_normalized, name: r.name ?? r.symbol, currency: r.currency,
     marketValue: Number(r.market_value ?? 0), currentPrice: Number(r.current_price ?? r.avg_cost), assetType: r.asset_type ?? 'US_EQUITY',
+    quantity: Number(r.quantity ?? 0), avgCost: Number(r.avg_cost ?? 0),
   }
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -45,6 +48,9 @@ export default function PlannerPage() {
   const fxRate             = useMarketStore(selectActiveFxRate)
   const primaryCurrency    = useMarketStore(s => s.primaryCurrency)
   const setPrimaryCurrency = useMarketStore(s => s.setPrimaryCurrency)
+
+  const quotes             = useHoldingsStore(s => s.quotes)
+  const fx = fxRate > 0 ? fxRate : 4   // guard: never divide by a zero/blank FX
 
   const [rows, setRows] = useState<Pos[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,24 +69,31 @@ export default function PlannerPage() {
     return () => { alive = false }
   }, [sb])
 
-  const usd = (mv: number, cur: string) => (cur === 'MYR' ? mv / fxRate : mv)
-  const toDisplay = (u: number) => (primaryCurrency === 'USD' ? u : u * fxRate)
-  const fromDisplay = (d: number) => (primaryCurrency === 'USD' ? d : d / fxRate)
+  const toDisplay = (u: number) => (primaryCurrency === 'USD' ? u : u * fx)
+  const fromDisplay = (d: number) => (primaryCurrency === 'USD' ? d : d / fx)
   const money = (u: number) => fmt.money(toDisplay(u), primaryCurrency)
 
   const { positions, totalUsd } = useMemo(() => {
-    const total = rows.reduce((s, p) => s + usd(p.marketValue, p.currency), 0)
-    const list: PlannerPosition[] = rows.map(p => {
-      const usdValue = usd(p.marketValue, p.currency)
+    // overlay session live quotes so the Planner matches the Dashboard (not the DB snapshot)
+    const live = rows.map(p => {
+      const lq = applyLiveQuote(
+        { currentPrice: p.currentPrice, marketValue: p.marketValue, unrealizedPl: 0, unrealizedPlPct: 0, todayPl: 0, avgCost: p.avgCost, quantity: p.quantity },
+        quotes.get(p.symbolNormalized),
+      )
+      return { ...p, marketValue: lq.marketValue, currentPrice: lq.currentPrice }
+    })
+    const total = live.reduce((s, p) => s + (p.currency === 'MYR' ? p.marketValue / fx : p.marketValue), 0)
+    const list: PlannerPosition[] = live.map(p => {
+      const usdValue = p.currency === 'MYR' ? p.marketValue / fx : p.marketValue
       return {
         symbol: p.symbol, symbolNormalized: p.symbolNormalized, name: p.name, currency: p.currency,
-        usdValue, priceUsd: p.currency === 'MYR' ? p.currentPrice / fxRate : p.currentPrice,
+        usdValue, priceUsd: p.currency === 'MYR' ? p.currentPrice / fx : p.currentPrice,
         weight: total > 0 ? (usdValue / total) * 100 : 0,
         strategy: classifyStrategy({ symbol: p.symbol, name: p.name, assetType: p.assetType, unrealizedPlPct: 0, portfolioWeight: 0 }),
       }
     })
     return { positions: list, totalUsd: total }
-  }, [rows, fxRate]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, quotes, fx])
 
   if (loading) {
     return <div><div className="section-header"><div><h1 className="section-title">{t('nav_planner')}</h1></div></div><div className="text-tertiary" style={{ fontSize: 13 }}>{t('pos_loading')}</div></div>
@@ -123,6 +136,7 @@ function AddCapitalCard({ positions, strategyTarget, money, fromDisplay, t, lang
   const [cash, setCash] = useState('')
   const [mode, setMode] = useState<'current' | 'strategy'>('current')
   const cashUsd = fromDisplay(num(cash))
+  const targetBalanced = Math.round(STRATEGIES.reduce((s, k) => s + (strategyTarget[k] || 0), 0)) === 100
   const result: DeployResult = useMemo(
     () => (mode === 'current' ? deployProportional(positions, cashUsd) : deployStrategyTarget(positions, cashUsd, strategyTarget)),
     [positions, cashUsd, mode, strategyTarget],
@@ -155,6 +169,8 @@ function AddCapitalCard({ positions, strategyTarget, money, fromDisplay, t, lang
 
         {cashUsd <= 0 ? (
           <div className="pl-empty">{t('pl_add_empty')}</div>
+        ) : mode === 'strategy' && !targetBalanced ? (
+          <div className="pl-empty">{t('pl_target_fix')}</div>
         ) : (
           <>
             <div className="pl-rows">
@@ -273,33 +289,39 @@ function TargetCard({ positions, target, setTarget, money, t }: {
           ))}
         </div>
 
-        <div className="pl-rows">
-          <div className="pl-rh pl-rh--gap"><span>{t('pl_position')}</span><span className="num">{t('pl_current')}</span><span className="num">{t('pl_target')}</span><span className="num">{t('pl_col_gap')}</span><span className="num">{t('pl_col_action')}</span></div>
-          {gaps.map(g => (
-            <div key={g.strategy} className="pl-row pl-row--gap">
-              <span className="pl-strat" style={{ color: TONE_VAR[STRAT_TONE[g.strategy]] }}>{t(`tax_${g.strategy}`)}</span>
-              <span className="num pl-mono">{fmt.pct(g.currentPct, 1)}</span>
-              <span className="num pl-mono">{fmt.pct(g.targetPct, 1)}</span>
-              <span className="num pl-mono">{g.gapPct >= 0 ? '+' : ''}{fmt.pct(g.gapPct, 1)}</span>
-              <span className="num pl-act" style={{ color: TONE_VAR[ACTION_TONE[g.action]] }}>
-                {t(ACTION_KEY[g.action])}{g.action !== 'HOLD' && <span className="pl-act-amt"> {money(Math.abs(g.deltaUsd))}</span>}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="pl-suggest">
-          <span className="pl-suggest-label">{t('pl_suggested')}</span>
-          {gaps.some(g => g.action !== 'HOLD') ? (
-            <ul className="pl-suggest-list">
-              {gaps.filter(g => g.action !== 'HOLD').map(g => (
-                <li key={g.strategy}>{t(g.action === 'ADD' ? 'pl_suggest_buy' : 'pl_suggest_trim', { amount: money(Math.abs(g.deltaUsd)), strategy: t(`tax_${g.strategy}`) })}</li>
+        {!balanced ? (
+          <div className="pl-empty">{t('pl_target_fix')}</div>
+        ) : (
+          <>
+            <div className="pl-rows">
+              <div className="pl-rh pl-rh--gap"><span>{t('pl_position')}</span><span className="num">{t('pl_current')}</span><span className="num">{t('pl_target')}</span><span className="num">{t('pl_col_gap')}</span><span className="num">{t('pl_col_action')}</span></div>
+              {gaps.map(g => (
+                <div key={g.strategy} className="pl-row pl-row--gap">
+                  <span className="pl-strat" style={{ color: TONE_VAR[STRAT_TONE[g.strategy]] }}>{t(`tax_${g.strategy}`)}</span>
+                  <span className="num pl-mono">{fmt.pct(g.currentPct, 1)}</span>
+                  <span className="num pl-mono">{fmt.pct(g.targetPct, 1)}</span>
+                  <span className="num pl-mono">{g.gapPct >= 0 ? '+' : ''}{fmt.pct(g.gapPct, 1)}</span>
+                  <span className="num pl-act" style={{ color: TONE_VAR[ACTION_TONE[g.action]] }}>
+                    {t(ACTION_KEY[g.action])}{g.action !== 'HOLD' && <span className="pl-act-amt"> {money(Math.abs(g.deltaUsd))}</span>}
+                  </span>
+                </div>
               ))}
-            </ul>
-          ) : (
-            <p className="pl-suggest-text">{t('pl_suggest_balanced')}</p>
-          )}
-        </div>
+            </div>
+
+            <div className="pl-suggest">
+              <span className="pl-suggest-label">{t('pl_suggested')}</span>
+              {gaps.some(g => g.action !== 'HOLD') ? (
+                <ul className="pl-suggest-list">
+                  {gaps.filter(g => g.action !== 'HOLD').map(g => (
+                    <li key={g.strategy}>{t(g.action === 'ADD' ? 'pl_suggest_buy' : 'pl_suggest_trim', { amount: money(Math.abs(g.deltaUsd)), strategy: t(`tax_${g.strategy}`) })}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="pl-suggest-text">{t('pl_suggest_balanced')}</p>
+              )}
+            </div>
+          </>
+        )}
       </PanelBody>
     </Panel>
   )

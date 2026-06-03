@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { DeltaBadge } from '@/components/ui/delta-badge'
 import { SymCell } from '@/components/brand/stock-logo'
 import { stockName } from '@/lib/portfolio/stock-names'
+import { useHoldingsStore } from '@/stores/holdings'
 import { reviewStatus, type ReviewStatus } from '@/lib/portfolio/review-status'
 import { positionQuality, type QualityGrade } from '@/lib/portfolio/position-quality'
 import * as PI from '@/lib/portfolio/position-intel'
@@ -47,6 +48,7 @@ export default function JournalPage() {
   const [intelMap, setIntelMap] = useState<Map<string, PI.PositionIntel>>(new Map())
   const [decisions, setDecisions] = useState<PI.DecisionEntryWithSymbol[]>([])
   const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -60,7 +62,13 @@ export default function JournalPage() {
         PI.loadRecentDecisions(sb, user.id, 200),
       ])
       if (!alive) return
-      setHoldings((rows ?? []).map(mapHolding))
+      // overlay session live quotes so the return chip + target distances match the Dashboard
+      const quotes = useHoldingsStore.getState().quotes
+      setHoldings((rows ?? []).map(mapHolding).map(p => {
+        const q = quotes.get(p.symbolNormalized)
+        if (!q || !(q.price > 0)) return p
+        return { ...p, currentPrice: q.price, unrealizedPlPct: p.avgCost > 0 ? ((q.price - p.avgCost) / p.avgCost) * 100 : p.unrealizedPlPct }
+      }))
       setIntelMap(im)
       setDecisions(dec)
       setLoading(false)
@@ -110,9 +118,11 @@ export default function JournalPage() {
   async function saveReview(pos: Pos, cadence: number, note: string) {
     if (!userId) return
     const nextReviewAt = PI.computeNextReview(cadence)
-    await PI.saveMeta(sb, userId, pos.symbol, pos.symbolNormalized, { reviewFrequencyDays: cadence, nextReviewAt })
     const trimmed = note.trim()
-    if (trimmed) await PI.addReview(sb, userId, pos.symbolNormalized, trimmed)
+    try {
+      await PI.saveMeta(sb, userId, pos.symbol, pos.symbolNormalized, { reviewFrequencyDays: cadence, nextReviewAt })
+      if (trimmed) await PI.addReview(sb, userId, pos.symbolNormalized, trimmed)
+    } catch (e) { setErr(t('err_save')); throw e }
     setIntelMap(prev => {
       const next = new Map(prev)
       const cur = next.get(pos.symbolNormalized) ?? PI.EMPTY_INTEL
@@ -142,6 +152,7 @@ export default function JournalPage() {
   return (
     <div className="jr-page">
       <div className="section-header"><div><h1 className="section-title">{t('nav_journal')}</h1><p className="section-sub">{t('jr_sub')}</p></div></div>
+      {err && <button type="button" className="jr-err" onClick={() => setErr(null)}>{err}</button>}
 
       {/* 1 · Review Pulse */}
       <div className="jr-pulse">
@@ -254,8 +265,9 @@ function ReviewRow({ e, t, lang, onSave }: {
 
   async function save() {
     if (cad == null) return
-    setSaving(true); await onSave(pos, cad, note); setSaving(false)
-    setOpen(false); setCad(null); setNote('')
+    setSaving(true)
+    try { await onSave(pos, cad, note); setOpen(false); setCad(null); setNote('') }
+    catch { /* page surfaces the error; keep the form open */ } finally { setSaving(false) }
   }
 
   return (
@@ -355,7 +367,7 @@ function UntrackedRow({ pos, grade, t, lang, onStart }: {
 }) {
   const [cad, setCad]       = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
-  async function start() { if (cad == null) return; setSaving(true); await onStart(pos, cad, ''); setSaving(false) }
+  async function start() { if (cad == null) return; setSaving(true); try { await onStart(pos, cad, '') } catch { /* page surfaces the error */ } finally { setSaving(false) } }
   return (
     <div className="jr-untracked-row">
       <SymCell symbol={pos.symbol} name={stockName(pos.symbol, pos.name, lang)} currency={pos.currency} logoSize={24} />

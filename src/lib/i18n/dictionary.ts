@@ -509,6 +509,7 @@ const en: Dict = {
   pl_target_sub:         'What actions move me toward my target mix?',
   pl_target_sum:         'Targets total {n}%',
   pl_target_sum_ok:      'Targets total 100%',
+  pl_target_fix:         'Set your strategy targets to total 100% to see actions.',
   pl_col_gap:            'Gap',
   pl_col_action:         'Action',
   pl_buy:                'Buy',
@@ -585,6 +586,7 @@ const en: Dict = {
   btn_confirm:           'Confirm',
   loading:               'Loading…',
   error_generic:         'Something went wrong',
+  err_save:              "Couldn't save your change. Please try again.",
   empty_state:           'Nothing here yet',
 }
 
@@ -1091,6 +1093,7 @@ const zh: Dict = {
   pl_target_sub:         '哪些操作能让我更接近目标配置?',
   pl_target_sum:         '目标合计 {n}%',
   pl_target_sum_ok:      '目标合计 100%',
+  pl_target_fix:         '请把策略目标调整到合计 100% 才会显示操作建议。',
   pl_col_gap:            '差距',
   pl_col_action:         '操作',
   pl_buy:                '买入',
@@ -1167,6 +1170,7 @@ const zh: Dict = {
   btn_confirm:           '确认',
   loading:               '加载中…',
   error_generic:         '出了点问题',
+  err_save:              '保存失败,请重试。',
   empty_state:           '暂无内容',
 }
 

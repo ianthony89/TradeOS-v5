@@ -36,7 +36,8 @@ import { computeWatchStatus, type WatchDirection } from '@/lib/portfolio/watchli
 
 /** USD-equivalent of a native amount (MYR ÷ FX). Module-scope = stable. */
 function usdEquiv(amt: number, currency: string, fx: number): number {
-  return currency === 'MYR' ? amt / fx : amt
+  const r = fx > 0 ? fx : 4   // guard: never divide by a zero/blank FX
+  return currency === 'MYR' ? amt / r : amt
 }
 
 export default function DashboardPage() {
@@ -247,7 +248,7 @@ export default function DashboardPage() {
   /* Weight in USD-equivalent terms */
   const withWeight = useMemo(() =>
     live.map(h => {
-      const usdValue = h.currency === 'MYR' ? h.marketValue / fxRate : h.marketValue
+      const usdValue = h.currency === 'MYR' ? h.marketValue / (fxRate > 0 ? fxRate : 4) : h.marketValue
       return {
         ...h,
         usdValue,

@@ -95,23 +95,25 @@ type TargetFields  = Pick<PositionIntel, 'targetPrice' | 'trimAbove' | 'addBelow
 export async function saveThesis(
   sb: SupabaseClient, userId: string, symbol: string, symbolNorm: string, f: ThesisFields,
 ): Promise<void> {
-  await sb.from('position_intelligence').upsert({
+  const { error } = await sb.from('position_intelligence').upsert({
     user_id: userId, symbol, symbol_normalized: symbolNorm,
     thesis: f.thesis, bull_case: f.bullCase, bear_case: f.bearCase, invalidation: f.invalidation,
     thesis_updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,symbol_normalized' })
+  if (error) throw new Error(error.message)
 }
 
 /** Upsert only the target columns (thesis untouched), stamp targets_updated_at. */
 export async function saveTargets(
   sb: SupabaseClient, userId: string, symbol: string, symbolNorm: string, f: TargetFields,
 ): Promise<void> {
-  await sb.from('position_intelligence').upsert({
+  const { error } = await sb.from('position_intelligence').upsert({
     user_id: userId, symbol, symbol_normalized: symbolNorm,
     target_price: f.targetPrice, trim_above: f.trimAbove, add_below: f.addBelow,
     fair_value: f.fairValue, target_currency: f.targetCurrency, plan_notes: f.planNotes,
     targets_updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id,symbol_normalized' })
+  if (error) throw new Error(error.message)
 }
 
 /** Patch conviction / review-cadence fields (only the keys provided). */
@@ -124,7 +126,8 @@ export async function saveMeta(
   if ('confidence' in f)          patch.confidence = f.confidence
   if ('reviewFrequencyDays' in f) patch.review_frequency_days = f.reviewFrequencyDays
   if ('nextReviewAt' in f)        patch.next_review_at = f.nextReviewAt
-  await sb.from('position_intelligence').upsert(patch, { onConflict: 'user_id,symbol_normalized' })
+  const { error } = await sb.from('position_intelligence').upsert(patch, { onConflict: 'user_id,symbol_normalized' })
+  if (error) throw new Error(error.message)
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -200,13 +203,15 @@ export async function loadRecentDecisions(
 export async function addReview(
   sb: SupabaseClient, userId: string, symbolNorm: string, body: string,
 ): Promise<void> {
-  await sb.from('journal_entries').insert({
+  const { error } = await sb.from('journal_entries').insert({
     user_id: userId, symbol: symbolNorm, content: body, entry_type: 'manual',
   })
+  if (error) throw new Error(error.message)
 }
 
 export async function deleteDecision(sb: SupabaseClient, id: string): Promise<void> {
-  await sb.from('journal_entries').delete().eq('id', id)
+  const { error } = await sb.from('journal_entries').delete().eq('id', id)
+  if (error) throw new Error(error.message)
 }
 
 /**
