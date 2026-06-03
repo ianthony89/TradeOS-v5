@@ -208,11 +208,10 @@ The dashboard is a **portfolio decision cockpit**, not a generic SaaS analytics 
 - Language toggle
 - Theme toggle
 
-### 2. Market pulse strip
-- Portfolio-relevant tickers only (one chip per held position — not random market spam)
-- Each chip: logo + symbol + price + delta + currency
-- Static horizontal flex with edge-fade mask
-- **No marquee animation** — premium subtle, alive but not noisy
+### 2. Market pulse strip — **dual-row scrolling marquee (accepted v5 design, owner-approved 2026-06-04)**
+- **Two animated rows:** a curated **Hot List** (`lib/market/hot-list.ts`, scrolls ←) over **My Holdings** (one chip per held position, scrolls →). Component: `ticker-strip.tsx`; CSS marquee in `globals.css`.
+- Each chip: logo + symbol + price + delta + currency, with an edge-fade mask.
+- **This is a deliberate product choice — do NOT** revert to a single static row, remove the Hot List, or strip the marquee animation. (An earlier draft of this rule read "held positions only / static / no marquee"; that was **superseded** by the shipped design and is no longer the contract.)
 
 ### 3. Hero portfolio summary
 - **Primary currency toggle** between USD and MYR (user picks)

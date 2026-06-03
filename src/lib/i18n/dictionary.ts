@@ -587,6 +587,11 @@ const en: Dict = {
   loading:               'Loading…',
   error_generic:         'Something went wrong',
   err_save:              "Couldn't save your change. Please try again.",
+  a11y_toggle_lang:      'Toggle language',
+  a11y_toggle_theme:     'Toggle theme',
+  a11y_primary_currency: 'Primary currency',
+  dash_switch_view:      'Switch view',
+  a11y_delete:           'Delete',
   empty_state:           'Nothing here yet',
 }
 
@@ -1171,6 +1176,11 @@ const zh: Dict = {
   loading:               '加载中…',
   error_generic:         '出了点问题',
   err_save:              '保存失败,请重试。',
+  a11y_toggle_lang:      '切换语言',
+  a11y_toggle_theme:     '切换主题',
+  a11y_primary_currency: '主要货币',
+  dash_switch_view:      '切换视图',
+  a11y_delete:           '删除',
   empty_state:           '暂无内容',
 }
 

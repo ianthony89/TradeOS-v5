@@ -143,8 +143,8 @@ export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProp
         <button
           onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
           className="btn btn-ghost btn-sm"
-          title="Toggle language"
-          aria-label="Toggle language"
+          title={t('a11y_toggle_lang')}
+          aria-label={t('a11y_toggle_lang')}
         >
           <Languages size={13} />
           <span>{lang === 'zh' ? 'EN' : '中'}</span>
@@ -152,8 +152,8 @@ export function Topbar({ userName, positions, theme, onThemeToggle }: TopbarProp
         <button
           onClick={onThemeToggle}
           className="btn btn-icon"
-          title="Toggle theme"
-          aria-label="Toggle theme"
+          title={t('a11y_toggle_theme')}
+          aria-label={t('a11y_toggle_theme')}
         >
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
         </button>

@@ -511,7 +511,7 @@ export default function DashboardPage() {
         }`}>
           <div className="hero-card-header">
             <div className="hero-card-label">{t('dash_holdings_value')}</div>
-            <div className="chip-group" role="group" aria-label="Primary currency">
+            <div className="chip-group" role="group" aria-label={t('a11y_primary_currency')}>
               <button
                 type="button"
                 onClick={() => setPrimaryCurrency('USD')}
@@ -665,7 +665,7 @@ export default function DashboardPage() {
                 type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setAllocView(nextAllocView(allocView))}
-                title="Switch view"
+                title={t('dash_switch_view')}
               >
                 <Repeat size={12} />
                 {ALLOC_VIEWS.find(v => v.id === allocView)?.label}

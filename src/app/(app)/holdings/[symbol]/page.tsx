@@ -52,8 +52,10 @@ export default function PositionHubPage() {
   const params = useParams<{ symbol: string }>()
   const symParam = decodeURIComponent(params.symbol)
 
-  const fxRate       = useMarketStore(selectActiveFxRate)
-  const setHoldings  = useHoldingsStore(s => s.setHoldings)
+  const fxRate           = useMarketStore(selectActiveFxRate)
+  const setQuotesUpdated = useMarketStore(s => s.setQuotesUpdated)
+  const setHoldings      = useHoldingsStore(s => s.setHoldings)
+  const updateQuotes     = useHoldingsStore(s => s.updateQuotes)
 
   const [userId,  setUserId]  = useState<string | null>(null)
   const [holding, setHolding] = useState<Holding | null>(null)
@@ -72,9 +74,21 @@ export default function PositionHubPage() {
       setUserId(user.id)
 
       const { data: rows } = await sb.from('holdings').select('*').eq('user_id', user.id)
-      // Overlay session live quotes so the Hub matches the Dashboard (not the DB snapshot).
+      const rawMapped = (rows ?? []).map(mapRow)
+      // Self-fetch live quotes so a direct load / refresh of the Hub gets fresh prices
+      // (not just the DB snapshot) — matches the Dashboard / Journal / Planner behavior.
+      const symbols = rawMapped.map(h => h.symbolNormalized)
+      if (symbols.length) {
+        try {
+          const res  = await fetch('/api/quotes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ symbols }) })
+          const json = await res.json()
+          if (alive && json.quotes) { updateQuotes(json.quotes); setQuotesUpdated(new Date()) }
+        } catch { /* keep the DB snapshot */ }
+      }
+      if (!alive) return
+      // Overlay live quotes so the Hub matches the Dashboard (not the DB snapshot).
       const quotes  = useHoldingsStore.getState().quotes
-      const mapped  = (rows ?? []).map(mapRow).map(h => ({ ...h, ...applyLiveQuote(h, quotes.get(h.symbolNormalized)) }))
+      const mapped  = rawMapped.map(h => ({ ...h, ...applyLiveQuote(h, quotes.get(h.symbolNormalized)) }))
       setHoldings(mapped)
       const fx      = fxRate > 0 ? fxRate : 4   // guard: never divide by a zero/blank FX
       const total   = getTotalValue(mapped, fx).combined
@@ -637,7 +651,7 @@ function DecisionLog({ log, t, lang, openedLabel, freq, nextReviewAt, onReview, 
                 <span className="pos-tl-dot" style={{ background: TONE_VAR[meta.tone] }} />
                 <div className="pos-tl-head">
                   <span className="pos-tl-type" style={{ color: TONE_VAR[meta.tone] }}><KindIcon size={12} />{t(meta.tkey)}</span>
-                  {!e.synthetic && <button type="button" className="pos-tl-del" onClick={() => onDelete(e.id)} aria-label="Delete"><Trash2 size={12} /></button>}
+                  {!e.synthetic && <button type="button" className="pos-tl-del" onClick={() => onDelete(e.id)} aria-label={t('a11y_delete')}><Trash2 size={12} /></button>}
                 </div>
                 {body && <div className="pos-tl-detail">{body}</div>}
                 <div className="pos-tl-date">{dateShort(e.at, lang)}</div>

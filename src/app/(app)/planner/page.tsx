@@ -51,6 +51,7 @@ export default function PlannerPage() {
 
   const quotes             = useHoldingsStore(s => s.quotes)
   const updateQuotes       = useHoldingsStore(s => s.updateQuotes)
+  const setQuotesUpdated   = useMarketStore(s => s.setQuotesUpdated)
   const fx = fxRate > 0 ? fxRate : 4   // guard: never divide by a zero/blank FX
 
   const [rows, setRows] = useState<Pos[]>([])
@@ -74,12 +75,12 @@ export default function PlannerPage() {
         try {
           const res  = await fetch('/api/quotes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ symbols }) })
           const json = await res.json()
-          if (alive && json.quotes) updateQuotes(json.quotes)
+          if (alive && json.quotes) { updateQuotes(json.quotes); setQuotesUpdated(new Date()) }
         } catch { /* keep the DB snapshot */ }
       }
     })()
     return () => { alive = false }
-  }, [sb, updateQuotes])
+  }, [sb, updateQuotes, setQuotesUpdated])
 
   const toDisplay = (u: number) => (primaryCurrency === 'USD' ? u : u * fx)
   const fromDisplay = (d: number) => (primaryCurrency === 'USD' ? d : d / fx)

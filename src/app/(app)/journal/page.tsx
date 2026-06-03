@@ -12,6 +12,7 @@ import { DeltaBadge } from '@/components/ui/delta-badge'
 import { SymCell } from '@/components/brand/stock-logo'
 import { stockName } from '@/lib/portfolio/stock-names'
 import { useHoldingsStore } from '@/stores/holdings'
+import { useMarketStore } from '@/stores/market'
 import { reviewStatus, type ReviewStatus } from '@/lib/portfolio/review-status'
 import { positionQuality, type QualityGrade } from '@/lib/portfolio/position-quality'
 import * as PI from '@/lib/portfolio/position-intel'
@@ -43,6 +44,7 @@ export default function JournalPage() {
   const { t, lang } = useI18n()
   const sb = createClient()
   const updateQuotes = useHoldingsStore(s => s.updateQuotes)
+  const setQuotesUpdated = useMarketStore(s => s.setQuotesUpdated)
 
   const [userId, setUserId]   = useState<string | null>(null)
   const [holdings, setHoldings] = useState<Pos[]>([])
@@ -71,7 +73,7 @@ export default function JournalPage() {
         try {
           const res  = await fetch('/api/quotes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ symbols }) })
           const json = await res.json()
-          if (json.quotes) updateQuotes(json.quotes)
+          if (json.quotes) { updateQuotes(json.quotes); setQuotesUpdated(new Date()) }
         } catch { /* keep the DB snapshot */ }
       }
       if (!alive) return
@@ -86,7 +88,7 @@ export default function JournalPage() {
       setLoading(false)
     })()
     return () => { alive = false }
-  }, [sb, updateQuotes])
+  }, [sb, updateQuotes, setQuotesUpdated])
 
   /* last-reviewed (real note date if any, else the schedule date) + has-log */
   const { lastReviewedMap, hasLogSet } = useMemo(() => {

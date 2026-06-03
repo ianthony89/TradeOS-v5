@@ -84,14 +84,14 @@ export function FxPill({ className = '' }: { className?: string }) {
         <span
           className="fx-pill-tag"
           data-mode={isLiveMode ? 'live' : 'manual'}
-          aria-label={isLiveMode ? 'Live rate' : 'Manual rate'}
+          aria-label={title}
         >
           {isLiveMode ? <Radio size={12} /> : <Lock size={12} />}
         </span>
       </button>
 
       {open && (
-        <div className="fx-popover" role="dialog" aria-label="Edit FX rate">
+        <div className="fx-popover" role="dialog" aria-label={t('fx_pop_label')}>
           <div className="fx-popover-label">{t('fx_pop_label')}</div>
           <div className="fx-popover-row">
             <input
