@@ -42,6 +42,7 @@ function fmtDate(iso: string, lang: 'en' | 'zh'): string {
 export default function JournalPage() {
   const { t, lang } = useI18n()
   const sb = createClient()
+  const updateQuotes = useHoldingsStore(s => s.updateQuotes)
 
   const [userId, setUserId]   = useState<string | null>(null)
   const [holdings, setHoldings] = useState<Pos[]>([])
@@ -62,9 +63,20 @@ export default function JournalPage() {
         PI.loadRecentDecisions(sb, user.id, 200),
       ])
       if (!alive) return
-      // overlay session live quotes so the return chip + target distances match the Dashboard
+      const mapped = (rows ?? []).map(mapHolding)
+      // self-fetch live quotes (cold-load safety), then overlay so the return chip +
+      // target distances match the Dashboard even with no prior visit.
+      const symbols = mapped.map(p => p.symbolNormalized)
+      if (symbols.length) {
+        try {
+          const res  = await fetch('/api/quotes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ symbols }) })
+          const json = await res.json()
+          if (json.quotes) updateQuotes(json.quotes)
+        } catch { /* keep the DB snapshot */ }
+      }
+      if (!alive) return
       const quotes = useHoldingsStore.getState().quotes
-      setHoldings((rows ?? []).map(mapHolding).map(p => {
+      setHoldings(mapped.map(p => {
         const q = quotes.get(p.symbolNormalized)
         if (!q || !(q.price > 0)) return p
         return { ...p, currentPrice: q.price, unrealizedPlPct: p.avgCost > 0 ? ((q.price - p.avgCost) / p.avgCost) * 100 : p.unrealizedPlPct }
@@ -74,7 +86,7 @@ export default function JournalPage() {
       setLoading(false)
     })()
     return () => { alive = false }
-  }, [sb])
+  }, [sb, updateQuotes])
 
   /* last-reviewed (real note date if any, else the schedule date) + has-log */
   const { lastReviewedMap, hasLogSet } = useMemo(() => {

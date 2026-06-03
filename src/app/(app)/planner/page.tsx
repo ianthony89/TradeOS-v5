@@ -50,6 +50,7 @@ export default function PlannerPage() {
   const setPrimaryCurrency = useMarketStore(s => s.setPrimaryCurrency)
 
   const quotes             = useHoldingsStore(s => s.quotes)
+  const updateQuotes       = useHoldingsStore(s => s.updateQuotes)
   const fx = fxRate > 0 ? fxRate : 4   // guard: never divide by a zero/blank FX
 
   const [rows, setRows] = useState<Pos[]>([])
@@ -63,11 +64,22 @@ export default function PlannerPage() {
       if (!user || !alive) return
       const { data } = await sb.from('holdings').select('*').eq('user_id', user.id).order('market_value', { ascending: false })
       if (!alive) return
-      setRows((data ?? []).map(mapHolding))
+      const mapped = (data ?? []).map(mapHolding)
+      setRows(mapped)
       setLoading(false)
+      // self-fetch live quotes so the simulator is fresh even on a cold load
+      // (no prior Dashboard/Holdings visit). The reactive overlay then applies them.
+      const symbols = mapped.map(p => p.symbolNormalized)
+      if (symbols.length) {
+        try {
+          const res  = await fetch('/api/quotes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ symbols }) })
+          const json = await res.json()
+          if (alive && json.quotes) updateQuotes(json.quotes)
+        } catch { /* keep the DB snapshot */ }
+      }
     })()
     return () => { alive = false }
-  }, [sb])
+  }, [sb, updateQuotes])
 
   const toDisplay = (u: number) => (primaryCurrency === 'USD' ? u : u * fx)
   const fromDisplay = (d: number) => (primaryCurrency === 'USD' ? d : d / fx)
