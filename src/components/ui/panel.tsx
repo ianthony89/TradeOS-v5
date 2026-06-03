@@ -11,7 +11,7 @@ export function Panel({ children, className = '' }: PanelProps) {
 }
 
 interface PanelHeadProps {
-  title:     string
+  title:     ReactNode
   meta?:     ReactNode
   actions?:  ReactNode
   className?: string
