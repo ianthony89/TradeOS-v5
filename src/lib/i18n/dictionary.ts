@@ -514,6 +514,13 @@ const en: Dict = {
   pl_buy:                'Buy',
   pl_trim:               'Trim',
   pl_hold:               'Hold',
+  pl_reduce_freed:       'Cash freed',
+  pl_current_mix:        'Current mix',
+  pl_suggested:          'Suggested action',
+  pl_suggest_reduce:     'Trim {symbol} by {amount} to move its weight from {from} to {to}.',
+  pl_suggest_buy:        'Buy {amount} of {strategy}',
+  pl_suggest_trim:       'Trim {amount} of {strategy}',
+  pl_suggest_balanced:   'Your mix already matches the target.',
 
   // ── Hero intelligence ────────────────────────────────────
   hero_largest:          'Largest Position',
@@ -1089,6 +1096,13 @@ const zh: Dict = {
   pl_buy:                '买入',
   pl_trim:               '减持',
   pl_hold:               '持有',
+  pl_reduce_freed:       '释放现金',
+  pl_current_mix:        '当前配置',
+  pl_suggested:          '建议操作',
+  pl_suggest_reduce:     '减持 {symbol} {amount},把权重从 {from} 降到 {to}。',
+  pl_suggest_buy:        '买入 {amount} 的{strategy}',
+  pl_suggest_trim:       '减持 {amount} 的{strategy}',
+  pl_suggest_balanced:   '你的配置已经符合目标。',
 
   // ── Hero intelligence ────────────────────────────────────
   hero_largest:          '最大仓位',

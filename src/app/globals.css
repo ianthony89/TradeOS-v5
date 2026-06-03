@@ -2154,6 +2154,7 @@ a { color: inherit; text-decoration: none; }
 .pl-row:last-child { border-bottom: none; }
 .pl-rh .num, .pl-row .num { text-align: right; }
 .pl-rh--add, .pl-row--add { grid-template-columns: 1fr 96px 68px 120px; }
+.pl-rh--add3, .pl-row--add3 { grid-template-columns: 1fr 110px 90px; }
 .pl-rh--gap, .pl-row--gap { grid-template-columns: 1fr 60px 60px 64px 1.3fr; }
 .pl-add { font-weight: 700; color: var(--text-primary); }
 .pl-mono { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
@@ -2166,7 +2167,7 @@ a { color: inherit; text-decoration: none; }
 .pl-note { margin-top: 9px; font-size: 11.5px; color: var(--warning); }
 
 /* Reduce result */
-.pl-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px; }
+.pl-result { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 12px; margin-top: 4px; }
 .pl-result-cell { display: flex; flex-direction: column; gap: 3px; padding: 11px 13px; border-radius: 10px;
   background: rgba(140,170,220,0.04); border: 1px solid var(--border-default); }
 .pl-result-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-quaternary); }
@@ -2182,6 +2183,20 @@ a { color: inherit; text-decoration: none; }
 .pl-pct-sign { position: absolute; right: 10px; color: var(--text-quaternary); font-size: 12px; pointer-events: none; }
 .pl-sum { font-size: 11.5px; font-weight: 600; color: var(--warning); margin-left: auto; }
 .pl-sum--ok { color: var(--positive); }
+
+/* current-mix summary (above the gap table) */
+.pl-mix { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 12px; padding-bottom: 11px; border-bottom: 1px solid var(--hairline); }
+.pl-mix-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-quaternary); }
+.pl-mix-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+.pl-mix-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* suggested-action callout (plain English) */
+.pl-suggest { margin-top: 13px; padding: 11px 14px; border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); }
+.pl-suggest-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-bottom: 5px; }
+.pl-suggest-text { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.pl-suggest-list { margin: 0; padding-left: 17px; display: flex; flex-direction: column; gap: 3px; }
+.pl-suggest-list li { font-size: 13px; color: var(--text-secondary); line-height: 1.45; }
 
 /* ─────────────────────────────────────────────────────────────
    Watchlist

@@ -158,13 +158,16 @@ function AddCapitalCard({ positions, strategyTarget, money, fromDisplay, t, lang
         ) : (
           <>
             <div className="pl-rows">
-              <div className="pl-rh pl-rh--add"><span>{t('pl_position')}</span><span className="num">{t('pl_col_add')}</span><span className="num">{t('pl_col_shares')}</span><span className="num">{t('pl_current')} → {t('pl_target')}</span></div>
+              <div className={`pl-rh ${mode === 'strategy' ? 'pl-rh--add' : 'pl-rh--add3'}`}>
+                <span>{t('pl_position')}</span><span className="num">{t('pl_col_add')}</span><span className="num">{t('pl_col_shares')}</span>
+                {mode === 'strategy' && <span className="num">{t('pl_current')} → {t('pl_target')}</span>}
+              </div>
               {result.suggestions.map(s => (
-                <div key={s.symbolNormalized} className="pl-row pl-row--add">
+                <div key={s.symbolNormalized} className={`pl-row ${mode === 'strategy' ? 'pl-row--add' : 'pl-row--add3'}`}>
                   <SymCell symbol={s.symbol} name={stockName(s.symbol, s.name, lang)} currency={s.currency} logoSize={22} />
                   <span className="num pl-add">{money(s.addUsd)}</span>
                   <span className="num pl-mono">{shares(s.addShares)}</span>
-                  <span className="num pl-mono pl-wt">{fmt.pct(s.weightBefore, 1)} <span className="pl-arrow">→</span> {fmt.pct(s.weightAfter, 1)}</span>
+                  {mode === 'strategy' && <span className="num pl-mono pl-wt">{fmt.pct(s.weightBefore, 1)} <span className="pl-arrow">→</span> {fmt.pct(s.weightAfter, 1)}</span>}
                 </div>
               ))}
             </div>
@@ -214,11 +217,18 @@ function ReduceCard({ positions, totalUsd, money, t }: {
         ) : !result ? (
           <div className="pl-empty">{t('pl_reduce_none')}</div>
         ) : (
-          <div className="pl-result">
-            <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_sell')}</span><span className="pl-result-v">{money(result.sellUsd)}</span></div>
-            <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_shares')}</span><span className="pl-result-v pl-mono">{shares(result.sellShares)}</span></div>
-            <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_newweight')}</span><span className="pl-result-v" style={{ color: 'var(--positive)' }}>{fmt.pct(sel.weight, 1)} <span className="pl-arrow">→</span> {fmt.pct(result.newWeight, 1)}</span></div>
-          </div>
+          <>
+            <div className="pl-result">
+              <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_sell')}</span><span className="pl-result-v">{money(result.sellUsd)}</span></div>
+              <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_shares')}</span><span className="pl-result-v pl-mono">{shares(result.sellShares)}</span></div>
+              <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_freed')}</span><span className="pl-result-v">{money(result.freedUsd)}</span></div>
+              <div className="pl-result-cell"><span className="pl-result-label">{t('pl_reduce_newweight')}</span><span className="pl-result-v" style={{ color: 'var(--positive)' }}>{fmt.pct(sel.weight, 1)} <span className="pl-arrow">→</span> {fmt.pct(result.newWeight, 1)}</span></div>
+            </div>
+            <div className="pl-suggest">
+              <span className="pl-suggest-label">{t('pl_suggested')}</span>
+              <p className="pl-suggest-text">{t('pl_suggest_reduce', { symbol: sel.symbol, amount: money(result.sellUsd), from: fmt.pct(sel.weight, 1), to: fmt.pct(result.newWeight, 1) })}</p>
+            </div>
+          </>
         )}
       </PanelBody>
     </Panel>
@@ -253,6 +263,16 @@ function TargetCard({ positions, target, setTarget, money, t }: {
           <span className={`pl-sum${balanced ? ' pl-sum--ok' : ''}`}>{balanced ? t('pl_target_sum_ok') : t('pl_target_sum', { n: Math.round(sumPct) })}</span>
         </div>
 
+        <div className="pl-mix">
+          <span className="pl-mix-label">{t('pl_current_mix')}</span>
+          {gaps.map(g => (
+            <span key={g.strategy} className="pl-mix-item">
+              <span className="pl-mix-dot" style={{ background: TONE_VAR[STRAT_TONE[g.strategy]] }} />
+              {t(`tax_${g.strategy}`)} <span className="pl-mono">{fmt.pct(g.currentPct, 0)}</span>
+            </span>
+          ))}
+        </div>
+
         <div className="pl-rows">
           <div className="pl-rh pl-rh--gap"><span>{t('pl_position')}</span><span className="num">{t('pl_current')}</span><span className="num">{t('pl_target')}</span><span className="num">{t('pl_col_gap')}</span><span className="num">{t('pl_col_action')}</span></div>
           {gaps.map(g => (
@@ -266,6 +286,19 @@ function TargetCard({ positions, target, setTarget, money, t }: {
               </span>
             </div>
           ))}
+        </div>
+
+        <div className="pl-suggest">
+          <span className="pl-suggest-label">{t('pl_suggested')}</span>
+          {gaps.some(g => g.action !== 'HOLD') ? (
+            <ul className="pl-suggest-list">
+              {gaps.filter(g => g.action !== 'HOLD').map(g => (
+                <li key={g.strategy}>{t(g.action === 'ADD' ? 'pl_suggest_buy' : 'pl_suggest_trim', { amount: money(Math.abs(g.deltaUsd)), strategy: t(`tax_${g.strategy}`) })}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="pl-suggest-text">{t('pl_suggest_balanced')}</p>
+          )}
         </div>
       </PanelBody>
     </Panel>
