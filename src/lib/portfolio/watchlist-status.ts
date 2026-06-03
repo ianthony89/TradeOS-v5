@@ -48,9 +48,10 @@ export function computeWatchStatus(
                           : current <= target
 
   let status: WatchStatus
-  if (reached)                                  status = 'TRIGGERED'
+  if (current <= 0)                                 status = 'WATCHING'      // no usable price yet → neutral, never "near"
+  else if (reached)                                 status = 'TRIGGERED'
   else if (Math.abs(distancePct) <= NEAR_THRESHOLD) status = 'NEAR_TARGET'
-  else                                          status = 'WATCHING'
+  else                                              status = 'WATCHING'
 
   return { status, direction, distancePct, reached }
 }
