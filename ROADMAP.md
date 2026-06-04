@@ -1,6 +1,8 @@
 # TradeOS v5 — Roadmap
 
-_Status as of 2026-06-04 · current release **`v5.0.0`**._
+_Status as of 2026-06-04 · current release **`v5.0.5`** · patch line v5.0.1–v5.0.5 (see [`RELEASES.md`](./RELEASES.md))._
+
+> **⚠ Migration 008 must be applied in Supabase** (`holdings.exit_price` + `exit_date`, added in v5.0.5 for the Closed-Positions "Since Exit %"). The app is resilient without it — those fields show "—" until applied.
 
 TradeOS is a portfolio **decision cockpit**, not a generic tracker. The roadmap
 is deliberately conservative: surfaces ship only when they earn their place, and

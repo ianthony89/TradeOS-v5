@@ -28,7 +28,7 @@ It answers five questions:
 **Phase 1 — foundation**
 - **Auth** — email + numeric PIN (PIN is the Supabase password; bcrypt server-side)
 - **Dashboard** — hero holdings value, live market sessions, FX, ticker pulse, allocation donut, risk assessment, top movers
-- **Holdings** — decision workspace with a four-lens view switch (Overview · Performance · Allocation · Trading) to focus on one dimension at a time: logo, exposure, P/L hierarchy, strategy/sector taxonomy
+- **Holdings** — the primary portfolio screen: a summary bar (value / today / total P&L / open / closed) + **one unified Moomoo-style table** (every column for a position in one row, sticky Symbol, sort by any column, Action/Status signals), plus an expandable **Closed Positions** section (history preserved, "Since Exit %"). CSV is the source of truth — positions missing from a re-import are closed in place
 - **Watchlist** — radar: symbol / target / distance / status (Watching · Near Target · Triggered)
 - **Settings** — theme, language (EN/ZH), currency, manual/live FX
 

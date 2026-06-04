@@ -4,6 +4,21 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.5 — 2026-06-04
+
+**Holdings UX reset — one unified Moomoo-style table.** Removes the v5.0.2–v5.0.4 multi-view (Overview / Performance / Insights + the view switch). One position is now one row, every column visible at once.
+
+- **Summary bar** above the table — Portfolio Value · Today's P&L · Total P&L · Open · Closed. Holdings is now the primary portfolio screen (you don't need the Dashboard to read your book).
+- **One unified table**, default sort Market Value desc, **sticky Symbol column** + horizontal scroll (Moomoo desktop + mobile), with `$ / %` stacked inside the Total P&L and Unrealized P&L cells. **Action** (HOLD / REDUCE / EXIT) and **Status** (OPEN / CLOSED) are always visible.
+- **Session badges gained emoji** — 🟢 LIVE · 🔵 PRE · 🟠 POST · 🌙 LAST CLOSE (topbar pill + overnight banner; alignment architecture unchanged).
+- **Upgraded Closed Positions** — Exit Date · Realized P&L · Current Price · **Since Exit %** · Status, each row **expandable** to Entry/Exit dates, Holding Days, Strategy, **Thesis**, and Lessons Learned (reuses Position Intelligence + journal — no new tables).
+
+> **⚠ Migration 008 (`exit_price` + `exit_date` on `holdings`) must be applied in Supabase.** `current_price` is rewritten by the quote engine on every Dashboard/Journal/Planner/Hub visit, so it can't anchor "Since Exit %"; 008 stores a frozen exit snapshot at the close-in-place transition. The import writes it best-effort, so the app runs without 008 — Exit Date / Since Exit just show "—" until it's applied. Positions closed *before* 008 (e.g. CETX) have no snapshot to backfill; closures *after* it do.
+
+Import close-in-place (v5.0.4) kept; CSV remains source of truth. Dashboard / Journal / Planner / Watchlist / Position Hub / market providers / quote API untouched. **Tag:** `v5.0.5`.
+
+---
+
 ## v5.0.4 — 2026-06-04
 
 **Holdings = source of truth** — fixes positions lingering after they leave the CSV, adds closed-position tracking, and refocuses the views.
