@@ -4,6 +4,19 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.7 — 2026-06-04
+
+**Mobile-first Dashboard** — a layout-only pass so the phone view (390px) leads with portfolio status. **Desktop is byte-for-byte unchanged** (every change is gated behind `@media (max-width: 640px)`, and the two new tiles are `display:none` above it). No new features, no data-model changes.
+
+At 390px the first screen now shows **Portfolio Value · Today's P&L · Total P&L · Open · Closed** without scrolling:
+- The Hot List / My Holdings ticker **drops below the hero** (CSS `order` on `.dash-page`), so the portfolio value is the first thing you see.
+- The hero's **Largest / Top Winner / Top Loser** row stacks vertically instead of cramming into 3 columns.
+- Mini-stats stay a **2×2**: the duplicate *Today's P&L* card (it's already in the hero) and the standalone *Risk Score* card (it's in the Risk widget) are hidden on mobile; two mobile-only **Open / Closed** count tiles fill the grid.
+
+"Quotes Just Now" already lives in the topbar pulse, which is hidden below 900px — nothing to declutter there. Holdings / Journal / Planner / Watchlist / Position Hub untouched. **Tag:** `v5.0.7`.
+
+---
+
 ## v5.0.6 — 2026-06-04
 
 **Dashboard cleanup** — a maintenance release: simpler, no duplication with Holdings, and a P0 data-correctness fix. Not a redesign.
