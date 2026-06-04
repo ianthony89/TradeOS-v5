@@ -4,6 +4,22 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.2 — 2026-06-04
+
+**Holdings multi-view mode** — presentation-only UX enhancement (no new data, DB, migrations, calculations, or APIs).
+
+A segmented view switch above the Holdings table replaces the single all-in-one table with four focused lenses, so one dimension is in view at a time (lower cognitive load, Moomoo-style):
+- **Overview** — Symbol / Market Value / Weight / Today's P&L / Total P&L
+- **Performance** — Symbol / Unrealized P&L / Unrealized % / Realized P&L / Total P&L / Total Return %
+- **Allocation** — Symbol / Weight / Market Value / Strategy / Sector
+- **Trading** — Symbol / Quantity / Avg Cost / Current Price / Today's P&L
+
+**Total P&L** = unrealized + realized and **Total Return %** = Total P&L / cost basis — display-layer arithmetic over existing fields (Moomoo 持仓盈亏), no engine change. Default view = Overview; each view's sort resets to its headline metric. Desktop = segmented control, mobile = horizontal-scroll chips. EN/ZH for the view labels + new column headers.
+
+Scope: only `holdings/page.tsx` presentation, `globals.css` (`.view-switch` / `.sector-cell`), and `dictionary.ts`. Dashboard / Position Hub / Journal / Planner and all portfolio calculations unchanged. Validated by a live UAT against the real 14-position portfolio (Total P&L / Total Return % reconciled exactly). **Tag:** `v5.0.2`.
+
+---
+
 ## v5.0.1 — 2026-06-04
 
 Contract-alignment patch (no new features, no redesign):

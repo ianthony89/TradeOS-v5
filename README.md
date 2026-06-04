@@ -28,7 +28,7 @@ It answers five questions:
 **Phase 1 — foundation**
 - **Auth** — email + numeric PIN (PIN is the Supabase password; bcrypt server-side)
 - **Dashboard** — hero holdings value, live market sessions, FX, ticker pulse, allocation donut, risk assessment, top movers
-- **Holdings** — decision workspace: logo, exposure, P/L hierarchy, strategy/action taxonomy
+- **Holdings** — decision workspace with a four-lens view switch (Overview · Performance · Allocation · Trading) to focus on one dimension at a time: logo, exposure, P/L hierarchy, strategy/sector taxonomy
 - **Watchlist** — radar: symbol / target / distance / status (Watching · Near Target · Triggered)
 - **Settings** — theme, language (EN/ZH), currency, manual/live FX
 
