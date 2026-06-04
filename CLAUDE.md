@@ -8,7 +8,7 @@ This file exists for compatibility with Claude Code's auto-loaded `CLAUDE.md` co
 
 If anything appears to conflict between this file and `AGENTS.md`, **`AGENTS.md` wins**.
 
-**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-04 — **Phase 2 CLOSED, real-portfolio UAT passed, v5 FROZEN, tagged `v5.0.0`; latest `v5.0.2` (Holdings multi-view, presentation-only).** Repo = `github.com/ianthony89/TradeOS-v5`, deploy = `tradeos-v5.vercel.app` (NOT the legacy `TradeOS` repo). Phase status → `ROADMAP.md`; retrospective → `docs/PHASE-2-RETROSPECTIVE.md`._
+**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-04 — **Phase 2 CLOSED, real-portfolio UAT passed, v5 FROZEN, tagged `v5.0.0`; latest `v5.0.3` (Market session alignment, display-honesty).** Repo = `github.com/ianthony89/TradeOS-v5`, deploy = `tradeos-v5.vercel.app` (NOT the legacy `TradeOS` repo). Phase status → `ROADMAP.md`; retrospective → `docs/PHASE-2-RETROSPECTIVE.md`._
 
 For:
 - Who Anthony is

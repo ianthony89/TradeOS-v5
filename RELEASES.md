@@ -4,6 +4,21 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.3 — 2026-06-04
+
+**Market session alignment** — quote-honesty, display-layer only (no new providers, no paid APIs, no calc / DB / schema changes; the frozen market layer is untouched).
+
+Yahoo carries no live US overnight price, so during the overnight session TradeOS was showing the 4:00pm regular close while implying it was live. v5.0.3 makes the displayed session explicit:
+
+- **Topbar freshness pill** now carries a session tag — `LIVE` / `PRE` / `POST` / `LAST CLOSE` (driven by the US market clock).
+- **Holdings** shows an honesty banner when the US market is not in regular hours — e.g. *"Last Close — US market is overnight; showing the last regular-session close."* — so a non-live price is never implied to be live.
+- **Holdings (Trading view)** shows a **separate** per-row extended-hours move badge (`PRE +2.14` / `POST -1.80`), derived from the pre/post price already present in the quote.
+- **Today's P&L is unchanged** — still the regular-session day change; the session move is a new, separate element and never repurposes it.
+
+New pure helper `lib/market/quote-session.ts` + `SessionTag` / `SessionMoveTag` components. Touches only the topbar + Holdings; Dashboard / Position Hub / Journal / Planner untouched. Overnight path validated live against the real 14-position portfolio. **Tag:** `v5.0.3`.
+
+---
+
 ## v5.0.2 — 2026-06-04
 
 **Holdings multi-view mode** — presentation-only UX enhancement (no new data, DB, migrations, calculations, or APIs).
