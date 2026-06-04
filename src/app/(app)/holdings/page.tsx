@@ -128,10 +128,6 @@ const COLS: ColumnDef[] = [
       return <span className={`badge badge--${ACTION_TONE[action]}`}>{t(`tax_${action}`)}</span>
     },
   },
-  {
-    id: 'status', label: 'holdings_status', align: 'left',
-    cell: (_, { t }) => <span className="status-badge status-badge--open">{t('status_open')}</span>,
-  },
 ]
 
 const SESSION_BANNER_KEY: Record<QuoteSession, string> = {
@@ -201,6 +197,7 @@ export default function HoldingsPage() {
   const [search,     setSearch]     = useState('')
   const [closedRows, setClosedRows] = useState<ClosedPos[]>([])
   const [expanded,   setExpanded]   = useState<Set<string>>(new Set())
+  const [closedOpen, setClosedOpen] = useState(false)   // Closed section collapsed by default (v5.0.6)
 
   /* ── Full load: holdings + closed (PI/journal) + quotes ──── */
   async function loadAll() {
@@ -509,89 +506,98 @@ export default function HoldingsPage() {
         </>
       )}
 
-      {/* Closed positions — upgraded + expandable (v5.0.5) */}
+      {/* Closed positions — collapsed by default (v5.0.6), expandable rows */}
       {hasClosed && (
         <div className="closed-section">
-          <div className="closed-section-head">
+          <button
+            type="button"
+            className="closed-section-head closed-section-toggle"
+            onClick={() => setClosedOpen(o => !o)}
+            aria-expanded={closedOpen}
+          >
+            {closedOpen ? <ChevronDown size={14} className="text-tertiary" /> : <ChevronRight size={14} className="text-tertiary" />}
             <span className="closed-section-title">{t('holdings_closed_title')}</span>
             <span className="closed-section-count">{closedRows.length}</span>
-          </div>
-          <Panel>
-            <PanelBody flush>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="data-table holdings-table">
-                  <thead>
-                    <tr>
-                      <th>{t('holdings_symbol')}</th>
-                      <th>{t('holdings_exit_date')}</th>
-                      <th className="num">{t('holdings_real_pl')}</th>
-                      <th className="num">{t('holdings_current_price')}</th>
-                      <th className="num">{t('holdings_since_exit')}</th>
-                      <th>{t('holdings_status')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {closedRows.map(c => {
-                      const live = quotes.get(c.symbolNormalized)?.price ?? null
-                      const since = (c.exitPrice && c.exitPrice > 0 && live != null)
-                        ? ((live - c.exitPrice) / c.exitPrice) * 100 : null
-                      const days = (c.exitDate && c.entryDate)
-                        ? Math.max(0, Math.round((+new Date(c.exitDate) - +new Date(c.entryDate)) / 86_400_000))
-                        : null
-                      const strat = classifyStrategy({
-                        symbol: c.symbol, name: c.name, assetType: c.assetType,
-                        unrealizedPlPct: 0, portfolioWeight: 0,
-                      })
-                      const open = expanded.has(c.id)
-                      return (
-                        <FragmentRow key={c.id}>
-                          <tr className="closed-row-main" onClick={() => toggleExpand(c.id)}>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                {open ? <ChevronDown size={13} className="text-tertiary" /> : <ChevronRight size={13} className="text-tertiary" />}
-                                <SymCell symbol={c.symbol} name={stockName(c.symbol, c.name, lang)} currency={c.currency} logoSize={24} />
-                              </span>
-                            </td>
-                            <td className="text-tertiary" style={{ fontSize: 12 }}>{fmtDate(c.exitDate, lang)}</td>
-                            <td className="num"><DeltaMoney value={c.realizedPl} currency={c.currency} variant="inline" /></td>
-                            <td className="num text-mono text-tabular">{live != null ? fmt.price(live) : '—'}</td>
-                            <td className="num">
-                              {since != null
-                                ? <span className={since >= 0 ? 'text-positive' : 'text-negative'}>{pctText(since)}</span>
-                                : <span className="text-quaternary">—</span>}
-                            </td>
-                            <td><span className="status-badge status-badge--closed">{t('status_closed')}</span></td>
-                          </tr>
-                          {open && (
-                            <tr>
-                              <td className="closed-expand-cell" colSpan={6}>
-                                <div className="closed-expand">
-                                  <Field label={t('holdings_entry_date')}   value={fmtDate(c.entryDate, lang)} />
-                                  <Field label={t('holdings_exit_date')}    value={fmtDate(c.exitDate, lang)} />
-                                  <Field label={t('holdings_holding_days')} value={days != null ? t('holdings_days_n', { n: days }) : '—'} />
-                                  <Field label={t('holdings_real_pl')}      value={fmt.money(c.realizedPl, c.currency)} />
-                                  <Field label={t('holdings_current_price')} value={live != null ? fmt.price(live) : '—'} />
-                                  <Field label={t('holdings_since_exit')}   value={since != null ? pctText(since) : '—'} />
-                                  <Field label={t('col_strategy')}          value={t(`tax_${strat}`)} />
-                                  <Field label={t('holdings_thesis_short')} value={c.thesis || '—'} prose />
-                                  <Field label={t('holdings_lessons')}      value={c.lessons || '—'} prose />
-                                  <div className="closed-expand-prose">
-                                    <Link href={`/holdings/${encodeURIComponent(c.symbolNormalized)}`} className="btn btn-ghost btn-sm">
-                                      {t('pos_open_hub')}
-                                    </Link>
-                                  </div>
-                                </div>
+          </button>
+          {closedOpen && (
+            <Panel>
+              <PanelBody flush>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="data-table holdings-table">
+                    <thead>
+                      <tr>
+                        <th>{t('holdings_symbol')}</th>
+                        <th>{t('holdings_exit_date')}</th>
+                        <th className="num">{t('holdings_sold_price')}</th>
+                        <th className="num">{t('holdings_current_price')}</th>
+                        <th className="num">{t('holdings_since_exit')}</th>
+                        <th className="num">{t('holdings_real_pl')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {closedRows.map(c => {
+                        const live = quotes.get(c.symbolNormalized)?.price ?? null
+                        const since = (c.exitPrice && c.exitPrice > 0 && live != null)
+                          ? ((live - c.exitPrice) / c.exitPrice) * 100 : null
+                        const days = (c.exitDate && c.entryDate)
+                          ? Math.max(0, Math.round((+new Date(c.exitDate) - +new Date(c.entryDate)) / 86_400_000))
+                          : null
+                        const strat = classifyStrategy({
+                          symbol: c.symbol, name: c.name, assetType: c.assetType,
+                          unrealizedPlPct: 0, portfolioWeight: 0,
+                        })
+                        const rowOpen = expanded.has(c.id)
+                        return (
+                          <FragmentRow key={c.id}>
+                            <tr className="closed-row-main" onClick={() => toggleExpand(c.id)}>
+                              <td>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                  {rowOpen ? <ChevronDown size={13} className="text-tertiary" /> : <ChevronRight size={13} className="text-tertiary" />}
+                                  <SymCell symbol={c.symbol} name={stockName(c.symbol, c.name, lang)} currency={c.currency} logoSize={24} />
+                                </span>
                               </td>
+                              <td className="text-tertiary" style={{ fontSize: 12 }}>{fmtDate(c.exitDate, lang)}</td>
+                              <td className="num text-mono text-tabular">{c.exitPrice != null ? fmt.price(c.exitPrice) : '—'}</td>
+                              <td className="num text-mono text-tabular">{live != null ? fmt.price(live) : '—'}</td>
+                              <td className="num">
+                                {since != null
+                                  ? <span className={since >= 0 ? 'text-positive' : 'text-negative'}>{pctText(since)}</span>
+                                  : <span className="text-quaternary">—</span>}
+                              </td>
+                              <td className="num"><DeltaMoney value={c.realizedPl} currency={c.currency} variant="inline" /></td>
                             </tr>
-                          )}
-                        </FragmentRow>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </PanelBody>
-          </Panel>
+                            {rowOpen && (
+                              <tr>
+                                <td className="closed-expand-cell" colSpan={6}>
+                                  <div className="closed-expand">
+                                    <Field label={t('holdings_entry_date')}    value={fmtDate(c.entryDate, lang)} />
+                                    <Field label={t('holdings_exit_date')}     value={fmtDate(c.exitDate, lang)} />
+                                    <Field label={t('holdings_holding_days')}  value={days != null ? t('holdings_days_n', { n: days }) : '—'} />
+                                    <Field label={t('holdings_sold_price')}    value={c.exitPrice != null ? fmt.price(c.exitPrice) : '—'} />
+                                    <Field label={t('holdings_current_price')} value={live != null ? fmt.price(live) : '—'} />
+                                    <Field label={t('holdings_since_exit')}    value={since != null ? pctText(since) : '—'} />
+                                    <Field label={t('holdings_real_pl')}       value={fmt.money(c.realizedPl, c.currency)} />
+                                    <Field label={t('col_strategy')}           value={t(`tax_${strat}`)} />
+                                    <Field label={t('holdings_thesis_short')}  value={c.thesis || '—'} prose />
+                                    <Field label={t('holdings_lessons')}       value={c.lessons || '—'} prose />
+                                    <div className="closed-expand-prose">
+                                      <Link href={`/holdings/${encodeURIComponent(c.symbolNormalized)}`} className="btn btn-ghost btn-sm">
+                                        {t('pos_open_hub')}
+                                      </Link>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </FragmentRow>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </PanelBody>
+            </Panel>
+          )}
         </div>
       )}
     </div>

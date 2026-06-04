@@ -18,6 +18,8 @@ export type AttentionIcon = 'loss' | 'concentration' | 'review' | 'thesis' | 'ta
 
 export interface AttentionItem {
   key:        string
+  /** Ordering rank (v5.0.6): 0 EXIT/-50% · 1 REDUCE · 2 Review · 3 other. Lower = higher. */
+  rank:       number
   severity:   AttentionSeverity
   icon:       AttentionIcon
   titleKey:   string
@@ -62,59 +64,60 @@ function positionSignal(
   const href = `/holdings/${encodeURIComponent(p.symbolNormalized)}`
   const rs   = reviewStatus(p.nextReviewAt)
 
-  // 1. Review overdue — the schedule you set has lapsed.
-  if (rs?.state === 'overdue') {
-    return {
-      key: `rev-${p.symbol}`, severity: 'critical', icon: 'review',
-      titleKey: 'attn_review_overdue', titleVars: { symbol: p.symbol },
-      detailKey: 'attn_review_overdue_d', detailVars: { n: Math.abs(rs.days) }, href,
-    }
-  }
-  // 2. Deep loss — thesis may be broken.
+  // Priority order (v5.0.6): EXIT / -50% → REDUCE → Review → other.
+  // First match wins, so a troubled position contributes ONE line.
+
+  // 1 (EXIT / below -50%) — deep loss, thesis likely broken.
   if (p.unrealizedPlPct < -50) {
     return {
-      key: `loss-${p.symbol}`, severity: 'critical', icon: 'loss',
+      key: `loss-${p.symbol}`, rank: 0, severity: 'critical', icon: 'loss',
       titleKey: 'attn_broken', titleVars: { symbol: p.symbol },
       detailKey: 'attn_broken_d', detailVars: { pct: fmtPct(Math.abs(p.unrealizedPlPct)) }, href,
     }
   }
-  // 3. Review due today / soon.
+  // 2 (REDUCE) — one position too large.
+  if (p.portfolioWeight > 25) {
+    return {
+      key: `conc-${p.symbol}`, rank: 1, severity: 'warning', icon: 'concentration',
+      titleKey: 'attn_reduce', titleVars: { symbol: p.symbol },
+      detailKey: 'attn_reduce_d', detailVars: { pct: fmtPct(p.portfolioWeight) }, href,
+    }
+  }
+  // 3 (Review due) — overdue first, then due/soon.
+  if (rs?.state === 'overdue') {
+    return {
+      key: `rev-${p.symbol}`, rank: 2, severity: 'critical', icon: 'review',
+      titleKey: 'attn_review_overdue', titleVars: { symbol: p.symbol },
+      detailKey: 'attn_review_overdue_d', detailVars: { n: Math.abs(rs.days) }, href,
+    }
+  }
   if (rs?.state === 'due' || rs?.state === 'soon') {
     return {
-      key: `rev-${p.symbol}`, severity: 'warning', icon: 'review',
+      key: `rev-${p.symbol}`, rank: 2, severity: 'warning', icon: 'review',
       titleKey: 'attn_review_due', titleVars: { symbol: p.symbol },
       detailKey: rs.state === 'due' ? 'attn_review_due_today' : 'attn_review_due_d',
       detailVars: { n: rs.days }, href,
     }
   }
-  // 4. Concentration — one position too large.
-  if (p.portfolioWeight > 25) {
-    return {
-      key: `conc-${p.symbol}`, severity: 'warning', icon: 'concentration',
-      titleKey: 'attn_reduce', titleVars: { symbol: p.symbol },
-      detailKey: 'attn_reduce_d', detailVars: { pct: fmtPct(p.portfolioWeight) }, href,
-    }
-  }
-  // 5. Meaningful drawdown — not yet exit territory.
+  // 4 (other) — meaningful drawdown, then documentation gaps (Top-N only).
   if (p.unrealizedPlPct < -25) {
     return {
-      key: `draw-${p.symbol}`, severity: 'warning', icon: 'loss',
+      key: `draw-${p.symbol}`, rank: 3, severity: 'warning', icon: 'loss',
       titleKey: 'attn_drawdown', titleVars: { symbol: p.symbol },
       detailKey: 'attn_drawdown_d', detailVars: { pct: fmtPct(Math.abs(p.unrealizedPlPct)) }, href,
     }
   }
-  // 6 & 7. Documentation gaps — Top-N positions only (keeps the feed quiet).
   if (topByWeight.has(p.symbolNormalized)) {
     if (!p.hasThesis) {
       return {
-        key: `thesis-${p.symbol}`, severity: 'warning', icon: 'thesis',
+        key: `thesis-${p.symbol}`, rank: 3, severity: 'warning', icon: 'thesis',
         titleKey: 'attn_missing_thesis', titleVars: { symbol: p.symbol },
         detailKey: 'attn_missing_thesis_d', detailVars: { pct: fmtPct(p.portfolioWeight) }, href,
       }
     }
     if (!p.hasTargets) {
       return {
-        key: `target-${p.symbol}`, severity: 'warning', icon: 'target',
+        key: `target-${p.symbol}`, rank: 3, severity: 'warning', icon: 'target',
         titleKey: 'attn_missing_targets', titleVars: { symbol: p.symbol },
         detailKey: 'attn_missing_targets_d', detailVars: { pct: fmtPct(p.portfolioWeight) }, href,
       }
@@ -139,15 +142,17 @@ export function buildAttentionFeed(input: AttentionInput): AttentionItem[] {
   // Watchlist triggers — unowned symbols, link to the Watchlist.
   for (const symbol of watchTriggered) {
     out.push({
-      key: `watch-${symbol}`, severity: 'info', icon: 'watch',
+      key: `watch-${symbol}`, rank: 4, severity: 'info', icon: 'watch',
       titleKey: 'attn_watch', titleVars: { symbol },
       detailKey: 'attn_watch_d', detailVars: {}, href: '/watchlist',
     })
   }
 
+  // Order by explicit rank (EXIT → REDUCE → Review → other), then severity,
+  // then input order — stable, so the feed doesn't reshuffle on every refresh.
   return out
     .map((it, i) => ({ it, i }))
-    .sort((a, b) => PRIORITY[a.it.severity] - PRIORITY[b.it.severity] || a.i - b.i)
+    .sort((a, b) => a.it.rank - b.it.rank || PRIORITY[a.it.severity] - PRIORITY[b.it.severity] || a.i - b.i)
     .map(x => x.it)
     .slice(0, MAX_ITEMS)
 }

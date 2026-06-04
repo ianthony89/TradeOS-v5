@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { RefreshCw, Upload, ArrowRight, TrendingUp, Wallet, BadgeDollarSign, Gauge, Lightbulb, Repeat } from 'lucide-react'
+import { RefreshCw, Upload, TrendingUp, Wallet, BadgeDollarSign, Gauge, Lightbulb, Repeat } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
@@ -21,16 +21,13 @@ import { AllocationViews, ALLOC_VIEWS, nextAllocView, type AllocView } from '@/c
 import { PlHistogram }     from '@/components/ui/histogram-chart'
 import { InfoTooltip }     from '@/components/ui/info-tooltip'
 import { IntelCard }      from '@/components/ui/intel-card'
-import { MoversPanel, type MoverItem } from '@/components/ui/movers-panel'
+import { type MoverItem } from '@/components/ui/movers-panel'
 import { RiskByStrategy, type RiskBar } from '@/components/ui/risk-by-strategy'
-import { RiskGauge }      from '@/components/ui/risk-gauge'
 import { computeRiskScore } from '@/lib/portfolio/risk-score'
-import { SymCell }        from '@/components/brand/stock-logo'
 import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
 import { stockName }      from '@/lib/portfolio/stock-names'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
 import { buildAttentionFeed, type AttentionPosition } from '@/lib/portfolio/attention'
-import { reviewStatus } from '@/lib/portfolio/review-status'
 import { loadAllPositionIntel } from '@/lib/portfolio/position-intel'
 import { computeWatchStatus, type WatchDirection } from '@/lib/portfolio/watchlist-status'
 
@@ -96,8 +93,13 @@ export default function DashboardPage() {
         portfolioWeight:  0,
         quotesUpdatedAt:  row.quotes_updated_at,
       }))
-      setHoldings(mapped)
-      return mapped
+      // v5.0.6 P0: the Dashboard uses OPEN positions only. Closed positions
+      // (quantity 0, exited via close-in-place) must never enter any ranking,
+      // calculation, mover, risk factor or attention item. Filtering here is the
+      // single choke point — every downstream metric derives from this set.
+      const open = mapped.filter(m => m.quantity > 0)
+      setHoldings(open)
+      return open
     }
     return []
   }, [supabase, setHoldings])
@@ -236,9 +238,10 @@ export default function DashboardPage() {
 
   const toDisplay = (usd: number) => (primaryCurrency === 'USD' ? usd : usd * fxRate)
 
-  const todayPct    = combined > 0 ? (todayPlUsd / combined) * 100 : 0
-  const totalPnLPct = costUsd > 0  ? (unrealizedUsd / costUsd) * 100 : 0
-  const todayTone   = todayPlUsd > 0 ? 'positive' : todayPlUsd < 0 ? 'negative' : 'neutral'
+  const todayPct      = combined > 0 ? (todayPlUsd / combined) * 100 : 0
+  const totalPlUsd    = unrealizedUsd + realizedUsd
+  const totalReturnPct = costUsd > 0 ? (totalPlUsd / costUsd) * 100 : 0
+  const todayTone     = todayPlUsd > 0 ? 'positive' : todayPlUsd < 0 ? 'negative' : 'neutral'
 
   /* Hero — primary value + converted secondary */
   const heroPrimaryValue   = toDisplay(combined)
@@ -360,14 +363,6 @@ export default function DashboardPage() {
     () => buildAttentionFeed({ positions: attentionPositions, topByWeight: top5Norm, watchTriggered, fmtPct: (v) => fmt.pct(v, 1) }),
     [attentionPositions, top5Norm, watchTriggered],
   )
-  const reviewQueue = useMemo(() => {
-    const out: { symbol: string; symbolNormalized: string; rs: NonNullable<ReturnType<typeof reviewStatus>> }[] = []
-    for (const p of attentionPositions) {
-      const rs = reviewStatus(p.nextReviewAt)
-      if (rs && rs.state !== 'ok') out.push({ symbol: p.symbol, symbolNormalized: p.symbolNormalized, rs })
-    }
-    return out.sort((a, b) => a.rs.days - b.rs.days)
-  }, [attentionPositions])
 
   /* Hero intelligence row */
   const largest   = topPositions[0]
@@ -578,11 +573,11 @@ export default function DashboardPage() {
             sub={<DeltaBadge value={todayPct} variant="pill" />}
           />
           <StatCard
-            label={t('dash_unrealized')}
+            label={t('dash_total_pl')}
             icon={<Wallet size={15} />}
-            value={fmt.moneySigned(toDisplay(unrealizedUsd), primaryCurrency)}
-            tone={unrealizedUsd > 0 ? 'positive' : unrealizedUsd < 0 ? 'negative' : 'neutral'}
-            sub={<DeltaBadge value={totalPnLPct} variant="pill" />}
+            value={fmt.moneySigned(toDisplay(totalPlUsd), primaryCurrency)}
+            tone={totalPlUsd > 0 ? 'positive' : totalPlUsd < 0 ? 'negative' : 'neutral'}
+            sub={<DeltaBadge value={totalReturnPct} variant="pill" />}
           />
           <StatCard
             label={t('dash_realized_pl')}
@@ -603,12 +598,14 @@ export default function DashboardPage() {
 
       {/* Attention Layer — "what needs my attention today" + the review queue.
           Every item deep-links into the Position Hub (Decision Layer). */}
-      <div className="attention-row">
+      {/* What needs my attention — full width (Review Queue removed in v5.0.6).
+          Open positions only; ordered EXIT / -50% → REDUCE → Review → other. */}
+      <div style={{ marginBottom: 18 }}>
         <Panel>
           <PanelHead title={t('attn_title')} meta={t('attn_sub')} />
           <PanelBody>
             {attention.length ? (
-              <div className="attention-list">
+              <div className="attention-list attention-list--wide">
                 {attention.map(a => (
                   <IntelCard
                     key={a.key}
@@ -622,33 +619,6 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="attention-clear">{t('attn_clear')}</div>
-            )}
-          </PanelBody>
-        </Panel>
-
-        <Panel>
-          <PanelHead title={t('attn_rq_title')} meta={t('attn_rq_sub')} />
-          <PanelBody>
-            {reviewQueue.length ? (
-              <div className="rq-list">
-                {reviewQueue.map(r => (
-                  <Link key={r.symbolNormalized} href={`/holdings/${encodeURIComponent(r.symbolNormalized)}`} className="rq-item">
-                    <span className="rq-item-sym">{r.symbol}</span>
-                    <span className="rq-item-right">
-                      <span className={`rq-item-status rq-status--${r.rs.tone}`}>
-                        {r.rs.state === 'overdue'
-                          ? t('attn_rq_overdue_n', { n: Math.abs(r.rs.days) })
-                          : r.rs.state === 'due'
-                            ? t('attn_rq_due_today')
-                            : t('attn_rq_soon_n', { n: r.rs.days })}
-                      </span>
-                      <span className="rq-cta">{t('attn_rq_review')}<ArrowRight size={12} /></span>
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="attention-clear">{t('attn_rq_empty')}</div>
             )}
           </PanelBody>
         </Panel>
@@ -680,18 +650,26 @@ export default function DashboardPage() {
         <Panel>
           <PanelHead title={t('dash_risk')} meta={t('dash_risk_meta')} />
           <PanelBody>
-            <div className="rg-section-label">
-              {t('risk_drivers')}
-              <InfoTooltip content={t('risk_drivers_help')} align="left" />
-            </div>
-            <RiskGauge
-              variant="factors"
-              factors={[
-                { label: t('risk_f_concentration'), weight: 0.40, value: risk.factors.concentration, color: '#a78bfa',        hint: t('risk_f_concentration_h', { pct: fmt.pct(risk.maxWeight, 1) }) },
-                { label: t('risk_f_speculative'),   weight: 0.35, value: risk.factors.speculative,   color: 'var(--warning)',  hint: t('risk_f_speculative_h',   { pct: fmt.pct(speculativeWeight, 1) }) },
-                { label: t('risk_f_drawdown'),      weight: 0.25, value: risk.factors.drawdown,      color: 'var(--negative)', hint: t('risk_f_drawdown_h',      { pct: fmt.pct(risk.brokenWeight, 1) }) },
-              ]}
-            />
+            {/* v5.0.6: plain-language risk drivers (no engineering jargon). */}
+            <div className="rg-section-label">{t('risk_drivers')}</div>
+            <ul className="risk-says">
+              <li className="risk-say">
+                <span className="risk-say-dot" style={{ background: '#a78bfa' }} />
+                {largest
+                  ? t('risk_say_concentration', { symbol: largest.symbol, pct: fmt.pct(largest.portfolioWeight, 1) })
+                  : t('risk_say_balanced')}
+              </li>
+              <li className="risk-say">
+                <span className="risk-say-dot" style={{ background: 'var(--warning)' }} />
+                {t('risk_say_speculative', { pct: fmt.pct(speculativeWeight, 1) })}
+              </li>
+              {brokenCount > 0 && (
+                <li className="risk-say">
+                  <span className="risk-say-dot" style={{ background: 'var(--negative)' }} />
+                  {t('risk_say_broken', { n: brokenCount })}
+                </li>
+              )}
+            </ul>
             <div className="rg-divider" />
             <div className="rg-section-label">
               {t('risk_by_strategy')}
@@ -708,65 +686,7 @@ export default function DashboardPage() {
         </Panel>
       </div>
 
-      {/* Top movers (winners + losers) */}
-      <div className="grid-2" style={{ marginBottom: 18 }}>
-        <Panel>
-          <PanelHead title={t('dash_movers')} meta={t('meta_by_unrealized')} />
-          <PanelBody>
-            <MoversPanel winners={winners} losers={losers} />
-          </PanelBody>
-        </Panel>
-
-        <Panel>
-          <PanelHead
-            title={t('positions_label')}
-            meta={t('dash_top_n_weight', { n: topPositions.length })}
-            actions={
-              <Link href="/holdings" className="btn btn-ghost btn-sm">
-                {t('dash_view_all')}
-                <ArrowRight size={12} />
-              </Link>
-            }
-          />
-          <PanelBody flush>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>{t('col_symbol')}</th>
-                    <th className="num">{t('col_value')}</th>
-                    <th className="num">{t('col_pl')}</th>
-                    <th className="num">{t('col_weight')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topPositions.map(h => {
-                    const plTone =
-                      h.unrealizedPlPct < -25 ? 'negative-strong' :
-                      h.unrealizedPlPct >  25 ? 'positive-strong' : undefined
-                    return (
-                      <tr key={h.id} data-pl-tone={plTone}>
-                        <td>
-                          <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={26} />
-                        </td>
-                        <td className="num text-mono text-tabular td--strong">
-                          {fmt.money(h.marketValue, h.currency)}
-                        </td>
-                        <td className="num">
-                          <DeltaBadge value={h.unrealizedPlPct} variant="pill" />
-                        </td>
-                        <td className="num text-tabular text-tertiary">
-                          {fmt.pct(h.portfolioWeight, 1)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </PanelBody>
-        </Panel>
-      </div>
+      {/* Top Movers + Positions widget removed in v5.0.6 (duplicated Holdings). */}
 
       {/* P/L distribution — how many positions are winning vs bleeding */}
       <Panel>
