@@ -17,32 +17,29 @@ import { SymCell }           from '@/components/brand/stock-logo'
 import { DeltaBadge, DeltaMoney } from '@/components/ui/delta-badge'
 import { EmptyState }        from '@/components/ui/empty-state'
 import { InfoTooltip }       from '@/components/ui/info-tooltip'
-import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
-import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
+import { classifyStrategy, classifyAction, STRATEGY_TONE, ACTION_TONE } from '@/lib/portfolio/taxonomy'
 import { useClock }          from '@/lib/hooks/use-clock'
-import { currentUsSession, sessionMove } from '@/lib/market/quote-session'
-import type { QuoteSession, SessionMove } from '@/lib/market/quote-session'
-import { SessionTag, SessionMoveTag } from '@/components/ui/session-tag'
+import { currentUsSession }  from '@/lib/market/quote-session'
+import type { QuoteSession } from '@/lib/market/quote-session'
+import { SessionTag }        from '@/components/ui/session-tag'
 
-/* ── Multi-view (v5.0.2) ──────────────────────────────────────
-   Presentation-only. Four focused lenses over the SAME data —
-   no new fields, no recalculation, no backend. Each view simply
-   selects which existing columns are shown. */
-type ViewId = 'overview' | 'performance' | 'allocation' | 'trading'
-const VIEW_IDS: ViewId[] = ['overview', 'performance', 'allocation', 'trading']
+/* ── Multi-view (v5.0.2, trimmed in v5.0.4) ───────────────────
+   Presentation-only. Focused lenses over the SAME open positions.
+   v5.0.4: Allocation + Trading removed; Insights added. */
+type ViewId = 'overview' | 'performance' | 'insights'
+const VIEW_IDS: ViewId[] = ['overview', 'performance', 'insights']
 
 type SortKey =
-  | 'symbol' | 'quantity' | 'avgCost' | 'currentPrice'
-  | 'marketValue' | 'todayPl' | 'unrealizedPl' | 'unrealizedPlPct'
+  | 'symbol' | 'marketValue' | 'todayPl' | 'unrealizedPl' | 'unrealizedPlPct'
   | 'realizedPl' | 'totalPl' | 'totalReturnPct' | 'portfolioWeight'
 type FilterCurrency = 'ALL' | 'USD' | 'MYR'
 
-/** Holding enriched with display-derived totals (no engine change). */
+/** Holding enriched with display-derived fields (no engine change). */
 type EnrichedHolding = Holding & {
   totalPl: number
   totalReturnPct: number
-  /** Extended-hours (pre/post) move vs the regular close — display only, NOT Today's P&L. */
-  sessionMove: SessionMove | null
+  /** Closed = exited / absent from the latest CSV (quantity zeroed by import). */
+  closed: boolean
 }
 
 interface ColumnCtx { t: (key: string) => string; lang: Lang }
@@ -57,7 +54,7 @@ interface ColumnDef {
 const numCell = (v: ReactNode, strong = false) =>
   <span className={`text-mono text-tabular${strong ? ' td--strong' : ''}`}>{v}</span>
 
-/* Column registry — every column the four views can draw from. */
+/* Column registry — every column the three views can draw from. */
 const COLUMNS: Record<string, ColumnDef> = {
   symbol: {
     id: 'symbol', label: 'holdings_symbol', align: 'left', sortKey: 'symbol',
@@ -71,21 +68,12 @@ const COLUMNS: Record<string, ColumnDef> = {
       </Link>
     ),
   },
-  quantity: {
-    id: 'quantity', label: 'holdings_qty', align: 'num', sortKey: 'quantity',
-    cell: h => numCell(fmt.qty(h.quantity)),
-  },
-  avgCost: {
-    id: 'avgCost', label: 'holdings_avg_cost', align: 'num', sortKey: 'avgCost',
-    cell: h => numCell(fmt.price(h.avgCost)),
-  },
-  currentPrice: {
-    id: 'currentPrice', label: 'holdings_price', align: 'num', sortKey: 'currentPrice',
-    cell: h => (
-      <div className="price-cell">
-        {numCell(fmt.price(h.currentPrice), true)}
-        {h.sessionMove && <SessionMoveTag data={h.sessionMove} />}
-      </div>
+  status: {
+    id: 'status', label: 'holdings_status', align: 'left',
+    cell: (h, { t }) => (
+      <span className={`status-badge status-badge--${h.closed ? 'closed' : 'open'}`}>
+        {t(h.closed ? 'status_closed' : 'status_open')}
+      </span>
     ),
   },
   marketValue: {
@@ -130,16 +118,14 @@ const COLUMNS: Record<string, ColumnDef> = {
       return <span className={`badge badge--${STRATEGY_TONE[strategy]}`}>{t(`tax_${strategy}`)}</span>
     },
   },
-  sector: {
-    id: 'sector', label: 'holdings_sector', align: 'left',
+  action: {
+    id: 'action', label: 'col_action', align: 'left',
     cell: (h, { t }) => {
-      const sec = getSector(h.symbol, h.assetType)
-      return (
-        <span className="sector-cell">
-          <span className="sector-dot" style={{ background: getSectorColor(sec) }} />
-          {t(sectorKey(sec))}
-        </span>
-      )
+      const action = classifyAction({
+        symbol: h.symbol, name: h.name, assetType: h.assetType,
+        unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
+      })
+      return <span className={`badge badge--${ACTION_TONE[action]}`}>{t(`tax_${action}`)}</span>
     },
   },
 }
@@ -148,16 +134,14 @@ const COLUMNS: Record<string, ColumnDef> = {
 const VIEWS: Record<ViewId, string[]> = {
   overview:    ['symbol', 'marketValue', 'weight', 'todayPl', 'totalPl'],
   performance: ['symbol', 'unrealizedPl', 'unrealizedPlPct', 'realizedPl', 'totalPl', 'totalReturnPct'],
-  allocation:  ['symbol', 'weight', 'marketValue', 'strategy', 'sector'],
-  trading:     ['symbol', 'quantity', 'avgCost', 'currentPrice', 'todayPl'],
+  insights:    ['symbol', 'status', 'strategy', 'action', 'unrealizedPlPct', 'weight'],
 }
 
 /* Default sort per view — keeps the active sort column always visible. */
 const VIEW_DEFAULT_SORT: Record<ViewId, SortKey> = {
   overview:    'marketValue',
   performance: 'totalPl',
-  allocation:  'portfolioWeight',
-  trading:     'todayPl',
+  insights:    'portfolioWeight',
 }
 
 /* Session honesty banner (v5.0.3) — shown when the US market is not in
@@ -173,6 +157,34 @@ const SESSION_BANNER_KEY: Record<QuoteSession, string> = {
 // This fallback is only used if the store hasn't hydrated yet (first paint).
 const FX_FALLBACK = 4.00
 
+/* Map a Supabase holdings row → store Holding. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRow(row: any): Holding {
+  return {
+    id:               row.id,
+    symbol:           row.symbol,
+    symbolNormalized: row.symbol_normalized,
+    name:             row.name ?? row.symbol,
+    quantity:         Number(row.quantity),
+    availableQty:     Number(row.available_qty ?? row.quantity),
+    avgCost:          Number(row.avg_cost),
+    currentPrice:     Number(row.current_price ?? row.avg_cost),
+    marketValue:      Number(row.market_value ?? 0),
+    unrealizedPl:     Number(row.unrealized_pl ?? 0),
+    unrealizedPlPct:  Number(row.unrealized_pl_pct ?? 0),
+    realizedPl:       Number(row.realized_pl ?? 0),
+    todayPl:          Number(row.today_pl ?? 0),
+    currency:         row.currency,
+    assetType:        row.asset_type ?? 'US_EQUITY',
+    sector:           row.sector,
+    targetPrice:      row.target_price ? Number(row.target_price) : null,
+    stopLoss:         row.stop_loss ? Number(row.stop_loss) : null,
+    notes:            row.notes,
+    portfolioWeight:  0,
+    quotesUpdatedAt:  row.quotes_updated_at,
+  }
+}
+
 export default function HoldingsPage() {
   const { t, lang } = useI18n()
   const supabase = createClient()
@@ -181,7 +193,6 @@ export default function HoldingsPage() {
     lastImportAt, setLastImport,
     quoteRefreshing, setRefreshing, updateQuotes,
   } = useHoldingsStore()
-  const quotes           = useHoldingsStore(s => s.quotes)
   const setQuotesUpdated = useMarketStore(s => s.setQuotesUpdated)
   const fxRate           = useMarketStore(selectActiveFxRate)
 
@@ -190,15 +201,16 @@ export default function HoldingsPage() {
   const usSession = currentUsSession()
 
   const fileRef = useRef<HTMLInputElement>(null)
-  const [dragging,  setDragging]  = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [importMsg, setImportMsg] = useState('')
-  const [importErr, setImportErr] = useState(false)
-  const [view,      setView]      = useState<ViewId>('overview')
-  const [sortKey,   setSortKey]   = useState<SortKey>('marketValue')
-  const [sortAsc,   setSortAsc]   = useState(false)
-  const [filterCur, setFilterCur] = useState<FilterCurrency>('ALL')
-  const [search,    setSearch]    = useState('')
+  const [dragging,   setDragging]   = useState(false)
+  const [importing,  setImporting]  = useState(false)
+  const [importMsg,  setImportMsg]  = useState('')
+  const [importErr,  setImportErr]  = useState(false)
+  const [view,       setView]       = useState<ViewId>('overview')
+  const [sortKey,    setSortKey]    = useState<SortKey>('marketValue')
+  const [sortAsc,    setSortAsc]    = useState(false)
+  const [filterCur,  setFilterCur]  = useState<FilterCurrency>('ALL')
+  const [search,     setSearch]     = useState('')
+  const [closedRows, setClosedRows] = useState<Holding[]>([])  // exited positions
 
   /* ── Load existing holdings ─────────────────────────────── */
   useEffect(() => {
@@ -209,29 +221,9 @@ export default function HoldingsPage() {
       const { data } = await supabase.from('holdings').select('*').eq('user_id', user.id)
 
       if (data) {
-        setHoldings(data.map(row => ({
-          id:               row.id,
-          symbol:           row.symbol,
-          symbolNormalized: row.symbol_normalized,
-          name:             row.name ?? row.symbol,
-          quantity:         Number(row.quantity),
-          availableQty:     Number(row.available_qty ?? row.quantity),
-          avgCost:          Number(row.avg_cost),
-          currentPrice:     Number(row.current_price ?? row.avg_cost),
-          marketValue:      Number(row.market_value ?? 0),
-          unrealizedPl:     Number(row.unrealized_pl ?? 0),
-          unrealizedPlPct:  Number(row.unrealized_pl_pct ?? 0),
-          realizedPl:       Number(row.realized_pl ?? 0),
-          todayPl:          Number(row.today_pl ?? 0),
-          currency:         row.currency,
-          assetType:        row.asset_type ?? 'US_EQUITY',
-          sector:           row.sector,
-          targetPrice:      row.target_price ? Number(row.target_price) : null,
-          stopLoss:         row.stop_loss ? Number(row.stop_loss) : null,
-          notes:            row.notes,
-          portfolioWeight:  0,
-          quotesUpdatedAt:  row.quotes_updated_at,
-        })))
+        const mapped = data.map(mapRow)
+        setHoldings(mapped.filter(h => h.quantity > 0))     // store = open only
+        setClosedRows(mapped.filter(h => h.quantity <= 0))  // exited positions
       }
 
       const { data: session } = await supabase
@@ -246,7 +238,7 @@ export default function HoldingsPage() {
     load()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── CSV import (restyled, workflow unchanged) ──────────── */
+  /* ── CSV import (workflow unchanged; now reports closed count) ── */
   async function importCSV(file: File) {
     setImporting(true)
     setImportMsg('')
@@ -262,42 +254,37 @@ export default function HoldingsPage() {
         throw new Error(detail ? `${json.error}: ${detail}` : (json.error ?? 'Import failed'))
       }
 
-      setImportMsg(t('holdings_import_ok', { n: json.imported }))
+      setImportMsg(
+        json.closed
+          ? t('holdings_import_ok_closed', { n: json.imported, c: json.closed })
+          : t('holdings_import_ok', { n: json.imported }),
+      )
       setLastImport(new Date().toISOString())
 
       // Reload holdings
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data } = await supabase.from('holdings').select('*').eq('user_id', user.id)
-        if (data) setHoldings(data.map(row => ({
-          id: row.id, symbol: row.symbol, symbolNormalized: row.symbol_normalized,
-          name: row.name ?? row.symbol, quantity: Number(row.quantity),
-          availableQty: Number(row.available_qty ?? row.quantity), avgCost: Number(row.avg_cost),
-          currentPrice: Number(row.current_price ?? row.avg_cost),
-          marketValue: Number(row.market_value ?? 0),
-          unrealizedPl: Number(row.unrealized_pl ?? 0),
-          unrealizedPlPct: Number(row.unrealized_pl_pct ?? 0),
-          realizedPl: Number(row.realized_pl ?? 0), todayPl: Number(row.today_pl ?? 0),
-          currency: row.currency, assetType: row.asset_type ?? 'US_EQUITY',
-          sector: row.sector, targetPrice: row.target_price ? Number(row.target_price) : null,
-          stopLoss: row.stop_loss ? Number(row.stop_loss) : null,
-          notes: row.notes, portfolioWeight: 0, quotesUpdatedAt: row.quotes_updated_at,
-        })))
+        if (data) {
+          const mapped = data.map(mapRow)
+          setHoldings(mapped.filter(h => h.quantity > 0))
+          setClosedRows(mapped.filter(h => h.quantity <= 0))
 
-        // Refresh quotes for imported symbols
-        const symbols = (data ?? []).map((r: { symbol_normalized: string }) => r.symbol_normalized)
-        if (symbols.length) {
-          setRefreshing(true)
-          const qRes  = await fetch('/api/quotes', {
-            method: 'POST', headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ symbols }),
-          })
-          const qJson = await qRes.json()
-          if (qJson.quotes) {
-            updateQuotes(qJson.quotes)
-            setQuotesUpdated(new Date())
+          // Refresh quotes for imported (open) symbols
+          const symbols = mapped.filter(h => h.quantity > 0).map(h => h.symbolNormalized)
+          if (symbols.length) {
+            setRefreshing(true)
+            const qRes  = await fetch('/api/quotes', {
+              method: 'POST', headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ symbols }),
+            })
+            const qJson = await qRes.json()
+            if (qJson.quotes) {
+              updateQuotes(qJson.quotes)
+              setQuotesUpdated(new Date())
+            }
+            setRefreshing(false)
           }
-          setRefreshing(false)
         }
       }
     } catch (e: unknown) {
@@ -356,7 +343,7 @@ export default function HoldingsPage() {
       portfolioWeight: totalUsd > 0 ? (v / totalUsd) * 100 : 0,
       totalPl,
       totalReturnPct,
-      sessionMove: sessionMove(quotes.get(h.symbolNormalized)),
+      closed: false,                                          // store holds open only
     }
   })
 
@@ -372,9 +359,6 @@ export default function HoldingsPage() {
     let cmp = 0
     switch (sortKey) {
       case 'symbol':          cmp = a.symbol.localeCompare(b.symbol); break
-      case 'quantity':        cmp = a.quantity - b.quantity; break
-      case 'avgCost':         cmp = a.avgCost - b.avgCost; break
-      case 'currentPrice':    cmp = a.currentPrice - b.currentPrice; break
       case 'marketValue':     cmp = a.marketValue - b.marketValue; break
       case 'todayPl':         cmp = a.todayPl - b.todayPl; break
       case 'unrealizedPl':    cmp = a.unrealizedPl - b.unrealizedPl; break
@@ -432,7 +416,7 @@ export default function HoldingsPage() {
         onChange={e => { const f = e.target.files?.[0]; if (f) importCSV(f) }}
       />
 
-      {/* Drop zone — only show if empty */}
+      {/* Drop zone — only show if no open positions */}
       {!holdings.length && (
         <div
           className={`dropzone${dragging ? ' dropzone--over' : ''}`}
@@ -478,7 +462,7 @@ export default function HoldingsPage() {
 
       {!!holdings.length && (
         <>
-          {/* View switch — four focused lenses over the same positions */}
+          {/* View switch — focused lenses over the open positions */}
           <div className="view-switch" role="tablist" aria-label={t('holdings_title')}>
             {VIEW_IDS.map(v => (
               <button
@@ -517,7 +501,7 @@ export default function HoldingsPage() {
               ))}
             </div>
             <div className="toolbar-spacer" />
-            {view === 'allocation' && (
+            {view === 'insights' && (
               <span className="th-with-help text-tertiary" style={{ fontSize: 11.5 }}>
                 {t('tax_def_title')}
                 <InfoTooltip content={
@@ -543,7 +527,7 @@ export default function HoldingsPage() {
             </div>
           )}
 
-          {/* Decision workspace table */}
+          {/* Open positions table */}
           <Panel>
             <PanelBody flush>
               {!sorted.length ? (
@@ -599,6 +583,52 @@ export default function HoldingsPage() {
               )}
             </PanelBody>
           </Panel>
+
+          {/* Closed positions (v5.0.4) — exited positions, history preserved */}
+          {closedRows.length > 0 && (
+            <div className="closed-section">
+              <div className="closed-section-head">
+                <span className="closed-section-title">{t('holdings_closed_title')}</span>
+                <span className="closed-section-count">{closedRows.length}</span>
+              </div>
+              <Panel>
+                <PanelBody flush>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>{t('holdings_symbol')}</th>
+                          <th>{t('holdings_status')}</th>
+                          <th className="num">{t('holdings_real_pl')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {closedRows.map(h => (
+                          <tr key={h.id} className="closed-row">
+                            <td>
+                              <Link
+                                href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`}
+                                className="holdings-sym-link"
+                                title={t('pos_open_hub')}
+                              >
+                                <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={24} />
+                              </Link>
+                            </td>
+                            <td>
+                              <span className="status-badge status-badge--closed">{t('status_closed')}</span>
+                            </td>
+                            <td className="num">
+                              <DeltaMoney value={h.realizedPl} currency={h.currency} variant="inline" />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </PanelBody>
+              </Panel>
+            </div>
+          )}
         </>
       )}
     </div>

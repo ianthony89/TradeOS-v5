@@ -84,6 +84,44 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // ── CSV is the source of truth: close positions absent from it ─
+  // Any currently-open holding NOT in this CSV is zeroed out (closed in
+  // place) — quantity / value / live P&L → 0, but symbol / name / avg cost /
+  // realized P&L are KEPT for the Closed-positions view. Nothing is deleted,
+  // so position_intelligence + journal_entries (symbol-keyed) survive intact.
+  let closedCount = 0
+  const presentSet = new Set(holdings.map(h => h.symbolNormalized))
+  const { data: existing } = await supabase
+    .from('holdings')
+    .select('id, symbol_normalized, quantity')
+    .eq('user_id', user.id)
+
+  const toClose = (existing ?? []).filter(
+    e => Number(e.quantity) > 0 && !presentSet.has(e.symbol_normalized),
+  )
+  if (toClose.length) {
+    const { error: closeErr } = await supabase
+      .from('holdings')
+      .update({
+        quantity:          0,
+        available_qty:     0,
+        market_value:      0,
+        unrealized_pl:     0,
+        unrealized_pl_pct: 0,
+        today_pl:          0,
+        last_import_id:    session.id,
+        updated_at:        new Date().toISOString(),
+      })
+      .in('id', toClose.map(e => e.id))
+
+    if (closeErr) {
+      // Non-fatal: the import itself succeeded; closing stale rows is best-effort.
+      console.error('[import] close-absent failed:', closeErr)
+    } else {
+      closedCount = toClose.length
+    }
+  }
+
   // ── Calculate total values for snapshot ──────────────────
   let totalUsd = 0, totalMyr = 0
   for (const h of holdings) {
@@ -108,6 +146,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok:           true,
     imported:     holdings.length,
+    closed:       closedCount,
     sessionId:    session.id,
     totalUsd,
     totalMyr,
