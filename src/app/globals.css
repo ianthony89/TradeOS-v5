@@ -1675,6 +1675,32 @@ a { color: inherit; text-decoration: none; }
 .closed-section-toggle:hover .closed-section-title { color: var(--text-secondary); }
 
 /* ─────────────────────────────────────────────────────────────
+   Mobile-first Dashboard (v5.0.7) — ≤640px ONLY. Desktop untouched.
+   Goal: Portfolio Value · Today's · Total P&L · Open/Closed on the
+   first screen, no scroll. Ticker drops below the hero.
+   ───────────────────────────────────────────────────────────── */
+.dash-stat--mobile { display: none; }   /* Open/Closed tiles: mobile only */
+
+@media (max-width: 640px) {
+  /* Reorder so portfolio status comes first, ticker after the hero */
+  .dash-page { display: flex; flex-direction: column; }
+  .dash-page > .section-header { order: 1; }
+  .dash-page > .dash-overview  { order: 2; }
+  .dash-page > .ticker-dual    { order: 3; }
+  .dash-page > .dash-attention { order: 4; }
+  .dash-page > .grid-2         { order: 5; }
+  .dash-page > .dash-histogram { order: 6; }
+
+  /* Hero intel (Largest / Top Winner / Top Loser) stacks vertically.
+     Scoped to .dash-page so it beats the base 3-col rule regardless of order. */
+  .dash-page .hero-intel { grid-template-columns: 1fr; gap: 8px; }
+
+  /* Swap which stat tiles show (the 2×2 grid itself is set above) */
+  .dash-stat--desktop { display: none; }   /* Today's P&L (in hero) + Risk Score (in Risk widget) */
+  .dash-stat--mobile  { display: block; }  /* Open + Closed counts */
+}
+
+/* ─────────────────────────────────────────────────────────────
    Util
    ───────────────────────────────────────────────────────────── */
 .text-tabular { font-variant-numeric: tabular-nums; }
@@ -2220,7 +2246,8 @@ a { color: inherit; text-decoration: none; }
   .dash-overview { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .dash-mini-stats { grid-template-columns: 1fr; grid-template-rows: auto; }
+  /* v5.0.7: stay a 2×2 on mobile (Total P&L / Realized / Open / Closed) */
+  .dash-mini-stats { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
 }
 
 /* ─────────────────────────────────────────────────────────────

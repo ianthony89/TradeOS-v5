@@ -58,6 +58,7 @@ export default function DashboardPage() {
   /* Phase 2B Attention Layer — per-position intelligence + watchlist triggers */
   const [intelMap, setIntelMap] = useState<Map<string, import('@/lib/portfolio/position-intel').PositionIntel>>(new Map())
   const [watchTriggered, setWatchTriggered] = useState<string[]>([])
+  const [closedCount, setClosedCount] = useState(0)   // mobile Open/Closed tiles (v5.0.7)
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -99,11 +100,14 @@ export default function DashboardPage() {
       // single choke point — every downstream metric derives from this set.
       const open = mapped.filter(m => m.quantity > 0)
       setHoldings(open)
+      setClosedCount(mapped.length - open.length)
       return open
     }
     return []
   }, [supabase, setHoldings])
 
+  // loadHoldings is async — every setState runs after an await, not synchronously.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadHoldings() }, [loadHoldings])
 
   /* Attention Layer data — all position intel + watchlist triggers.
@@ -446,8 +450,8 @@ export default function DashboardPage() {
 
   /* ── Loaded state ────────────────────────────────────────── */
   return (
-    <div>
-      {/* Ticker pulse — full width, top of stage */}
+    <div className="dash-page">
+      {/* Ticker pulse — full width, top of stage (drops below the hero on mobile) */}
       {/* Dual ticker — Hot List (← left) over My Holdings (→ right) */}
       <div className="ticker-dual">
         <TickerStrip items={hotItems}    direction="left" />
@@ -566,6 +570,7 @@ export default function DashboardPage() {
 
         <div className="dash-mini-stats">
           <StatCard
+            className="dash-stat--desktop"
             label={t('dash_today_pl')}
             icon={<TrendingUp size={15} />}
             value={fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)}
@@ -587,11 +592,25 @@ export default function DashboardPage() {
             sub={<span className="text-tertiary">{t('dash_realized_sub')}</span>}
           />
           <StatCard
+            className="dash-stat--desktop"
             label={t('dash_risk_score')}
             icon={<Gauge size={15} />}
             value={<>{risk.score}<span className="text-quaternary" style={{ fontSize: 14 }}>/100</span></>}
             tone={riskTone}
             sub={<span className="text-tertiary">{t(`risk_${risk.level}`)}</span>}
+          />
+          {/* Mobile-only tiles (v5.0.7) — fill the 2×2 with Open / Closed counts */}
+          <StatCard
+            className="dash-stat--mobile"
+            label={t('holdings_sum_open')}
+            value={holdings.length}
+            sub={<span className="text-tertiary">{usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}</span>}
+          />
+          <StatCard
+            className="dash-stat--mobile"
+            label={t('holdings_sum_closed')}
+            value={closedCount}
+            sub={<span className="text-tertiary">{t('dash_realized_sub')}</span>}
           />
         </div>
       </div>
@@ -600,7 +619,7 @@ export default function DashboardPage() {
           Every item deep-links into the Position Hub (Decision Layer). */}
       {/* What needs my attention — full width (Review Queue removed in v5.0.6).
           Open positions only; ordered EXIT / -50% → REDUCE → Review → other. */}
-      <div style={{ marginBottom: 18 }}>
+      <div className="dash-attention" style={{ marginBottom: 18 }}>
         <Panel>
           <PanelHead title={t('attn_title')} meta={t('attn_sub')} />
           <PanelBody>
@@ -689,7 +708,7 @@ export default function DashboardPage() {
       {/* Top Movers + Positions widget removed in v5.0.6 (duplicated Holdings). */}
 
       {/* P/L distribution — how many positions are winning vs bleeding */}
-      <Panel>
+      <Panel className="dash-histogram">
         <PanelHead title={t('dash_pl_distribution')} meta={t('dash_pl_distribution_meta')} />
         <PanelBody>
           <PlHistogram items={withWeight.map(h => ({ unrealizedPlPct: h.unrealizedPlPct }))} />
