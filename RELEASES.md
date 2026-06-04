@@ -4,6 +4,19 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.4 — 2026-06-04
+
+**Holdings = source of truth** — fixes positions lingering after they leave the CSV, adds closed-position tracking, and refocuses the views.
+
+- **CSV is now the source of truth.** On import, any open position absent from the new CSV is **closed in place** (quantity / market value / live P&L → 0; symbol / name / avg cost / realized P&L kept). Nothing is deleted, so all thesis / review / journal history survives (those tables are symbol-keyed). Fixes the bug where a sold position (CETX) stayed an active holding forever.
+- **Closed Positions section** — exited positions move to a dedicated section below the table (symbol · status · realized P&L · Hub link), instead of polluting the active list or vanishing.
+- **Status column** — OPEN / CLOSED, derived (no DB column, no migration).
+- **Views refocused** — Allocation + Trading removed; new **Insights** view added (Symbol · Status · Strategy · Action · Unrealized % · Weight), bringing back the Action signal.
+
+Display + import-layer only. No migration, no store schema change. Dashboard / Journal / Planner / Watchlist / Position Hub untouched; all historical data preserved. The v5.0.3 per-row pre/post move badge was dropped with the Trading view (the topbar session pill + Last Close banner remain). **Tag:** `v5.0.4`.
+
+---
+
 ## v5.0.3 — 2026-06-04
 
 **Market session alignment** — quote-honesty, display-layer only (no new providers, no paid APIs, no calc / DB / schema changes; the frozen market layer is untouched).
