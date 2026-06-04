@@ -16,12 +16,19 @@ const LABEL_KEY: Record<QuoteSession, string> = {
   POST_MARKET:     'sess_post',
   OVERNIGHT_CLOSE: 'sess_close',
 }
+const EMOJI: Record<QuoteSession, string> = {
+  REGULAR:         '🟢',
+  PRE_MARKET:      '🔵',
+  POST_MARKET:     '🟠',
+  OVERNIGHT_CLOSE: '🌙',
+}
 
-/** Session badge: LIVE / PRE / POST / LAST CLOSE. Display-only. */
+/** Session badge: 🟢 LIVE / 🔵 PRE / 🟠 POST / 🌙 LAST CLOSE. Display-only. */
 export function SessionTag({ session, className = '' }: { session: QuoteSession; className?: string }) {
   const t = useT()
   return (
     <span className={`session-tag session-tag--${TONE[session]} ${className}`}>
+      <span className="session-tag-emoji" aria-hidden>{EMOJI[session]}</span>
       {t(LABEL_KEY[session])}
     </span>
   )

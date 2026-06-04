@@ -90,10 +90,11 @@ export async function POST(req: NextRequest) {
   // realized P&L are KEPT for the Closed-positions view. Nothing is deleted,
   // so position_intelligence + journal_entries (symbol-keyed) survive intact.
   let closedCount = 0
+  const nowIso = new Date().toISOString()
   const presentSet = new Set(holdings.map(h => h.symbolNormalized))
   const { data: existing } = await supabase
     .from('holdings')
-    .select('id, symbol_normalized, quantity')
+    .select('id, symbol_normalized, quantity, current_price')
     .eq('user_id', user.id)
 
   const toClose = (existing ?? []).filter(
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
         unrealized_pl_pct: 0,
         today_pl:          0,
         last_import_id:    session.id,
-        updated_at:        new Date().toISOString(),
+        updated_at:        nowIso,
       })
       .in('id', toClose.map(e => e.id))
 
@@ -119,6 +120,23 @@ export async function POST(req: NextRequest) {
       console.error('[import] close-absent failed:', closeErr)
     } else {
       closedCount = toClose.length
+    }
+
+    // v5.0.5: freeze the exit snapshot (last price + close date) at the
+    // open→closed transition. Best-effort: if migration 008 hasn't been
+    // applied yet, these columns don't exist and the updates simply no-op —
+    // the close itself (above) still succeeds.
+    try {
+      await Promise.allSettled(
+        toClose.map(e =>
+          supabase
+            .from('holdings')
+            .update({ exit_price: e.current_price ?? null, exit_date: nowIso })
+            .eq('id', e.id),
+        ),
+      )
+    } catch (e) {
+      console.error('[import] exit-snapshot skipped (migration 008 not applied?):', e)
     }
   }
 
