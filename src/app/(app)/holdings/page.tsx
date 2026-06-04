@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Upload, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react'
 import { createClient }      from '@/lib/supabase/client'
@@ -16,13 +17,134 @@ import { SymCell }           from '@/components/brand/stock-logo'
 import { DeltaBadge, DeltaMoney } from '@/components/ui/delta-badge'
 import { EmptyState }        from '@/components/ui/empty-state'
 import { InfoTooltip }       from '@/components/ui/info-tooltip'
-import {
-  classifyStrategy, classifyAction,
-  STRATEGY_TONE, ACTION_TONE,
-} from '@/lib/portfolio/taxonomy'
+import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
+import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
 
-type SortKey = 'symbol' | 'marketValue' | 'unrealizedPlPct' | 'todayPl' | 'portfolioWeight'
+/* ── Multi-view (v5.0.2) ──────────────────────────────────────
+   Presentation-only. Four focused lenses over the SAME data —
+   no new fields, no recalculation, no backend. Each view simply
+   selects which existing columns are shown. */
+type ViewId = 'overview' | 'performance' | 'allocation' | 'trading'
+const VIEW_IDS: ViewId[] = ['overview', 'performance', 'allocation', 'trading']
+
+type SortKey =
+  | 'symbol' | 'quantity' | 'avgCost' | 'currentPrice'
+  | 'marketValue' | 'todayPl' | 'unrealizedPl' | 'unrealizedPlPct'
+  | 'realizedPl' | 'totalPl' | 'totalReturnPct' | 'portfolioWeight'
 type FilterCurrency = 'ALL' | 'USD' | 'MYR'
+
+/** Holding enriched with display-derived totals (no engine change). */
+type EnrichedHolding = Holding & { totalPl: number; totalReturnPct: number }
+
+interface ColumnCtx { t: (key: string) => string; lang: Lang }
+interface ColumnDef {
+  id: string
+  label: string                                        // i18n key
+  align: 'left' | 'num'
+  sortKey?: SortKey
+  cell: (h: EnrichedHolding, ctx: ColumnCtx) => ReactNode
+}
+
+const numCell = (v: ReactNode, strong = false) =>
+  <span className={`text-mono text-tabular${strong ? ' td--strong' : ''}`}>{v}</span>
+
+/* Column registry — every column the four views can draw from. */
+const COLUMNS: Record<string, ColumnDef> = {
+  symbol: {
+    id: 'symbol', label: 'holdings_symbol', align: 'left', sortKey: 'symbol',
+    cell: (h, { t, lang }) => (
+      <Link
+        href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`}
+        className="holdings-sym-link"
+        title={t('pos_open_hub')}
+      >
+        <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={28} />
+      </Link>
+    ),
+  },
+  quantity: {
+    id: 'quantity', label: 'holdings_qty', align: 'num', sortKey: 'quantity',
+    cell: h => numCell(fmt.qty(h.quantity)),
+  },
+  avgCost: {
+    id: 'avgCost', label: 'holdings_avg_cost', align: 'num', sortKey: 'avgCost',
+    cell: h => numCell(fmt.price(h.avgCost)),
+  },
+  currentPrice: {
+    id: 'currentPrice', label: 'holdings_price', align: 'num', sortKey: 'currentPrice',
+    cell: h => numCell(fmt.price(h.currentPrice), true),
+  },
+  marketValue: {
+    id: 'marketValue', label: 'holdings_value', align: 'num', sortKey: 'marketValue',
+    cell: h => numCell(fmt.money(h.marketValue, h.currency), true),
+  },
+  weight: {
+    id: 'weight', label: 'holdings_weight', align: 'num', sortKey: 'portfolioWeight',
+    cell: h => <span className="text-tabular text-tertiary">{fmt.pct(h.portfolioWeight, 1)}</span>,
+  },
+  todayPl: {
+    id: 'todayPl', label: 'holdings_today_pl', align: 'num', sortKey: 'todayPl',
+    cell: h => <DeltaMoney value={h.todayPl} currency={h.currency} variant="inline" />,
+  },
+  unrealizedPl: {
+    id: 'unrealizedPl', label: 'holdings_unreal_pl', align: 'num', sortKey: 'unrealizedPl',
+    cell: h => <DeltaMoney value={h.unrealizedPl} currency={h.currency} variant="inline" />,
+  },
+  unrealizedPlPct: {
+    id: 'unrealizedPlPct', label: 'holdings_unreal_pct', align: 'num', sortKey: 'unrealizedPlPct',
+    cell: h => <DeltaBadge value={h.unrealizedPlPct} variant="pill" />,
+  },
+  realizedPl: {
+    id: 'realizedPl', label: 'holdings_real_pl', align: 'num', sortKey: 'realizedPl',
+    cell: h => <DeltaMoney value={h.realizedPl} currency={h.currency} variant="inline" />,
+  },
+  totalPl: {
+    id: 'totalPl', label: 'holdings_total_pl', align: 'num', sortKey: 'totalPl',
+    cell: h => <DeltaMoney value={h.totalPl} currency={h.currency} variant="inline" />,
+  },
+  totalReturnPct: {
+    id: 'totalReturnPct', label: 'holdings_total_return', align: 'num', sortKey: 'totalReturnPct',
+    cell: h => <DeltaBadge value={h.totalReturnPct} variant="pill" />,
+  },
+  strategy: {
+    id: 'strategy', label: 'col_strategy', align: 'left',
+    cell: (h, { t }) => {
+      const strategy = classifyStrategy({
+        symbol: h.symbol, name: h.name, assetType: h.assetType,
+        unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight,
+      })
+      return <span className={`badge badge--${STRATEGY_TONE[strategy]}`}>{t(`tax_${strategy}`)}</span>
+    },
+  },
+  sector: {
+    id: 'sector', label: 'holdings_sector', align: 'left',
+    cell: (h, { t }) => {
+      const sec = getSector(h.symbol, h.assetType)
+      return (
+        <span className="sector-cell">
+          <span className="sector-dot" style={{ background: getSectorColor(sec) }} />
+          {t(sectorKey(sec))}
+        </span>
+      )
+    },
+  },
+}
+
+/* Which columns each view shows, in order. */
+const VIEWS: Record<ViewId, string[]> = {
+  overview:    ['symbol', 'marketValue', 'weight', 'todayPl', 'totalPl'],
+  performance: ['symbol', 'unrealizedPl', 'unrealizedPlPct', 'realizedPl', 'totalPl', 'totalReturnPct'],
+  allocation:  ['symbol', 'weight', 'marketValue', 'strategy', 'sector'],
+  trading:     ['symbol', 'quantity', 'avgCost', 'currentPrice', 'todayPl'],
+}
+
+/* Default sort per view — keeps the active sort column always visible. */
+const VIEW_DEFAULT_SORT: Record<ViewId, SortKey> = {
+  overview:    'marketValue',
+  performance: 'totalPl',
+  allocation:  'portfolioWeight',
+  trading:     'todayPl',
+}
 
 // Active FX rate is read from market store. Default manual rate is 4.00.
 // This fallback is only used if the store hasn't hydrated yet (first paint).
@@ -44,6 +166,7 @@ export default function HoldingsPage() {
   const [importing, setImporting] = useState(false)
   const [importMsg, setImportMsg] = useState('')
   const [importErr, setImportErr] = useState(false)
+  const [view,      setView]      = useState<ViewId>('overview')
   const [sortKey,   setSortKey]   = useState<SortKey>('marketValue')
   const [sortAsc,   setSortAsc]   = useState(false)
   const [filterCur, setFilterCur] = useState<FilterCurrency>('ALL')
@@ -177,7 +300,13 @@ export default function HoldingsPage() {
     finally { setRefreshing(false) }
   }
 
-  /* ── Sort + filter + portfolio weight ───────────────────── */
+  /* ── View + sort + filter + portfolio weight ────────────── */
+  function selectView(v: ViewId) {
+    setView(v)
+    setSortKey(VIEW_DEFAULT_SORT[v])
+    setSortAsc(false)
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortAsc(a => !a)
     else { setSortKey(key); setSortAsc(false) }
@@ -189,9 +318,17 @@ export default function HoldingsPage() {
     return s + v
   }, 0)
 
-  const enriched = holdings.map(h => {
+  const enriched: EnrichedHolding[] = holdings.map(h => {
     const v = h.currency === 'MYR' ? h.marketValue / effectiveFx : h.marketValue
-    return { ...h, portfolioWeight: totalUsd > 0 ? (v / totalUsd) * 100 : 0 }
+    const totalPl   = h.unrealizedPl + h.realizedPl            // Moomoo 持仓盈亏 = unrealized + realized
+    const costBasis = h.avgCost * h.quantity
+    const totalReturnPct = costBasis > 0 ? (totalPl / costBasis) * 100 : 0
+    return {
+      ...h,
+      portfolioWeight: totalUsd > 0 ? (v / totalUsd) * 100 : 0,
+      totalPl,
+      totalReturnPct,
+    }
   })
 
   const q = search.toUpperCase()
@@ -204,14 +341,24 @@ export default function HoldingsPage() {
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0
-    if (sortKey === 'symbol')          cmp = a.symbol.localeCompare(b.symbol)
-    if (sortKey === 'marketValue')     cmp = a.marketValue - b.marketValue
-    if (sortKey === 'unrealizedPlPct') cmp = a.unrealizedPlPct - b.unrealizedPlPct
-    if (sortKey === 'todayPl')         cmp = a.todayPl - b.todayPl
-    if (sortKey === 'portfolioWeight') cmp = a.portfolioWeight - b.portfolioWeight
+    switch (sortKey) {
+      case 'symbol':          cmp = a.symbol.localeCompare(b.symbol); break
+      case 'quantity':        cmp = a.quantity - b.quantity; break
+      case 'avgCost':         cmp = a.avgCost - b.avgCost; break
+      case 'currentPrice':    cmp = a.currentPrice - b.currentPrice; break
+      case 'marketValue':     cmp = a.marketValue - b.marketValue; break
+      case 'todayPl':         cmp = a.todayPl - b.todayPl; break
+      case 'unrealizedPl':    cmp = a.unrealizedPl - b.unrealizedPl; break
+      case 'unrealizedPlPct': cmp = a.unrealizedPlPct - b.unrealizedPlPct; break
+      case 'realizedPl':      cmp = a.realizedPl - b.realizedPl; break
+      case 'totalPl':         cmp = a.totalPl - b.totalPl; break
+      case 'totalReturnPct':  cmp = a.totalReturnPct - b.totalReturnPct; break
+      case 'portfolioWeight': cmp = a.portfolioWeight - b.portfolioWeight; break
+    }
     return sortAsc ? cmp : -cmp
   })
 
+  const cols = VIEWS[view].map(id => COLUMNS[id])
   const lastImportLabel = lastImportAt ? fmt.relativeTime(lastImportAt, lang) : null
 
   /* ── Render ─────────────────────────────────────────────── */
@@ -302,6 +449,22 @@ export default function HoldingsPage() {
 
       {!!holdings.length && (
         <>
+          {/* View switch — four focused lenses over the same positions */}
+          <div className="view-switch" role="tablist" aria-label={t('holdings_title')}>
+            {VIEW_IDS.map(v => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                aria-selected={view === v}
+                className={`view-switch-btn${view === v ? ' view-switch-btn--active' : ''}`}
+                onClick={() => selectView(v)}
+              >
+                {t(`holdings_view_${v}`)}
+              </button>
+            ))}
+          </div>
+
           {/* Toolbar */}
           <div className="toolbar">
             <input
@@ -325,17 +488,19 @@ export default function HoldingsPage() {
               ))}
             </div>
             <div className="toolbar-spacer" />
-            <span className="th-with-help text-tertiary" style={{ fontSize: 11.5 }}>
-              {t('tax_def_title')}
-              <InfoTooltip content={
-                <div className="tax-def">
-                  <div className="tax-def-title">{t('tax_def_title')}</div>
-                  <div className="tax-def-row">{t('tax_CORE_def')}</div>
-                  <div className="tax-def-row">{t('tax_TACTICAL_def')}</div>
-                  <div className="tax-def-row">{t('tax_SPECULATIVE_def')}</div>
-                </div>
-              } />
-            </span>
+            {view === 'allocation' && (
+              <span className="th-with-help text-tertiary" style={{ fontSize: 11.5 }}>
+                {t('tax_def_title')}
+                <InfoTooltip content={
+                  <div className="tax-def">
+                    <div className="tax-def-title">{t('tax_def_title')}</div>
+                    <div className="tax-def-row">{t('tax_CORE_def')}</div>
+                    <div className="tax-def-row">{t('tax_TACTICAL_def')}</div>
+                    <div className="tax-def-row">{t('tax_SPECULATIVE_def')}</div>
+                  </div>
+                } />
+              </span>
+            )}
             <span className="text-tertiary" style={{ fontSize: 11.5 }}>
               {t('holdings_showing', { shown: sorted.length, total: holdings.length })}
             </span>
@@ -354,45 +519,43 @@ export default function HoldingsPage() {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th
-                          className={`sortable${sortKey === 'symbol' ? ' sorted' : ''}`}
-                          onClick={() => toggleSort('symbol')}
-                        >
-                          {t('holdings_symbol')} <SortIcon k="symbol" sortKey={sortKey} sortAsc={sortAsc} />
-                        </th>
-                        <th className="num">{t('holdings_qty')}</th>
-                        <th className="num">{t('holdings_avg_cost')}</th>
-                        <th className="num">{t('holdings_price')}</th>
-                        <th
-                          className={`num sortable${sortKey === 'marketValue' ? ' sorted' : ''}`}
-                          onClick={() => toggleSort('marketValue')}
-                        >
-                          {t('holdings_value')} <SortIcon k="marketValue" sortKey={sortKey} sortAsc={sortAsc} />
-                        </th>
-                        <th
-                          className={`num sortable${sortKey === 'todayPl' ? ' sorted' : ''}`}
-                          onClick={() => toggleSort('todayPl')}
-                        >
-                          {t('holdings_today_pl')} <SortIcon k="todayPl" sortKey={sortKey} sortAsc={sortAsc} />
-                        </th>
-                        <th
-                          className={`num sortable${sortKey === 'unrealizedPlPct' ? ' sorted' : ''}`}
-                          onClick={() => toggleSort('unrealizedPlPct')}
-                        >
-                          {t('holdings_unreal_pl')} <SortIcon k="unrealizedPlPct" sortKey={sortKey} sortAsc={sortAsc} />
-                        </th>
-                        <th
-                          className={`num sortable${sortKey === 'portfolioWeight' ? ' sorted' : ''}`}
-                          onClick={() => toggleSort('portfolioWeight')}
-                        >
-                          {t('holdings_weight')} <SortIcon k="portfolioWeight" sortKey={sortKey} sortAsc={sortAsc} />
-                        </th>
-                        <th>{t('col_strategy')}</th>
-                        <th>{t('col_action')}</th>
+                        {cols.map(col => {
+                          const isSorted = col.sortKey && sortKey === col.sortKey
+                          const cls = [
+                            col.align === 'num' ? 'num' : '',
+                            col.sortKey ? 'sortable' : '',
+                            isSorted ? 'sorted' : '',
+                          ].filter(Boolean).join(' ')
+                          return (
+                            <th
+                              key={col.id}
+                              className={cls || undefined}
+                              onClick={col.sortKey ? () => toggleSort(col.sortKey!) : undefined}
+                            >
+                              {t(col.label)}
+                              {col.sortKey && (
+                                <> <SortIcon k={col.sortKey} sortKey={sortKey} sortAsc={sortAsc} /></>
+                              )}
+                            </th>
+                          )
+                        })}
                       </tr>
                     </thead>
                     <tbody>
-                      {sorted.map(h => <Row key={h.id} h={h} t={t} lang={lang} />)}
+                      {sorted.map(h => {
+                        const plTone =
+                          h.unrealizedPlPct < -25 ? 'negative-strong' :
+                          h.unrealizedPlPct >  25 ? 'positive-strong' : undefined
+                        return (
+                          <tr key={h.id} data-pl-tone={plTone}>
+                            {cols.map(col => (
+                              <td key={col.id} className={col.align === 'num' ? 'num' : undefined}>
+                                {col.cell(h, { t, lang })}
+                              </td>
+                            ))}
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -411,57 +574,4 @@ function SortIcon({ k, sortKey, sortAsc }: { k: SortKey; sortKey: SortKey; sortA
   return sortAsc
     ? <ChevronUp size={11} className="sort-ind" />
     : <ChevronDown size={11} className="sort-ind" />
-}
-
-/* ── Single holdings row ───────────────────────────────────── */
-function Row({ h, t, lang }: { h: Holding; t: (key: string) => string; lang: Lang }) {
-  const classifyInput = {
-    symbol:          h.symbol,
-    name:            h.name,
-    assetType:       h.assetType,
-    unrealizedPlPct: h.unrealizedPlPct,
-    portfolioWeight: h.portfolioWeight,
-  }
-  const strategy = classifyStrategy(classifyInput)
-  const action   = classifyAction(classifyInput)
-  const plTone   =
-    h.unrealizedPlPct < -25 ? 'negative-strong' :
-    h.unrealizedPlPct >  25 ? 'positive-strong' : undefined
-  return (
-    <tr data-pl-tone={plTone}>
-      <td>
-        <Link href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="holdings-sym-link" title={t('pos_open_hub')}>
-          <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={28} />
-        </Link>
-      </td>
-      <td className="num text-mono text-tabular">{fmt.qty(h.quantity)}</td>
-      <td className="num text-mono text-tabular">{fmt.price(h.avgCost)}</td>
-      <td className="num text-mono text-tabular td--strong">{fmt.price(h.currentPrice)}</td>
-      <td className="num text-mono text-tabular td--strong">
-        {fmt.money(h.marketValue, h.currency)}
-      </td>
-      <td className="num">
-        <DeltaMoney value={h.todayPl} currency={h.currency} variant="inline" />
-      </td>
-      <td className="num">
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-          <DeltaMoney value={h.unrealizedPl} currency={h.currency} variant="inline" />
-          <DeltaBadge value={h.unrealizedPlPct} variant="pill" />
-        </div>
-      </td>
-      <td className="num text-tabular text-tertiary">
-        {fmt.pct(h.portfolioWeight, 1)}
-      </td>
-      <td>
-        <span className={`badge badge--${STRATEGY_TONE[strategy]}`}>
-          {t(`tax_${strategy}`)}
-        </span>
-      </td>
-      <td>
-        <span className={`badge badge--${ACTION_TONE[action]}`}>
-          {t(`tax_${action}`)}
-        </span>
-      </td>
-    </tr>
-  )
 }
