@@ -4,6 +4,21 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.6 — 2026-06-04
+
+**Dashboard cleanup** — a maintenance release: simpler, no duplication with Holdings, and a P0 data-correctness fix. Not a redesign.
+
+- **P0 — closed-position leak fixed.** The Dashboard loaded *all* holdings with no quantity filter, so closed positions (qty 0) polluted every ranking — CETX surfaced in Top Losers / Risk / Attention because the live-recompute derives its % from `(livePrice − avgCost)` ignoring qty=0. The Dashboard now uses **open positions only** (`quantity > 0`) at the single load choke point, so every downstream metric (movers, risk, sector, attention, ticker, totals) is open-only. (Live proof: "positions down >50%" dropped from 4 → 3 once CETX was excluded.)
+- **Removed** (duplicated Holdings): Review Queue · Top Movers · Positions widget.
+- **What Needs My Attention** is now full-width and reordered: **EXIT / −50% → REDUCE → Review → other**.
+- **Risk Assessment** keeps the widget but trades engineering jargon for plain sentences — *"AIXI is 31% of your portfolio", "39% of your portfolio is speculative", "3 positions are down more than 50%".*
+- Consolidated the P&L stat into a single **Total P&L** (unrealized + realized).
+- **Holdings:** removed the redundant **Status** column (open table = open, closed table = closed); **Closed Positions** is **collapsed by default** and gains a **Sold Price** column (`exit_price`, migration 008).
+
+Untouched: Journal / Planner / Watchlist / Position Hub / quote provider + API / import engine / migration 008 / source-of-truth logic. **Tag:** `v5.0.6`.
+
+---
+
 ## v5.0.5 — 2026-06-04
 
 **Holdings UX reset — one unified Moomoo-style table.** Removes the v5.0.2–v5.0.4 multi-view (Overview / Performance / Insights + the view switch). One position is now one row, every column visible at once.
