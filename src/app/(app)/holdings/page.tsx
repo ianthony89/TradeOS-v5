@@ -19,6 +19,10 @@ import { EmptyState }        from '@/components/ui/empty-state'
 import { InfoTooltip }       from '@/components/ui/info-tooltip'
 import { classifyStrategy, STRATEGY_TONE } from '@/lib/portfolio/taxonomy'
 import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
+import { useClock }          from '@/lib/hooks/use-clock'
+import { currentUsSession, sessionMove } from '@/lib/market/quote-session'
+import type { QuoteSession, SessionMove } from '@/lib/market/quote-session'
+import { SessionTag, SessionMoveTag } from '@/components/ui/session-tag'
 
 /* ── Multi-view (v5.0.2) ──────────────────────────────────────
    Presentation-only. Four focused lenses over the SAME data —
@@ -34,7 +38,12 @@ type SortKey =
 type FilterCurrency = 'ALL' | 'USD' | 'MYR'
 
 /** Holding enriched with display-derived totals (no engine change). */
-type EnrichedHolding = Holding & { totalPl: number; totalReturnPct: number }
+type EnrichedHolding = Holding & {
+  totalPl: number
+  totalReturnPct: number
+  /** Extended-hours (pre/post) move vs the regular close — display only, NOT Today's P&L. */
+  sessionMove: SessionMove | null
+}
 
 interface ColumnCtx { t: (key: string) => string; lang: Lang }
 interface ColumnDef {
@@ -72,7 +81,12 @@ const COLUMNS: Record<string, ColumnDef> = {
   },
   currentPrice: {
     id: 'currentPrice', label: 'holdings_price', align: 'num', sortKey: 'currentPrice',
-    cell: h => numCell(fmt.price(h.currentPrice), true),
+    cell: h => (
+      <div className="price-cell">
+        {numCell(fmt.price(h.currentPrice), true)}
+        {h.sessionMove && <SessionMoveTag data={h.sessionMove} />}
+      </div>
+    ),
   },
   marketValue: {
     id: 'marketValue', label: 'holdings_value', align: 'num', sortKey: 'marketValue',
@@ -146,6 +160,15 @@ const VIEW_DEFAULT_SORT: Record<ViewId, SortKey> = {
   trading:     'todayPl',
 }
 
+/* Session honesty banner (v5.0.3) — shown when the US market is not in
+   regular hours, so prices are never silently implied to be live. */
+const SESSION_BANNER_KEY: Record<QuoteSession, string> = {
+  REGULAR:         '',
+  PRE_MARKET:      'sess_banner_pre',
+  POST_MARKET:     'sess_banner_post',
+  OVERNIGHT_CLOSE: 'sess_banner_close',
+}
+
 // Active FX rate is read from market store. Default manual rate is 4.00.
 // This fallback is only used if the store hasn't hydrated yet (first paint).
 const FX_FALLBACK = 4.00
@@ -158,8 +181,13 @@ export default function HoldingsPage() {
     lastImportAt, setLastImport,
     quoteRefreshing, setRefreshing, updateQuotes,
   } = useHoldingsStore()
+  const quotes           = useHoldingsStore(s => s.quotes)
   const setQuotesUpdated = useMarketStore(s => s.setQuotesUpdated)
   const fxRate           = useMarketStore(selectActiveFxRate)
+
+  // Session honesty (v5.0.3): tick every 30s so the banner follows the US clock.
+  useClock(30_000)
+  const usSession = currentUsSession()
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging,  setDragging]  = useState(false)
@@ -328,6 +356,7 @@ export default function HoldingsPage() {
       portfolioWeight: totalUsd > 0 ? (v / totalUsd) * 100 : 0,
       totalPl,
       totalReturnPct,
+      sessionMove: sessionMove(quotes.get(h.symbolNormalized)),
     }
   })
 
@@ -505,6 +534,14 @@ export default function HoldingsPage() {
               {t('holdings_showing', { shown: sorted.length, total: holdings.length })}
             </span>
           </div>
+
+          {/* Session honesty banner (v5.0.3) — never imply a non-live price is live */}
+          {usSession !== 'REGULAR' && (
+            <div className={`session-banner session-banner--${usSession === 'OVERNIGHT_CLOSE' ? 'close' : usSession === 'PRE_MARKET' ? 'pre' : 'post'}`}>
+              <SessionTag session={usSession} />
+              <span>{t(SESSION_BANNER_KEY[usSession])}</span>
+            </div>
+          )}
 
           {/* Decision workspace table */}
           <Panel>

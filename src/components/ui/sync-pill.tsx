@@ -5,6 +5,8 @@ import { useClock }       from '@/lib/hooks/use-clock'
 import { useI18n }        from '@/lib/i18n/context'
 import { fmt }            from '@/lib/utils/format'
 import { CheckCircle2, CircleDashed } from 'lucide-react'
+import { currentUsSession } from '@/lib/market/quote-session'
+import { SessionTag }       from '@/components/ui/session-tag'
 
 /**
  * Quote freshness indicator.
@@ -14,12 +16,16 @@ export function SyncPill({ className = '' }: { className?: string }) {
   const { t, lang } = useI18n()
   useClock(30_000)
   const ts = useMarketStore(s => s.quotesUpdatedAt)
+  // Quote session follows the live US clock (display-honesty, v5.0.3).
+  const session = currentUsSession()
 
   if (!ts) {
     return (
       <span className={`market-pill ${className}`}>
         <CircleDashed size={11} className="text-quaternary" />
         <span className="market-pill-state market-pill-state--closed">{t('sync_idle')}</span>
+        <span className="market-pill-sep">·</span>
+        <SessionTag session={session} />
       </span>
     )
   }
@@ -34,6 +40,8 @@ export function SyncPill({ className = '' }: { className?: string }) {
       <span className={`market-pill-state ${stale ? 'market-pill-state--closed' : 'market-pill-state--open'}`}>
         {t('sync_quotes')} {fmt.relativeTime(ts, lang)}
       </span>
+      <span className="market-pill-sep">·</span>
+      <SessionTag session={session} />
     </span>
   )
 }
