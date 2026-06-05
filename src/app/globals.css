@@ -1947,6 +1947,53 @@ a { color: inherit; text-decoration: none; }
 .panel--tier3 .panel-title { font-size: 12px; color: var(--text-secondary); }
 
 /* ─────────────────────────────────────────────────────────────
+   v5.1.1 P1.1 — command header · action redo · risk forward · sector back
+   ───────────────────────────────────────────────────────────── */
+
+/* Command header — Hero (left) + KPI 2×2 (right) in ONE band.
+   Exploits the wasted hero width; first screen shows Value/Best/4×P&L. */
+.dash-cmd { display: grid; grid-template-columns: 1.45fr 1fr; gap: 14px; margin-bottom: 18px; align-items: stretch; }
+@media (max-width: 900px) { .dash-cmd { grid-template-columns: 1fr; } }
+.cmd-kpis { grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 12px; margin-bottom: 0; }
+
+/* Hero — toggle moved into a header row (kills the Best-Position collision) */
+.hero-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.hero-card--compact { padding: 18px 20px; }
+.hero-card--compact .hero-card-primary { font-size: 34px; line-height: 1.04; margin-top: 2px; }
+.dash-cmd .hero-grid { grid-template-columns: 1fr auto; align-items: flex-end; gap: 18px; }
+.dash-cmd .hero-best { padding-top: 0; }
+
+/* KPI — Today's P&L is the dominant card (lead), the other three support it */
+.stat-card--lead { border-color: var(--border-strong); box-shadow: inset 0 1px 0 var(--glass-specular), 0 8px 22px rgba(15, 23, 42, 0.10); }
+.stat-card--lead .stat-card-label { color: var(--text-secondary); }
+.stat-card--lead .stat-card-value { font-size: 27px; }
+.stat-card--lead .kpi-inline { gap: 10px; }
+
+/* Action Center — the SYMBOL is the hero of the card; type = small pill.
+   You act on a position, not on a verb. */
+.ac-card { padding: 14px 15px 13px; gap: 2px; }
+.ac-pill { align-self: flex-start; display: inline-flex; font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; padding: 2px 8px; border-radius: 999px; background: var(--text-tertiary); }
+.ac-card--exit   .ac-pill { background: var(--negative); }
+.ac-card--reduce .ac-pill { background: var(--warning); }
+.ac-card--review .ac-pill { background: var(--accent); }
+.ac-card--watch  .ac-pill { background: var(--text-tertiary); }
+.ac-card .ac-sym { font-size: 22px; font-weight: 800; line-height: 1.15; color: var(--text-primary); margin-top: 7px; }
+.ac-metrics { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 3px; }
+.ac-lead { font-size: 14px; font-weight: 800; color: currentColor; font-variant-numeric: tabular-nums; }
+.ac-sub  { font-size: 11.5px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.ac-tag  { align-self: flex-start; display: inline-flex; margin-top: 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; color: var(--text-secondary); background: var(--surface-2); padding: 2px 8px; border-radius: var(--radius); }
+.ac-card .ac-cta { margin-top: 9px; }
+
+/* Risk — gauge forward (bigger, more present than the sector donut) */
+.riskg-arc   { max-width: 280px; }
+.riskg-score { font-size: 46px; }
+.riskd       { margin-top: 16px; }
+
+/* Sector — recede: smaller donut so Risk wins the eye (Decision > Analysis) */
+.sector-recede .donut-wrap svg { width: 184px; height: 184px; }
+.sector-recede .donut-center-value { font-size: 19px; }
+
+/* ─────────────────────────────────────────────────────────────
    Util
    ───────────────────────────────────────────────────────────── */
 .text-tabular { font-variant-numeric: tabular-nums; }

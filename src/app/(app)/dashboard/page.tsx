@@ -72,11 +72,11 @@ function RiskArc({ score, level }: { score: number; level: RiskLevel }) {
           <stop offset="1" stopColor="currentColor" stopOpacity="1" />
         </linearGradient>
       </defs>
-      <path d={arc} fill="none" stroke="var(--surface-2)" strokeWidth="12" strokeLinecap="round" />
+      <path d={arc} fill="none" stroke="var(--border-strong)" strokeWidth="12" strokeLinecap="round" opacity="0.55" />
       <path d={arc} fill="none" stroke={`url(#${gid})`} strokeWidth="12" strokeLinecap="round"
             strokeDasharray={`${len * f} ${len}`} />
-      <circle cx={ex} cy={ey} r="8"   fill="currentColor" opacity="0.16" />
-      <circle cx={ex} cy={ey} r="4.5" fill="currentColor" />
+      <circle cx={ex} cy={ey} r="6"   fill="currentColor" opacity="0.18" />
+      <circle cx={ex} cy={ey} r="3.5" fill="currentColor" />
     </svg>
   )
 }
@@ -542,27 +542,25 @@ export default function DashboardPage() {
       )}
 
       {/* Hero (compact portfolio summary) + a row of 4 KPI cards (v5.1) */}
-      <div className="dash-overview--v9">
+      {/* Command header — Hero (left) + KPI 2×2 (right) in one band (v5.1.1) */}
+      <div className="dash-cmd">
         <div className={`hero-card hero-card--compact ${
           todayTone === 'positive' ? 'hero-card-positive-tint' :
           todayTone === 'negative' ? 'hero-card-negative-tint' : ''
         }`}>
-          <div className="chip-group hero-ccy" role="group" aria-label={t('a11y_primary_currency')}>
-            <button type="button" onClick={() => setPrimaryCurrency('USD')} className={`chip${primaryCurrency === 'USD' ? ' chip--active' : ''}`}>USD</button>
-            <button type="button" onClick={() => setPrimaryCurrency('MYR')} className={`chip${primaryCurrency === 'MYR' ? ' chip--active' : ''}`}>MYR</button>
+          <div className="hero-head">
+            <div className="hero-card-label">{t('dash_holdings_value')}</div>
+            <div className="chip-group" role="group" aria-label={t('a11y_primary_currency')}>
+              <button type="button" onClick={() => setPrimaryCurrency('USD')} className={`chip${primaryCurrency === 'USD' ? ' chip--active' : ''}`}>USD</button>
+              <button type="button" onClick={() => setPrimaryCurrency('MYR')} className={`chip${primaryCurrency === 'MYR' ? ' chip--active' : ''}`}>MYR</button>
+            </div>
           </div>
 
           <div className="hero-grid">
-            {/* LEFT — portfolio value + today's movement */}
+            {/* LEFT — portfolio value (today's movement now lives in the KPI card) */}
             <div className="hero-main">
-              <div className="hero-card-label">{t('dash_holdings_value')}</div>
               <span className="hero-card-primary">{fmt.money(heroPrimaryValue, primaryCurrency)}</span>
               <span className="hero-card-secondary">= {fmt.money(heroSecondaryValue, heroSecondaryCurr)}</span>
-              <div className="hero-card-sub">
-                <DeltaBadge value={todayPct} variant="pill" />
-                <span>·</span>
-                <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} {t('word_today')}</span>
-              </div>
             </div>
 
             {/* RIGHT — Best Position (primary sub-info; lifetime result, not a day) */}
@@ -609,8 +607,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="dash-kpis dash-kpis--4">
+        <div className="dash-kpis cmd-kpis">
           <StatCard
+            className="stat-card--lead"
             label={t('dash_today_pl')}
             icon={<TrendingUp size={15} />}
             value={
@@ -666,20 +665,18 @@ export default function DashboardPage() {
                 <div className="ac-grid">
                   {reviewQueue.slice(0, 4).map(item => {
                     const k = item.type.toLowerCase()
-                    const overdue = item.reviewDays != null && item.reviewDays < 0
-                    // Reason = facts only. No generated judgment ("thesis broken"
-                    // / "AI confidence") — that's Phase 3. The slot is reserved.
-                    const facts: string[] = []
-                    if (item.type === 'REVIEW') {
-                      facts.push(overdue ? t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }) : t('rq_review_due'))
-                      if (item.unrealizedPlPct < 0) facts.push(t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) }))
-                    } else if (item.type === 'WATCH') {
-                      facts.push(t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) }))
-                      if (overdue) facts.push(t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }))
-                    } else {
-                      facts.push(item.unrealizedPlPct < 0 ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) }) : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) }))
-                      if (overdue) facts.push(t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }))
-                    }
+                    const overdue   = item.reviewDays != null && item.reviewDays < 0
+                    const isLargest = largest != null && item.symbolNormalized === largest.symbolNormalized
+                    // Lead = headline number · sub = exposure ("why it matters") ·
+                    // tag = killer context. Facts only — judgment is Phase 3.
+                    const lead =
+                      item.type === 'REVIEW' ? (overdue ? t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }) : t('rq_review_due'))
+                      : item.type === 'WATCH' ? t('ac_weight_ctx', { pct: fmt.pct(item.portfolioWeight, 0) })
+                      : `▼ ${fmt.pct(Math.abs(item.unrealizedPlPct), 0)}`
+                    const sub = item.type === 'WATCH' ? null : t('ac_weight_ctx', { pct: fmt.pct(item.portfolioWeight, 0) })
+                    const tag = isLargest ? t('ac_largest')
+                      : (overdue && item.type !== 'REVIEW') ? t('rq_overdue_days', { n: Math.abs(item.reviewDays!) })
+                      : null
                     return (
                       <div key={item.symbolNormalized} className={`ac-card ac-card--${k}`}>
                         <button
@@ -691,11 +688,13 @@ export default function DashboardPage() {
                         >
                           <X size={12} />
                         </button>
-                        <span className="ac-type">{t(`rq_type_${k}`)}</span>
+                        <span className="ac-pill">{t(`rq_type_${k}`)}</span>
                         <span className="ac-sym">{item.symbol}</span>
-                        <span className="ac-facts">
-                          {facts.map((fct, i) => <span key={i} className="ac-fact">{fct}</span>)}
-                        </span>
+                        <div className="ac-metrics">
+                          <span className="ac-lead">{lead}</span>
+                          {sub && <span className="ac-sub">{sub}</span>}
+                        </div>
+                        {tag && <span className="ac-tag">{tag}</span>}
                         <Link href={`/holdings/${encodeURIComponent(item.symbolNormalized)}`} className="ac-cta">
                           {t('rq_view_position')}<ArrowRight size={11} />
                         </Link>
@@ -753,7 +752,7 @@ export default function DashboardPage() {
 
       {/* Row 3 — Sector Allocation | Portfolio Health (replaces P/L Distribution) */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
-        <Panel className="panel--fill">
+        <Panel className="panel--fill sector-recede">
           <PanelHead
             title={t('dash_sector_alloc')}
             meta={t('meta_by_market_value')}
