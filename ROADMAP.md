@@ -1,8 +1,10 @@
 # TradeOS v5 — Roadmap
 
-_Status as of 2026-06-05 · current release **`v5.0.9`** · patch line v5.0.1–v5.0.9 (see [`RELEASES.md`](./RELEASES.md))._
+_Status as of 2026-06-05 · last tagged release **`v5.0.9`** · **`v5.1.0` Dashboard Premium Polish — in review (no tag yet)** (see [`RELEASES.md`](./RELEASES.md))._
 
-> **Dashboard FROZEN at v5.0.9** (Dashboard Final Architecture — KPI hero + 5-card KPI row, Action Center, Risk Score meter with explainable drivers, P/L summary, Winners & Losers board, Holdings Preview). Next direction: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
+> **Phase 2 architecture = FROZEN. Dashboard presentation layer = Premium Polish Window (`v5.1.x`, temporarily open).**
+> The decision architecture — Position Hub / Journal / Planner / the intelligence engine (`position-intel`, `review-status`, `taxonomy`) — is **frozen and untouched**. Only the Dashboard's *skin* is open: visual hierarchy (3 tiers), compact hero (Best Position primary), Apple-material Action Center, single-hue risk gauge, natural-language risk drivers. **No tag, no release version, not frozen** until the owner signs off on the visual pass — then the Dashboard re-freezes.
+> Next direction after sign-off: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
 
 > **⚠ Migration 008 must be applied in Supabase** (`holdings.exit_price` + `exit_date`, added in v5.0.5 for the Closed-Positions "Since Exit %"). The app is resilient without it — those fields show "—" until applied.
 

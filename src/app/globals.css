@@ -1802,13 +1802,33 @@ a { color: inherit; text-decoration: none; }
    v5.1.0 — Dashboard command-center redesign
    ───────────────────────────────────────────────────────────── */
 
-/* Hero — compact (≈28% shorter than v5.0.9) + 4-cell intel row */
-.hero-card--compact { padding: 20px 24px; }
-.hero-card--compact .hero-card-primary   { font-size: 36px; line-height: 1.08; }
-.hero-card--compact .hero-card-secondary { font-size: 13px; }
-.hero-card--compact .hero-intel { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
-.hero-intel--4 { grid-template-columns: repeat(4, 1fr); }
-@media (max-width: 640px) { .dash-page .hero-intel--4 { grid-template-columns: 1fr 1fr; row-gap: 14px; } }
+/* Hero — compact: value LEFT / Best Position RIGHT / secondary strip BOTTOM.
+   Uses horizontal space to cut height ~30% (target ≤ ~230px). */
+.hero-card--compact { position: relative; padding: 18px 22px; }
+.hero-ccy { position: absolute; top: 16px; right: 18px; }
+.hero-grid { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: start; }
+.hero-main { min-width: 0; }
+.hero-card--compact .hero-card-primary   { font-size: 33px; line-height: 1.05; margin-top: 8px; }
+.hero-card--compact .hero-card-secondary { font-size: 13px; margin-top: 3px; }
+.hero-card--compact .hero-card-sub { margin-top: 10px; }
+/* RIGHT — Best Position, the hero's second focal point */
+.hero-best { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; min-width: 132px; padding-top: 18px; }
+.hero-best-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-quaternary); }
+.hero-best-sym { font-size: 21px; font-weight: 800; line-height: 1.1; color: var(--text-primary); }
+.hero-best-figs { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.hero-best-figs > :first-child { font-size: 16px; font-weight: 800; }
+.hero-best-amt { font-size: 13px; font-weight: 600; color: var(--text-tertiary); }
+/* BOTTOM — quiet secondary strip */
+.hero-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+.hero-strip-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hero-strip-label { font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-quaternary); }
+.hero-strip-value { font-size: 12px; font-weight: 700; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 14px; }
+  .hero-best { align-items: flex-start; text-align: left; padding-top: 0; }
+  .hero-ccy { position: static; margin-bottom: 6px; }
+  .dash-page .hero-strip { grid-template-columns: 1fr 1fr; row-gap: 12px; }
+}
 
 /* KPI row — 4 across (mobile 2-col handled by base .dash-kpis) */
 .dash-kpis--4 { grid-template-columns: repeat(4, 1fr); }
@@ -1819,15 +1839,20 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 640px) { .ac-grid { grid-template-columns: 1fr; } }
 .ac-card {
   position: relative; display: flex; flex-direction: column; gap: 3px;
-  padding: 13px 14px; border-radius: var(--radius-lg);
-  background: var(--glass-tint);
-  -webkit-backdrop-filter: blur(12px) saturate(1.3); backdrop-filter: blur(12px) saturate(1.3);
-  border: 1px solid var(--border-subtle); border-left: 3px solid var(--text-tertiary);
+  padding: 13px 14px 12px; border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 var(--glass-specular), 0 2px 8px rgba(15, 23, 42, 0.06);
   overflow: hidden; transition: transform var(--dur-fast), box-shadow var(--dur-fast);
 }
-.ac-card::before {
+.ac-card::before {   /* 3px type-coloured edge — quiet material cue, not a glow */
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: currentColor;
+}
+.ac-card::after {    /* barely-there directional tint (Apple material, not casino light) */
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(130% 120% at 0% 0%, currentColor 0%, transparent 52%); opacity: 0.07;
+  background: linear-gradient(102deg, currentColor 0%, transparent 42%); opacity: 0.05;
 }
 .ac-card:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18); }
 .ac-card--exit   { border-left-color: var(--negative); color: var(--negative); }
@@ -1836,7 +1861,9 @@ a { color: inherit; text-decoration: none; }
 .ac-card--watch  { border-left-color: var(--text-tertiary); color: var(--text-secondary); }
 .ac-type   { font-size: 10px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: currentColor; }
 .ac-sym    { font-size: 16px; font-weight: 800; color: var(--text-primary); }
-.ac-reason { font-size: 11.5px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 14px; margin-top: 1px; }
+.ac-fact  { position: relative; font-size: 11.5px; color: var(--text-tertiary); }
+.ac-fact + .ac-fact::before { content: '·'; position: absolute; left: -9px; color: var(--text-quaternary); }
 .ac-cta    { margin-top: 7px; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-decoration: none; opacity: 0.8; transition: color var(--dur-fast), opacity var(--dur-fast); }
 .ac-card:hover .ac-cta { opacity: 1; color: var(--accent); }
 .ac-x { position: absolute; top: 7px; right: 7px; display: inline-grid; place-items: center; width: 20px; height: 20px; border: none; background: none; border-radius: var(--radius); color: var(--text-quaternary); cursor: pointer; opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast); }
@@ -1849,15 +1876,21 @@ a { color: inherit; text-decoration: none; }
 .riskg { display: flex; flex-direction: column; align-items: center; }
 .riskg-arc { position: relative; width: 100%; max-width: 250px; }
 .riskg-svg { display: block; width: 100%; height: auto; }
+.riskg-svg--low      { color: var(--positive); }
+.riskg-svg--moderate { color: var(--warning); }
+.riskg-svg--high     { color: var(--negative); }
 .riskg-center { position: absolute; left: 0; right: 0; bottom: 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .riskg-score { font-size: 42px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text-primary); }
 .riskg-level { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .riskg-level--low { color: var(--positive); } .riskg-level--moderate { color: var(--warning); } .riskg-level--high { color: var(--negative); }
-.riskg-drivers { width: 100%; margin-top: 12px; display: flex; flex-direction: column; }
-.riskg-driver { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 2px; }
-.riskg-driver + .riskg-driver { border-top: 1px solid var(--hairline); }
-.riskg-d-label { font-size: 12.5px; color: var(--text-tertiary); }
-.riskg-d-val { font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+/* Risk drivers — natural-language sentences (credit-score style, not a table) */
+.riskd { width: 100%; margin-top: 16px; }
+.riskd-head { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-quaternary); margin-bottom: 6px; }
+.riskd-list { list-style: none; margin: 0; padding: 0; }
+.riskd-item { position: relative; padding: 8px 0 8px 16px; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.riskd-item + .riskd-item { border-top: 1px solid var(--hairline); }
+.riskd-item::before { content: ''; position: absolute; left: 2px; top: 14px; width: 4px; height: 4px; border-radius: 50%; background: var(--text-quaternary); }
+.riskd-em { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
 /* Portfolio Health — chips + win rate + extremes (replaces P/L Distribution) */
 .ph-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
@@ -1893,6 +1926,25 @@ a { color: inherit; text-decoration: none; }
 /* My Holdings — full simplified list, clickable rows */
 .dash-hold-row { cursor: pointer; transition: background var(--dur-fast); }
 .dash-hold-row:hover { background: var(--surface-1); }
+
+/* ─────────────────────────────────────────────────────────────
+   v5.1.0 P1 — three-tier visual hierarchy
+   Eyes must land on Tier 1 first. If every card feels equally
+   important, the redesign failed.
+     Tier 1  Hero + Action Center   strongest (elevated, stronger border)
+     Tier 2  Risk / Sector / Health default panel
+     Tier 3  Winners·Losers / Holdings  quiet, flat reference
+   ───────────────────────────────────────────────────────────── */
+.panel--tier1 {
+  border-color: var(--border-strong);
+  box-shadow: inset 0 1px 0 var(--glass-specular), 0 16px 40px rgba(15, 23, 42, 0.18);
+}
+.panel--tier1 .panel-title { font-size: 14px; font-weight: 700; }
+.panel--tier1 .panel-head  { padding-top: 16px; padding-bottom: 16px; }
+
+.panel--tier3 { box-shadow: none; border-color: var(--hairline); }
+.panel--tier3 .panel-head  { border-bottom-color: var(--hairline); }
+.panel--tier3 .panel-title { font-size: 12px; color: var(--text-secondary); }
 
 /* ─────────────────────────────────────────────────────────────
    Util

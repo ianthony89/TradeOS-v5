@@ -45,24 +45,52 @@ type ReviewType = 'EXIT' | 'REDUCE' | 'REVIEW' | 'WATCH'
 interface ReviewItem {
   symbol: string; symbolNormalized: string; name: string; currency: string
   type: ReviewType; rank: number; unrealizedPlPct: number; portfolioWeight: number
+  reviewDays: number | null   // negative = days overdue (for the 2nd fact line)
 }
 
 type RiskLevel = 'low' | 'moderate' | 'high'
 
-/** Apple-style semicircle risk gauge (pure SVG, no deps). Fill ∝ score. */
+/** Apple-style single-hue semicircle risk gauge (pure SVG, no deps).
+ *  Hue = risk level (set via CSS `color` on the svg); fill ∝ score with a
+ *  light→deep gradient along the arc + a soft endpoint dot. Deliberately
+ *  NOT a red-yellow-green sweep — one colour = one state (Portfolio OS,
+ *  not a speedometer). */
 function RiskArc({ score, level }: { score: number; level: RiskLevel }) {
-  const r   = 70
-  const len = Math.PI * r
-  const pct = Math.min(100, Math.max(0, score))
-  const color = level === 'low' ? 'var(--positive)' : level === 'high' ? 'var(--negative)' : 'var(--warning)'
-  const arc = 'M 12 84 A 70 70 0 0 1 152 84'
+  const r = 70, cx = 82, cy = 84
+  const len   = Math.PI * r
+  const f     = Math.min(100, Math.max(0, score)) / 100
+  const theta = Math.PI * (1 - f)          // angle of the fill endpoint
+  const ex = cx + r * Math.cos(theta)
+  const ey = cy - r * Math.sin(theta)
+  const arc = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
+  const gid = `riskgrad-${level}`
   return (
-    <svg className="riskg-svg" viewBox="0 0 164 96" aria-hidden="true">
-      <path d={arc} fill="none" stroke="var(--surface-2)" strokeWidth="13" strokeLinecap="round" />
-      <path d={arc} fill="none" stroke={color} strokeWidth="13" strokeLinecap="round"
-            strokeDasharray={`${(len * pct) / 100} ${len}`} />
+    <svg className={`riskg-svg riskg-svg--${level}`} viewBox="0 0 164 100" aria-hidden="true">
+      <defs>
+        <linearGradient id={gid} gradientUnits="userSpaceOnUse" x1={cx - r} y1="0" x2={cx + r} y2="0">
+          <stop offset="0" stopColor="currentColor" stopOpacity="0.4" />
+          <stop offset="1" stopColor="currentColor" stopOpacity="1" />
+        </linearGradient>
+      </defs>
+      <path d={arc} fill="none" stroke="var(--surface-2)" strokeWidth="12" strokeLinecap="round" />
+      <path d={arc} fill="none" stroke={`url(#${gid})`} strokeWidth="12" strokeLinecap="round"
+            strokeDasharray={`${len * f} ${len}`} />
+      <circle cx={ex} cy={ey} r="8"   fill="currentColor" opacity="0.16" />
+      <circle cx={ex} cy={ey} r="4.5" fill="currentColor" />
     </svg>
   )
+}
+
+/** Split an i18n template ("{sym} accounts for {pct}…") into JSX with the
+ *  placeholders emphasised — keeps Risk drivers reading like sentences (not
+ *  a table) while letting the key numbers pop. */
+function fillTmpl(tmpl: string, vals: Record<string, string>) {
+  return tmpl.split(/(\{[a-z]+\})/g).map((part, i) => {
+    const m = /^\{([a-z]+)\}$/.exec(part)
+    return m
+      ? <strong key={i} className="riskd-em">{vals[m[1]] ?? ''}</strong>
+      : <span key={i}>{part}</span>
+  })
 }
 
 export default function DashboardPage() {
@@ -412,9 +440,12 @@ export default function DashboardPage() {
       else if (rs && (rs.state === 'overdue' || rs.state === 'due'))  { type = 'REVIEW'; rank = 2 }
       else if (h.portfolioWeight >= 20)                               { type = 'WATCH';  rank = 3 }
       else continue
-      out.push({ symbol: h.symbol, symbolNormalized: h.symbolNormalized, name: h.name, currency: h.currency, type, rank, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight })
+      out.push({ symbol: h.symbol, symbolNormalized: h.symbolNormalized, name: h.name, currency: h.currency, type, rank, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight, reviewDays: rs?.days ?? null })
     }
-    return out.sort((a, b) => a.rank - b.rank || a.unrealizedPlPct - b.unrealizedPlPct).slice(0, 8)
+    // Sort by URGENCY only (EXIT→REDUCE→REVIEW→WATCH). withWeight is already
+    // market-value desc, and sort is stable, so within a tier the biggest
+    // holding comes first — never by drawdown / symbol / date.
+    return out.sort((a, b) => a.rank - b.rank).slice(0, 8)
   }, [withWeight, intelMap, dismissed])
 
   function dismissReview(symbolNorm: string) {
@@ -516,69 +547,64 @@ export default function DashboardPage() {
           todayTone === 'positive' ? 'hero-card-positive-tint' :
           todayTone === 'negative' ? 'hero-card-negative-tint' : ''
         }`}>
-          <div className="hero-card-header">
-            <div className="hero-card-label">{t('dash_holdings_value')}</div>
-            <div className="chip-group" role="group" aria-label={t('a11y_primary_currency')}>
-              <button
-                type="button"
-                onClick={() => setPrimaryCurrency('USD')}
-                className={`chip${primaryCurrency === 'USD' ? ' chip--active' : ''}`}
-              >
-                USD
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrimaryCurrency('MYR')}
-                className={`chip${primaryCurrency === 'MYR' ? ' chip--active' : ''}`}
-              >
-                MYR
-              </button>
-            </div>
-          </div>
-          <span className="hero-card-primary">
-            {fmt.money(heroPrimaryValue, primaryCurrency)}
-          </span>
-          <span className="hero-card-secondary">
-            = {fmt.money(heroSecondaryValue, heroSecondaryCurr)}
-          </span>
-          <div className="hero-card-sub">
-            <DeltaBadge value={todayPct} variant="pill" />
-            <span>·</span>
-            <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} {t('word_today')}</span>
+          <div className="chip-group hero-ccy" role="group" aria-label={t('a11y_primary_currency')}>
+            <button type="button" onClick={() => setPrimaryCurrency('USD')} className={`chip${primaryCurrency === 'USD' ? ' chip--active' : ''}`}>USD</button>
+            <button type="button" onClick={() => setPrimaryCurrency('MYR')} className={`chip${primaryCurrency === 'MYR' ? ' chip--active' : ''}`}>MYR</button>
           </div>
 
-          {/* Compact intelligence row — Best / Today Winner / Today Loser / Open·Closed */}
-          <div className="hero-intel hero-intel--4">
-            <div className="hero-intel-cell">
-              <span className="hero-intel-label">{t('hero_best')}</span>
-              <span className="hero-intel-value">
-                {bestPosition
-                  ? <>{bestPosition.symbol}{' '}<span className={bestPosition.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(bestPosition.totalReturnPct, 1)}</span></>
-                  : t('hero_none')}
-              </span>
+          <div className="hero-grid">
+            {/* LEFT — portfolio value + today's movement */}
+            <div className="hero-main">
+              <div className="hero-card-label">{t('dash_holdings_value')}</div>
+              <span className="hero-card-primary">{fmt.money(heroPrimaryValue, primaryCurrency)}</span>
+              <span className="hero-card-secondary">= {fmt.money(heroSecondaryValue, heroSecondaryCurr)}</span>
+              <div className="hero-card-sub">
+                <DeltaBadge value={todayPct} variant="pill" />
+                <span>·</span>
+                <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} {t('word_today')}</span>
+              </div>
             </div>
-            <div className="hero-intel-cell">
-              <span className="hero-intel-label">{t('hero_today_winner')}</span>
-              <span className="hero-intel-value">
+
+            {/* RIGHT — Best Position (primary sub-info; lifetime result, not a day) */}
+            <div className="hero-best">
+              <span className="hero-best-label">{t('hero_best')}</span>
+              {bestPosition ? (
+                <>
+                  <span className="hero-best-sym">{bestPosition.symbol}</span>
+                  <span className="hero-best-figs">
+                    <span className={bestPosition.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(bestPosition.totalReturnPct, 1)}</span>
+                    <span className="hero-best-amt">{fmt.moneySigned(toDisplay(bestPosition.unrealizedPl + bestPosition.realizedPl), primaryCurrency)}</span>
+                  </span>
+                </>
+              ) : <span className="hero-best-sym">{t('hero_none')}</span>}
+            </div>
+          </div>
+
+          {/* Secondary strip — today's movers + position counts (low contrast) */}
+          <div className="hero-strip">
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('hero_today_winner')}</span>
+              <span className="hero-strip-value">
                 {todayWinner
                   ? <>{todayWinner.symbol}{' '}<span className={todayWinner.todayPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(todayWinner.todayPct, 1)}</span></>
                   : t('hero_none')}
               </span>
             </div>
-            <div className="hero-intel-cell">
-              <span className="hero-intel-label">{t('hero_today_loser')}</span>
-              <span className="hero-intel-value">
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('hero_today_loser')}</span>
+              <span className="hero-strip-value">
                 {todayLoser
                   ? <>{todayLoser.symbol}{' '}<span className={todayLoser.todayPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(todayLoser.todayPct, 1)}</span></>
                   : t('hero_none')}
               </span>
             </div>
-            <div className="hero-intel-cell">
-              <span className="hero-intel-label">{t('positions_label')}</span>
-              <span className="hero-intel-value">
-                {holdings.length} <span className="text-tertiary">{t('holdings_sum_open')}</span>
-                {closedCount > 0 && <> · {closedCount} <span className="text-tertiary">{t('holdings_sum_closed')}</span></>}
-              </span>
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('holdings_sum_open')}</span>
+              <span className="hero-strip-value">{holdings.length}</span>
+            </div>
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('holdings_sum_closed')}</span>
+              <span className="hero-strip-value">{closedCount}</span>
             </div>
           </div>
         </div>
@@ -599,9 +625,14 @@ export default function DashboardPage() {
           <StatCard
             label={t('dash_total_pl')}
             icon={<Wallet size={15} />}
-            value={fmt.moneySigned(toDisplay(totalPlUsd), primaryCurrency)}
+            value={
+              <span className="kpi-inline">
+                {fmt.moneySigned(toDisplay(totalPlUsd), primaryCurrency)}
+                <DeltaBadge value={totalReturnPct} variant="pill" />
+              </span>
+            }
             tone={totalPlUsd > 0 ? 'positive' : totalPlUsd < 0 ? 'negative' : 'neutral'}
-            sub={<DeltaBadge value={totalReturnPct} variant="pill" />}
+            sub={<span className="text-tertiary">{t('dash_total_sub')}</span>}
           />
           <StatCard
             label={t('dash_realized_pl')}
@@ -613,28 +644,42 @@ export default function DashboardPage() {
           <StatCard
             label={t('dash_unrealized')}
             icon={<Coins size={15} />}
-            value={fmt.moneySigned(toDisplay(unrealizedUsd), primaryCurrency)}
+            value={
+              <span className="kpi-inline">
+                {fmt.moneySigned(toDisplay(unrealizedUsd), primaryCurrency)}
+                <DeltaBadge value={costUsd > 0 ? (unrealizedUsd / costUsd) * 100 : 0} variant="pill" />
+              </span>
+            }
             tone={unrealizedUsd > 0 ? 'positive' : unrealizedUsd < 0 ? 'negative' : 'neutral'}
-            sub={<DeltaBadge value={costUsd > 0 ? (unrealizedUsd / costUsd) * 100 : 0} variant="pill" />}
+            sub={<span className="text-tertiary">{t('dash_unrealized_sub')}</span>}
           />
         </div>
       </div>
 
       {/* Row 2 — Action Center (glass cards) | Risk Assessment (arc gauge) */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
-        <Panel className="ac-panel">
+        <Panel className="ac-panel panel--tier1">
           <PanelHead title={t('dash_action_center')} meta={t('dash_review_sub')} />
           <PanelBody>
             {reviewQueue.length ? (
               <>
                 <div className="ac-grid">
                   {reviewQueue.slice(0, 4).map(item => {
-                    const reason =
-                      item.type === 'REVIEW' ? t('rq_review_reason')
-                      : item.type === 'WATCH'  ? t('rq_watch_reason')
-                      : item.unrealizedPlPct < 0 ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) })
-                      : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) })
                     const k = item.type.toLowerCase()
+                    const overdue = item.reviewDays != null && item.reviewDays < 0
+                    // Reason = facts only. No generated judgment ("thesis broken"
+                    // / "AI confidence") — that's Phase 3. The slot is reserved.
+                    const facts: string[] = []
+                    if (item.type === 'REVIEW') {
+                      facts.push(overdue ? t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }) : t('rq_review_due'))
+                      if (item.unrealizedPlPct < 0) facts.push(t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) }))
+                    } else if (item.type === 'WATCH') {
+                      facts.push(t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) }))
+                      if (overdue) facts.push(t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }))
+                    } else {
+                      facts.push(item.unrealizedPlPct < 0 ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) }) : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) }))
+                      if (overdue) facts.push(t('rq_overdue_days', { n: Math.abs(item.reviewDays!) }))
+                    }
                     return (
                       <div key={item.symbolNormalized} className={`ac-card ac-card--${k}`}>
                         <button
@@ -648,9 +693,11 @@ export default function DashboardPage() {
                         </button>
                         <span className="ac-type">{t(`rq_type_${k}`)}</span>
                         <span className="ac-sym">{item.symbol}</span>
-                        <span className="ac-reason">{reason}</span>
+                        <span className="ac-facts">
+                          {facts.map((fct, i) => <span key={i} className="ac-fact">{fct}</span>)}
+                        </span>
                         <Link href={`/holdings/${encodeURIComponent(item.symbolNormalized)}`} className="ac-cta">
-                          {t('word_view')}<ArrowRight size={11} />
+                          {t('rq_view_position')}<ArrowRight size={11} />
                         </Link>
                       </div>
                     )
@@ -679,19 +726,25 @@ export default function DashboardPage() {
                   <span className={`riskg-level riskg-level--${risk.level}`}>{t(`risk_${risk.level}`)}</span>
                 </div>
               </div>
-              <div className="riskg-drivers">
-                <div className="riskg-driver">
-                  <span className="riskg-d-label">{t('dash_snap_largest')}</span>
-                  <span className="riskg-d-val">{largest ? `${largest.symbol} ${fmt.pct(risk.maxWeight, 1)}` : '—'}</span>
-                </div>
-                <div className="riskg-driver">
-                  <span className="riskg-d-label">{t('dash_snap_speculative')}</span>
-                  <span className="riskg-d-val">{fmt.pct(speculativeWeight, 1)}</span>
-                </div>
-                <div className="riskg-driver">
-                  <span className="riskg-d-label">{t('dash_snap_deepred')}</span>
-                  <span className="riskg-d-val">{t('dash_snap_deepred_n', { n: brokenCount })}</span>
-                </div>
+              <div className="riskd">
+                <div className="riskd-head">{t('risk_drivers_head')}</div>
+                <ul className="riskd-list">
+                  <li className="riskd-item">{
+                    largest && risk.maxWeight >= 25
+                      ? fillTmpl(t('risk_drv_conc'), { sym: largest.symbol, pct: fmt.pct(risk.maxWeight, 0) })
+                      : fillTmpl(t('risk_drv_conc_ok'), {})
+                  }</li>
+                  <li className="riskd-item">{
+                    speculativeWeight >= 30
+                      ? fillTmpl(t('risk_drv_spec'), { pct: fmt.pct(speculativeWeight, 0) })
+                      : fillTmpl(t('risk_drv_spec_ok'), {})
+                  }</li>
+                  <li className="riskd-item">{
+                    brokenCount === 0 ? fillTmpl(t('risk_drv_red_ok'), {})
+                    : brokenCount === 1 ? fillTmpl(t('risk_drv_red_one'), {})
+                    : fillTmpl(t('risk_drv_red'), { n: String(brokenCount) })
+                  }</li>
+                </ul>
               </div>
             </div>
           </PanelBody>
@@ -755,7 +808,7 @@ export default function DashboardPage() {
       {/* Row 4 — Top Winners | Top Losers (medal cards w/ weight + value) */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
         {([['dash_top_winners', board.winners, 'win'], ['dash_top_losers', board.losers, 'lose']] as const).map(([titleKey, rows, kind]) => (
-          <Panel key={titleKey}>
+          <Panel key={titleKey} className="panel--tier3">
             <PanelHead title={t(titleKey)} />
             <PanelBody>
               {rows.length ? (
@@ -778,7 +831,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Row 5 — My Holdings (full simplified list; row → position detail) */}
-      <Panel>
+      <Panel className="panel--tier3">
         <PanelHead
           title={t('dash_my_holdings')}
           meta={`${holdings.length} ${t('positions_label')}`}
