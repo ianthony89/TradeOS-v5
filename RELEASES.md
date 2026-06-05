@@ -4,6 +4,22 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.9 — 2026-06-05
+
+**Dashboard Final Architecture** — supersedes the v5.0.8 morning-check-in pass and rebuilds the Dashboard as a true **5-second portfolio command center**, then **freezes it**. Frontend only — no backend, API, DB, or migration changes.
+
+- **KPI Hero + KPI row.** The hero stays full-width (Portfolio Value · USD/MYR toggle · today's change · Largest / Today Winner / Today Loser, with the penny-stock guard *market value ≥ USD 100 **or** weight ≥ 1%*). Beneath it, a dedicated **5-card KPI row** — **Today's P&L · Total P&L · Realized · Unrealized · Risk Score** — desktop 5-across, mobile 2-column. (Replaces the v5.0.8 single 2×2.)
+- **Action Center** (renamed from Review Queue) — typed rows in priority order **EXIT → REDUCE → REVIEW → WATCH**, each `[TYPE] SYMBOL` + one-line reason + "View Position →" + **7-day Dismiss** (localStorage). WATCH flags positions approaching the size threshold (weight ≥ 20%).
+- **Risk Assessment redesigned** — a **Risk Score meter** (score /100 + colour-coded bar + Low/Moderate/High) over a transparent **Risk Drivers** breakdown: Concentration · Speculative · Drawdown, each with its **Impact +X** so the score is explainable (the three impacts sum to the total).
+- **P/L Distribution** — **summary counts** (Green · Red · Big Winners >50% · Big Losers <−50%) sit above the existing histogram.
+- **Winners & Losers Board** (new) — Top 3 / Bottom 3 by **total return %**, two columns on desktop, stacked on mobile, each row deep-links to the Position Hub.
+- **Holdings Preview** (new) — top 5 by weight: Symbol · Weight · Total Return % · **Action** (HOLD/ADD/REDUCE/EXIT badge), with "View All Holdings →".
+- **Removed** the v5.0.8 Portfolio Snapshot widget (its three facts now live inside the Risk Drivers breakdown).
+
+Ticker stays at the top; desktop layout, Holdings page, Position Hub, Journal, Planner, Watchlist, quote provider + API, and the import engine are all untouched. **Dashboard is now FROZEN; next direction is Phase 3 (AI Analysis Engine) — not started, awaiting owner go.** **Tag:** `v5.0.9`.
+
+---
+
 ## v5.0.8 — 2026-06-04
 
 **Dashboard Final Cleanup** — the Dashboard becomes a 5-second *morning check-in screen* (am I up/down today · what needs action · best/worst performers · which holdings to inspect) and is **frozen** after this. No backend, no migration.

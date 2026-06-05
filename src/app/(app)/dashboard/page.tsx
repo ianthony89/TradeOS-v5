@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { RefreshCw, Upload, Wallet, BadgeDollarSign, Repeat, X, ArrowRight } from 'lucide-react'
+import { RefreshCw, Upload, TrendingUp, Wallet, Coins, BadgeDollarSign, Gauge, Repeat, X, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
@@ -22,9 +22,10 @@ import { PlHistogram }     from '@/components/ui/histogram-chart'
 import { SymCell }        from '@/components/brand/stock-logo'
 import { getSector, getSectorColor, sectorKey } from '@/lib/portfolio/sectors'
 import { stockName }      from '@/lib/portfolio/stock-names'
-import { classifyStrategy, classifyAction } from '@/lib/portfolio/taxonomy'
+import { classifyStrategy, classifyAction, ACTION_TONE } from '@/lib/portfolio/taxonomy'
 import { reviewStatus } from '@/lib/portfolio/review-status'
 import { loadAllPositionIntel } from '@/lib/portfolio/position-intel'
+import { computeRiskScore } from '@/lib/portfolio/risk-score'
 
 /** USD-equivalent of a native amount (MYR ÷ FX). Module-scope = stable. */
 function usdEquiv(amt: number, currency: string, fx: number): number {
@@ -39,7 +40,7 @@ function loadDismissed(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || '{}') } catch { return {} }
 }
 
-type ReviewType = 'EXIT' | 'REDUCE' | 'REVIEW'
+type ReviewType = 'EXIT' | 'REDUCE' | 'REVIEW' | 'WATCH'
 interface ReviewItem {
   symbol: string; symbolNormalized: string; name: string; currency: string
   type: ReviewType; rank: number; unrealizedPlPct: number; portfolioWeight: number
@@ -65,8 +66,7 @@ export default function DashboardPage() {
 
   /* Per-position intelligence (review schedule) for the Review Queue */
   const [intelMap, setIntelMap] = useState<Map<string, import('@/lib/portfolio/position-intel').PositionIntel>>(new Map())
-  const [closedCount, setClosedCount] = useState(0)
-  const [dismissed, setDismissed] = useState<Record<string, number>>({})   // Review Queue (7d, localStorage)
+  const [dismissed, setDismissed] = useState<Record<string, number>>({})   // Action Center dismiss (7d, localStorage)
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -108,14 +108,12 @@ export default function DashboardPage() {
       // single choke point — every downstream metric derives from this set.
       const open = mapped.filter(m => m.quantity > 0)
       setHoldings(open)
-      setClosedCount(mapped.length - open.length)
       return open
     }
     return []
   }, [supabase, setHoldings])
 
   // loadHoldings is async — every setState runs after an await, not synchronously.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadHoldings() }, [loadHoldings])
 
   /* Attention Layer data — all position intel + watchlist triggers.
@@ -253,8 +251,10 @@ export default function DashboardPage() {
 
   /* Today's movers — best & worst by TODAY's % change (v5.0.8) */
   const { todayWinner, todayLoser } = useMemo(() => {
-    if (!withWeight.length) return { todayWinner: undefined, todayLoser: undefined }
-    const scored = withWeight.map(h => {
+    // Exclude penny/tiny positions so a 0.01 -> 0.02 name can't fake-win the day.
+    const eligible = withWeight.filter(h => h.usdValue >= 100 || h.portfolioWeight >= 1)
+    if (!eligible.length) return { todayWinner: undefined, todayLoser: undefined }
+    const scored = eligible.map(h => {
       const prev = h.marketValue - h.todayPl
       return { ...h, todayPct: prev > 0 ? (h.todayPl / prev) * 100 : 0 }
     })
@@ -293,6 +293,23 @@ export default function DashboardPage() {
   [withWeight])
   const brokenCount = withWeight.filter(h => h.unrealizedPlPct < -50).length
 
+  /* Risk Score + transparent driver breakdown (v5.0.9 meter). The three
+     weighted terms sum to the score, so the user sees exactly why it's N. */
+  const { risk, riskImpacts } = useMemo(() => {
+    const maxWeight    = Math.max(0, ...withWeight.map(h => h.portfolioWeight))
+    const brokenWeight = withWeight.reduce((s, h) => h.unrealizedPlPct < -50 ? s + h.portfolioWeight : s, 0)
+    const r = computeRiskScore({ maxWeight, speculativeWeight, brokenWeight })
+    return {
+      risk: { ...r, maxWeight },
+      riskImpacts: {
+        concentration: Math.round(0.40 * r.factors.concentration),
+        speculative:   Math.round(0.35 * r.factors.speculative),
+        drawdown:      Math.round(0.25 * r.factors.drawdown),
+      },
+    }
+  }, [withWeight, speculativeWeight])
+  const riskTone = risk.level === 'low' ? 'positive' : risk.level === 'high' ? 'negative' : 'neutral'
+
   /* Stars for the Starfield allocation view — one star per holding */
   const allocStars = useMemo(() =>
     withWeight.map(h => {
@@ -301,7 +318,7 @@ export default function DashboardPage() {
     }),
   [withWeight, t])
 
-  /* Top Holdings — top 5 by weight, with total-return % (v5.0.8) */
+  /* Holdings Preview — top 5 by weight, with total-return % + action (v5.0.9) */
   const topHoldings = useMemo(() =>
     topPositions.slice(0, 5).map(h => {
       const cost = h.avgCost * h.quantity
@@ -309,9 +326,30 @@ export default function DashboardPage() {
         id: h.id, symbol: h.symbol, symbolNormalized: h.symbolNormalized, name: h.name, currency: h.currency,
         weight: h.portfolioWeight,
         totalReturnPct: cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0,
+        action: classifyAction({ symbol: h.symbol, name: h.name, assetType: h.assetType, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight }),
       }
     }),
   [topPositions])
+
+  /* Winners & Losers board — top 3 / bottom 3 by total (unrealized) return % */
+  const board = useMemo(() => {
+    const sorted = [...withWeight].sort((a, b) => b.unrealizedPlPct - a.unrealizedPlPct)
+    return {
+      winners: sorted.filter(h => h.unrealizedPlPct > 0).slice(0, 3),
+      losers:  sorted.filter(h => h.unrealizedPlPct < 0).slice(-3).reverse(),
+    }
+  }, [withWeight])
+
+  /* P/L distribution summary counts (shown above the histogram) */
+  const plSummary = useMemo(() => {
+    let green = 0, red = 0, bigWin = 0, bigLose = 0
+    for (const h of withWeight) {
+      if (h.unrealizedPlPct > 0) green++; else if (h.unrealizedPlPct < 0) red++
+      if (h.unrealizedPlPct > 50) bigWin++
+      if (h.unrealizedPlPct < -50) bigLose++
+    }
+    return { green, red, bigWin, bigLose }
+  }, [withWeight])
 
   /* Review Queue — typed action items with a 7-day dismiss (v5.0.8). No
      sentence generation: just EXIT / REDUCE / REVIEW + a one-line reason. */
@@ -328,6 +366,7 @@ export default function DashboardPage() {
       if (action === 'EXIT')                                          { type = 'EXIT';   rank = 0 }
       else if (action === 'REDUCE')                                   { type = 'REDUCE'; rank = 1 }
       else if (rs && (rs.state === 'overdue' || rs.state === 'due'))  { type = 'REVIEW'; rank = 2 }
+      else if (h.portfolioWeight >= 20)                               { type = 'WATCH';  rank = 3 }
       else continue
       out.push({ symbol: h.symbol, symbolNormalized: h.symbolNormalized, name: h.name, currency: h.currency, type, rank, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight })
     }
@@ -427,8 +466,8 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Hero + 4 mini stats side-by-side */}
-      <div className="dash-overview">
+      {/* Hero (Portfolio Value) full-width + a row of 5 KPI cards (v5.0.9) */}
+      <div className="dash-overview--v9">
         <div className={`hero-card ${
           todayTone === 'positive' ? 'hero-card-positive-tint' :
           todayTone === 'negative' ? 'hero-card-negative-tint' : ''
@@ -493,9 +532,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* v5.0.8: one 2×2 on desktop + mobile — Today's lives in the hero,
-            Risk Score is gone (Portfolio Snapshot covers health). */}
-        <div className="dash-mini-stats">
+        <div className="dash-kpis">
+          <StatCard
+            label={t('dash_today_pl')}
+            icon={<TrendingUp size={15} />}
+            value={fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)}
+            tone={todayTone}
+            sub={<DeltaBadge value={todayPct} variant="pill" />}
+          />
           <StatCard
             label={t('dash_total_pl')}
             icon={<Wallet size={15} />}
@@ -511,13 +555,18 @@ export default function DashboardPage() {
             sub={<span className="text-tertiary">{t('dash_realized_sub')}</span>}
           />
           <StatCard
-            label={t('holdings_sum_open')}
-            value={holdings.length}
-            sub={<span className="text-tertiary">{usdCount} USD{myrCount ? ` · ${myrCount} MYR` : ''}</span>}
+            label={t('dash_unrealized')}
+            icon={<Coins size={15} />}
+            value={fmt.moneySigned(toDisplay(unrealizedUsd), primaryCurrency)}
+            tone={unrealizedUsd > 0 ? 'positive' : unrealizedUsd < 0 ? 'negative' : 'neutral'}
+            sub={<DeltaBadge value={costUsd > 0 ? (unrealizedUsd / costUsd) * 100 : 0} variant="pill" />}
           />
           <StatCard
-            label={t('holdings_sum_closed')}
-            value={closedCount}
+            label={t('dash_risk_score')}
+            icon={<Gauge size={15} />}
+            value={<>{risk.score}<span className="text-quaternary" style={{ fontSize: 14 }}>/100</span></>}
+            tone={riskTone}
+            sub={<span className="text-tertiary">{t(`risk_${risk.level}`)}</span>}
           />
         </div>
       </div>
@@ -526,16 +575,16 @@ export default function DashboardPage() {
           one-line reason, deep-link to the Hub, 7-day Dismiss (local only). */}
       <div className="dash-review" style={{ marginBottom: 18 }}>
         <Panel>
-          <PanelHead title={t('dash_review_queue')} meta={t('dash_review_sub')} />
+          <PanelHead title={t('dash_action_center')} meta={t('dash_review_sub')} />
           <PanelBody>
             {reviewQueue.length ? (
               <div className="rq2-list">
                 {reviewQueue.map(item => {
-                  const reason = item.type === 'REVIEW'
-                    ? t('rq_review_reason')
-                    : item.unrealizedPlPct < 0
-                      ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) })
-                      : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) })
+                  const reason =
+                    item.type === 'REVIEW' ? t('rq_review_reason')
+                    : item.type === 'WATCH'  ? t('rq_watch_reason')
+                    : item.unrealizedPlPct < 0 ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) })
+                    : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) })
                   const k = item.type.toLowerCase()
                   return (
                     <div key={item.symbolNormalized} className={`rq2-item rq2-item--${k}`}>
@@ -567,72 +616,43 @@ export default function DashboardPage() {
         </Panel>
       </div>
 
-      {/* Portfolio Snapshot (replaces Risk Assessment) + Top Holdings */}
+      {/* Risk Assessment (meter + transparent breakdown) + Sector Allocation */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel>
-          <PanelHead title={t('dash_snapshot')} meta={t('dash_snapshot_sub')} />
+          <PanelHead title={t('dash_risk')} meta={t('dash_risk_meta')} />
           <PanelBody>
-            <div className="snapshot-grid">
-              <div className="snapshot-stat">
-                <span className="snapshot-label">{t('dash_snap_largest')}</span>
-                <span className="snapshot-value">
-                  {largest ? <>{largest.symbol} <span className="text-tertiary">{fmt.pct(largest.portfolioWeight, 1)}</span></> : '—'}
-                </span>
+            <div className="riskm-head">
+              <span className="riskm-score">{risk.score}<span className="riskm-max">/100</span></span>
+              <span className={`riskm-level riskm-level--${risk.level}`}>{t(`risk_${risk.level}`)}</span>
+            </div>
+            <div className="riskm-track">
+              <div className={`riskm-fill riskm-fill--${risk.level}`} style={{ width: `${Math.min(100, Math.max(3, risk.score))}%` }} />
+            </div>
+            <div className="riskm-drivers">
+              <div className="riskm-driver">
+                <span className="riskm-d-label">{t('dash_snap_largest')}</span>
+                <span className="riskm-d-val">{largest ? `${largest.symbol} ${fmt.pct(risk.maxWeight, 1)}` : '—'}</span>
+                <span className="riskm-d-impact">+{riskImpacts.concentration}</span>
               </div>
-              <div className="snapshot-stat">
-                <span className="snapshot-label">{t('dash_snap_speculative')}</span>
-                <span className="snapshot-value">{fmt.pct(speculativeWeight, 1)}</span>
+              <div className="riskm-driver">
+                <span className="riskm-d-label">{t('dash_snap_speculative')}</span>
+                <span className="riskm-d-val">{fmt.pct(speculativeWeight, 1)}</span>
+                <span className="riskm-d-impact">+{riskImpacts.speculative}</span>
               </div>
-              <div className="snapshot-stat">
-                <span className="snapshot-label">{t('dash_snap_deepred')}</span>
-                <span className={`snapshot-value ${brokenCount > 0 ? 'text-negative' : ''}`}>{t('dash_snap_deepred_n', { n: brokenCount })}</span>
+              <div className="riskm-driver">
+                <span className="riskm-d-label">{t('dash_snap_deepred')}</span>
+                <span className="riskm-d-val">{t('dash_snap_deepred_n', { n: brokenCount })}</span>
+                <span className="riskm-d-impact">+{riskImpacts.drawdown}</span>
+              </div>
+              <div className="riskm-driver riskm-driver--total">
+                <span className="riskm-d-label">{t('risk_total')}</span>
+                <span className="riskm-d-val" />
+                <span className="riskm-d-impact">{risk.score}</span>
               </div>
             </div>
           </PanelBody>
         </Panel>
 
-        <Panel>
-          <PanelHead
-            title={t('dash_top_holdings')}
-            actions={
-              <Link href="/holdings" className="btn btn-ghost btn-sm">
-                {t('dash_view_all')}<ArrowRight size={12} />
-              </Link>
-            }
-          />
-          <PanelBody flush>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="data-table top-holdings-table">
-                <thead>
-                  <tr>
-                    <th>{t('col_symbol')}</th>
-                    <th className="num">{t('col_weight')}</th>
-                    <th className="num">{t('holdings_total_return')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topHoldings.map(h => (
-                    <tr key={h.id}>
-                      <td>
-                        <Link href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="holdings-sym-link">
-                          <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={24} />
-                        </Link>
-                      </td>
-                      <td className="num text-tabular text-tertiary">{fmt.pct(h.weight, 1)}</td>
-                      <td className="num">
-                        <span className={h.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(h.totalReturnPct, 1)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </PanelBody>
-        </Panel>
-      </div>
-
-      {/* Sector Allocation + P/L Distribution */}
-      <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel className="panel--fill">
           <PanelHead
             title={t('dash_sector_alloc')}
@@ -653,14 +673,87 @@ export default function DashboardPage() {
             <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} total={combined} view={allocView} />
           </PanelBody>
         </Panel>
+      </div>
 
+      {/* P/L Distribution — summary counts above the histogram */}
+      <div style={{ marginBottom: 18 }}>
         <Panel className="dash-histogram">
           <PanelHead title={t('dash_pl_distribution')} meta={t('dash_pl_distribution_meta')} />
           <PanelBody>
+            <div className="pl-summary">
+              <div className="pl-sum"><span className="pl-sum-n text-positive">{plSummary.green}</span><span className="pl-sum-l">{t('pl_green')}</span></div>
+              <div className="pl-sum"><span className="pl-sum-n text-negative">{plSummary.red}</span><span className="pl-sum-l">{t('pl_red')}</span></div>
+              <div className="pl-sum"><span className="pl-sum-n text-positive">{plSummary.bigWin}</span><span className="pl-sum-l">{t('pl_big_win')}</span></div>
+              <div className="pl-sum"><span className="pl-sum-n text-negative">{plSummary.bigLose}</span><span className="pl-sum-l">{t('pl_big_lose')}</span></div>
+            </div>
             <PlHistogram items={withWeight.map(h => ({ unrealizedPlPct: h.unrealizedPlPct }))} />
           </PanelBody>
         </Panel>
       </div>
+
+      {/* Winners & Losers board (ranked by total return %) */}
+      <div className="grid-2" style={{ marginBottom: 18 }}>
+        {([['dash_top_winners', board.winners, 'text-positive'], ['dash_top_losers', board.losers, 'text-negative']] as const).map(([titleKey, rows, tone]) => (
+          <Panel key={titleKey}>
+            <PanelHead title={t(titleKey)} />
+            <PanelBody>
+              {rows.length ? (
+                <div className="board-list">
+                  {rows.map((h, i) => (
+                    <Link key={h.id} href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="board-row">
+                      <span className="board-rank">{i + 1}</span>
+                      <span className="board-sym">{h.symbol}</span>
+                      <span className={`board-pct ${tone}`}>{fmt.pctSigned(h.unrealizedPlPct, 1)}</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : <div className="attention-clear">{t('hero_none')}</div>}
+            </PanelBody>
+          </Panel>
+        ))}
+      </div>
+
+      {/* Holdings Preview — top 5 by weight + action, link to the full page */}
+      <Panel>
+        <PanelHead
+          title={t('dash_my_holdings')}
+          actions={
+            <Link href="/holdings" className="btn btn-ghost btn-sm">
+              {t('dash_view_all')}<ArrowRight size={12} />
+            </Link>
+          }
+        />
+        <PanelBody flush>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="data-table top-holdings-table">
+              <thead>
+                <tr>
+                  <th>{t('col_symbol')}</th>
+                  <th className="num">{t('col_weight')}</th>
+                  <th className="num">{t('holdings_total_return')}</th>
+                  <th>{t('col_action')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topHoldings.map(h => (
+                  <tr key={h.id}>
+                    <td>
+                      <Link href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="holdings-sym-link">
+                        <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={24} />
+                      </Link>
+                    </td>
+                    <td className="num text-tabular text-tertiary">{fmt.pct(h.weight, 1)}</td>
+                    <td className="num">
+                      <span className={h.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(h.totalReturnPct, 1)}</span>
+                    </td>
+                    <td><span className={`badge badge--${ACTION_TONE[h.action]}`}>{t(`tax_${h.action}`)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PanelBody>
+      </Panel>
     </div>
   )
 }

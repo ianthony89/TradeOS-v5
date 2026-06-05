@@ -1,8 +1,8 @@
 # TradeOS v5 — Roadmap
 
-_Status as of 2026-06-04 · current release **`v5.0.8`** · patch line v5.0.1–v5.0.8 (see [`RELEASES.md`](./RELEASES.md))._
+_Status as of 2026-06-05 · current release **`v5.0.9`** · patch line v5.0.1–v5.0.9 (see [`RELEASES.md`](./RELEASES.md))._
 
-> **Dashboard frozen at v5.0.8.** Next direction: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
+> **Dashboard FROZEN at v5.0.9** (Dashboard Final Architecture — KPI hero + 5-card KPI row, Action Center, Risk Score meter with explainable drivers, P/L summary, Winners & Losers board, Holdings Preview). Next direction: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
 
 > **⚠ Migration 008 must be applied in Supabase** (`holdings.exit_price` + `exit_date`, added in v5.0.5 for the Closed-Positions "Since Exit %"). The app is resilient without it — those fields show "—" until applied.
 
