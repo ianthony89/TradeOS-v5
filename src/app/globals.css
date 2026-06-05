@@ -1679,25 +1679,62 @@ a { color: inherit; text-decoration: none; }
    Goal: Portfolio Value · Today's · Total P&L · Open/Closed on the
    first screen, no scroll. Ticker drops below the hero.
    ───────────────────────────────────────────────────────────── */
-.dash-stat--mobile { display: none; }   /* Open/Closed tiles: mobile only */
-
 @media (max-width: 640px) {
-  /* Reorder so portfolio status comes first, ticker after the hero */
-  .dash-page { display: flex; flex-direction: column; }
-  .dash-page > .section-header { order: 1; }
-  .dash-page > .dash-overview  { order: 2; }
-  .dash-page > .ticker-dual    { order: 3; }
-  .dash-page > .dash-attention { order: 4; }
-  .dash-page > .grid-2         { order: 5; }
-  .dash-page > .dash-histogram { order: 6; }
-
-  /* Hero intel (Largest / Top Winner / Top Loser) stacks vertically.
-     Scoped to .dash-page so it beats the base 3-col rule regardless of order. */
+  /* v5.0.8: ticker stays at the top (v5.0.7 relocation reverted). Hero intel
+     stacks vertically; scoped to .dash-page to beat the base 3-col rule. */
   .dash-page .hero-intel { grid-template-columns: 1fr; gap: 8px; }
+}
 
-  /* Swap which stat tiles show (the 2×2 grid itself is set above) */
-  .dash-stat--desktop { display: none; }   /* Today's P&L (in hero) + Risk Score (in Risk widget) */
-  .dash-stat--mobile  { display: block; }  /* Open + Closed counts */
+/* ─────────────────────────────────────────────────────────────
+   Dashboard Final Cleanup (v5.0.8)
+   ───────────────────────────────────────────────────────────── */
+/* Freshness pill — replaces "Quotes 16m ago" + the session tag */
+.fresh-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--radius-full);
+  background: var(--surface-1); border: 1px solid var(--border-default);
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+}
+.fresh-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.fresh-label { font-variant-numeric: tabular-nums; }
+.fresh-pill--live  { color: var(--positive); }       .fresh-pill--live  .fresh-dot { background: var(--positive); }
+.fresh-pill--stale { color: var(--warning); }         .fresh-pill--stale .fresh-dot { background: var(--warning); }
+.fresh-pill--old   { color: var(--negative); }        .fresh-pill--old   .fresh-dot { background: var(--negative); }
+.fresh-pill--idle  { color: var(--text-quaternary); } .fresh-pill--idle  .fresh-dot { background: var(--text-quaternary); }
+
+/* Review Queue items (typed action rows + dismiss) */
+.rq2-list { display: flex; flex-direction: column; gap: 7px; }
+.rq2-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-default); border-left-width: 3px;
+  border-radius: var(--radius); background: var(--surface-0);
+}
+.rq2-item--exit   { border-left-color: var(--negative); }
+.rq2-item--reduce { border-left-color: var(--warning); }
+.rq2-item--review { border-left-color: var(--accent); }
+.rq2-type { flex: 0 0 auto; min-width: 58px; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.rq2-item--exit   .rq2-type { color: var(--negative); }
+.rq2-item--reduce .rq2-type { color: var(--warning); }
+.rq2-item--review .rq2-type { color: var(--accent); }
+.rq2-main { display: flex; align-items: baseline; gap: 10px; flex: 1 1 auto; min-width: 0; text-decoration: none; }
+.rq2-sym { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.rq2-reason { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rq2-cta { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: var(--accent); text-decoration: none; opacity: 0.85; transition: opacity var(--dur-fast); }
+.rq2-item:hover .rq2-cta { opacity: 1; }
+.rq2-dismiss { flex: 0 0 auto; display: inline-grid; place-items: center; width: 24px; height: 24px; background: none; border: none; border-radius: var(--radius); color: var(--text-quaternary); cursor: pointer; transition: color var(--dur-fast), background var(--dur-fast); }
+.rq2-dismiss:hover { color: var(--text-secondary); background: var(--surface-2); }
+
+/* Portfolio Snapshot */
+.snapshot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.snapshot-stat { display: flex; flex-direction: column; gap: 5px; }
+.snapshot-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-tertiary); }
+.snapshot-value { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .snapshot-grid { grid-template-columns: 1fr; gap: 12px; } }
+
+/* Top Holdings — desktop 5 rows, mobile 3 */
+@media (max-width: 640px) {
+  .top-holdings-table tbody tr:nth-child(n+4) { display: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────

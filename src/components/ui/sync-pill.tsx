@@ -3,45 +3,40 @@
 import { useMarketStore } from '@/stores/market'
 import { useClock }       from '@/lib/hooks/use-clock'
 import { useI18n }        from '@/lib/i18n/context'
-import { fmt }            from '@/lib/utils/format'
-import { CheckCircle2, CircleDashed } from 'lucide-react'
-import { currentUsSession } from '@/lib/market/quote-session'
-import { SessionTag }       from '@/components/ui/session-tag'
 
 /**
- * Quote freshness indicator.
- * Re-renders every 30s to update the relative-time label.
+ * Compact quote-freshness pill (v5.0.8).
+ * One colour-coded pill, no verbose "Quotes 16m ago" text:
+ *   🟢 LIVE   (< 3 min)
+ *   🟡 {n}m   (3–15 min, getting stale)
+ *   🔴 {n}m   (≥ 15 min, very stale)
+ * Re-renders every 30s to keep the age current. Market-session honesty
+ * (Last Close / Pre / Post) lives on the Holdings banner, not here.
  */
 export function SyncPill({ className = '' }: { className?: string }) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   useClock(30_000)
   const ts = useMarketStore(s => s.quotesUpdatedAt)
-  // Quote session follows the live US clock (display-honesty, v5.0.3).
-  const session = currentUsSession()
 
   if (!ts) {
     return (
-      <span className={`market-pill ${className}`}>
-        <CircleDashed size={11} className="text-quaternary" />
-        <span className="market-pill-state market-pill-state--closed">{t('sync_idle')}</span>
-        <span className="market-pill-sep">·</span>
-        <SessionTag session={session} />
+      <span className={`fresh-pill fresh-pill--idle ${className}`} title={t('sync_idle')}>
+        <span className="fresh-dot" />
+        <span className="fresh-label">—</span>
       </span>
     )
   }
 
-  // useClock(30s) above drives re-renders so this read is deliberate.
+  // useClock(30s) drives the re-render, so reading the clock here is deliberate.
   // eslint-disable-next-line react-hooks/purity
-  const ageMs = Date.now() - ts.getTime()
-  const stale = ageMs > 60 * 60 * 1000   // >1h
+  const mins  = Math.max(0, Math.floor((Date.now() - ts.getTime()) / 60_000))
+  const tone  = mins < 3 ? 'live' : mins < 15 ? 'stale' : 'old'
+  const label = mins < 3 ? t('sync_live') : `${mins}m`
+
   return (
-    <span className={`market-pill ${className}`} title={ts.toLocaleString()}>
-      <CheckCircle2 size={11} className={stale ? 'text-tertiary' : 'text-positive'} />
-      <span className={`market-pill-state ${stale ? 'market-pill-state--closed' : 'market-pill-state--open'}`}>
-        {t('sync_quotes')} {fmt.relativeTime(ts, lang)}
-      </span>
-      <span className="market-pill-sep">·</span>
-      <SessionTag session={session} />
+    <span className={`fresh-pill fresh-pill--${tone} ${className}`} title={ts.toLocaleString()}>
+      <span className="fresh-dot" />
+      <span className="fresh-label">{label}</span>
     </span>
   )
 }
