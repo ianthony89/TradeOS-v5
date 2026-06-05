@@ -1,6 +1,8 @@
 # TradeOS v5 — Roadmap
 
-_Status as of 2026-06-04 · current release **`v5.0.7`** · patch line v5.0.1–v5.0.7 (see [`RELEASES.md`](./RELEASES.md))._
+_Status as of 2026-06-04 · current release **`v5.0.8`** · patch line v5.0.1–v5.0.8 (see [`RELEASES.md`](./RELEASES.md))._
+
+> **Dashboard frozen at v5.0.8.** Next direction: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
 
 > **⚠ Migration 008 must be applied in Supabase** (`holdings.exit_price` + `exit_date`, added in v5.0.5 for the Closed-Positions "Since Exit %"). The app is resilient without it — those fields show "—" until applied.
 

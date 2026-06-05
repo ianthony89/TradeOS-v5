@@ -8,7 +8,7 @@ This file exists for compatibility with Claude Code's auto-loaded `CLAUDE.md` co
 
 If anything appears to conflict between this file and `AGENTS.md`, **`AGENTS.md` wins**.
 
-**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-04 — **Phase 2 CLOSED, real-portfolio UAT passed, v5 FROZEN, tagged `v5.0.0`; latest `v5.0.7` (Mobile-first Dashboard: ≤640px reorder/collapse — ticker below hero, hero-intel stacked, 2×2 stats with Open/Closed; desktop byte-for-byte unchanged). **⚠ Migration 008 must be applied in Supabase** (holdings.exit_price + exit_date, from v5.0.5).** Repo = `github.com/ianthony89/TradeOS-v5`, deploy = `tradeos-v5.vercel.app` (NOT the legacy `TradeOS` repo). Phase status → `ROADMAP.md`; retrospective → `docs/PHASE-2-RETROSPECTIVE.md`._
+**Current progress / changelog** (so you know where the build stands) → `AGENTS.md` § 2 "Recent changes (newest first)". _Last synced: 2026-06-04 — **Phase 2 CLOSED, real-portfolio UAT passed, v5 FROZEN, tagged `v5.0.0`; latest `v5.0.8` (Dashboard Final Cleanup → morning check-in: freshness pill, Today Winner/Loser, Portfolio Snapshot, Review Queue + 7-day dismiss, Top Holdings, 2×2 stats). **Dashboard is now FROZEN; next direction = Phase 3 AI Analysis Engine (do not start without owner go).** **⚠ Migration 008 must be applied in Supabase** (holdings.exit_price + exit_date, from v5.0.5).** Repo = `github.com/ianthony89/TradeOS-v5`, deploy = `tradeos-v5.vercel.app` (NOT the legacy `TradeOS` repo). Phase status → `ROADMAP.md`; retrospective → `docs/PHASE-2-RETROSPECTIVE.md`._
 
 For:
 - Who Anthony is

@@ -4,6 +4,22 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.0.8 — 2026-06-04
+
+**Dashboard Final Cleanup** — the Dashboard becomes a 5-second *morning check-in screen* (am I up/down today · what needs action · best/worst performers · which holdings to inspect) and is **frozen** after this. No backend, no migration.
+
+- **Topbar:** one colour-coded freshness pill — 🟢 LIVE (<3 min) · 🟡 {n}m · 🔴 {n}m — replacing the verbose "Quotes 16m ago" text + duplicate session tag. (The Last-Close honesty banner stays on Holdings.)
+- **Hero:** *Top Winner/Loser* → **Today Winner/Loser**, now ranked by **today's % move** (was all-time unrealized). Largest position kept; stacks vertically on mobile.
+- **Portfolio Snapshot** replaces the Risk Assessment widget — plain rows: Largest Position · Speculative Exposure · Deep Red (positions below −50%). No strategy bars, no gauge, no generated suggestions.
+- **Review Queue** replaces the sentence-based attention feed — typed rows **EXIT / REDUCE / REVIEW** + a one-line reason + Hub link + a **7-day Dismiss** (localStorage, no backend).
+- **Top Holdings** added back (Symbol · Weight · Total Return %, top 5 desktop / 3 mobile, "View All Holdings →").
+- **Stat grid** unified to one **2×2** (Total P&L · Realized · Open · Closed) on desktop + mobile; Today's P&L (hero) and Risk Score removed.
+- **Mobile:** reverted the v5.0.7 ticker relocation — ticker is back at the top.
+
+Holdings / Journal / Planner / Watchlist / Position Hub / quote provider + API / import engine untouched. **Dashboard is now frozen; next direction is Phase 3 (AI Analysis Engine).** **Tag:** `v5.0.8`.
+
+---
+
 ## v5.0.7 — 2026-06-04
 
 **Mobile-first Dashboard** — a layout-only pass so the phone view (390px) leads with portfolio status. **Desktop is byte-for-byte unchanged** (every change is gated behind `@media (max-width: 640px)`, and the two new tiles are `display:none` above it). No new features, no data-model changes.
