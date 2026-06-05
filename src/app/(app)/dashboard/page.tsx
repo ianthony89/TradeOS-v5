@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
-import { RefreshCw, Upload, TrendingUp, Wallet, Coins, BadgeDollarSign, Gauge, Repeat, X, ArrowRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { RefreshCw, Upload, TrendingUp, Wallet, Coins, BadgeDollarSign, Repeat, X, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useHoldingsStore } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
@@ -46,9 +47,28 @@ interface ReviewItem {
   type: ReviewType; rank: number; unrealizedPlPct: number; portfolioWeight: number
 }
 
+type RiskLevel = 'low' | 'moderate' | 'high'
+
+/** Apple-style semicircle risk gauge (pure SVG, no deps). Fill ∝ score. */
+function RiskArc({ score, level }: { score: number; level: RiskLevel }) {
+  const r   = 70
+  const len = Math.PI * r
+  const pct = Math.min(100, Math.max(0, score))
+  const color = level === 'low' ? 'var(--positive)' : level === 'high' ? 'var(--negative)' : 'var(--warning)'
+  const arc = 'M 12 84 A 70 70 0 0 1 152 84'
+  return (
+    <svg className="riskg-svg" viewBox="0 0 164 96" aria-hidden="true">
+      <path d={arc} fill="none" stroke="var(--surface-2)" strokeWidth="13" strokeLinecap="round" />
+      <path d={arc} fill="none" stroke={color} strokeWidth="13" strokeLinecap="round"
+            strokeDasharray={`${(len * pct) / 100} ${len}`} />
+    </svg>
+  )
+}
+
 export default function DashboardPage() {
   const { t, lang } = useI18n()
   const supabase = createClient()
+  const router   = useRouter()
   const {
     holdings, setHoldings,
     quotes, updateQuotes,
@@ -67,6 +87,7 @@ export default function DashboardPage() {
   /* Per-position intelligence (review schedule) for the Review Queue */
   const [intelMap, setIntelMap] = useState<Map<string, import('@/lib/portfolio/position-intel').PositionIntel>>(new Map())
   const [dismissed, setDismissed] = useState<Record<string, number>>({})   // Action Center dismiss (7d, localStorage)
+  const [closedCount, setClosedCount] = useState(0)                        // exited positions — shown in the hero (v5.1)
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -108,12 +129,14 @@ export default function DashboardPage() {
       // single choke point — every downstream metric derives from this set.
       const open = mapped.filter(m => m.quantity > 0)
       setHoldings(open)
+      setClosedCount(mapped.length - open.length)
       return open
     }
     return []
   }, [supabase, setHoldings])
 
   // loadHoldings is async — every setState runs after an await, not synchronously.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadHoldings() }, [loadHoldings])
 
   /* Attention Layer data — all position intel + watchlist triggers.
@@ -293,22 +316,13 @@ export default function DashboardPage() {
   [withWeight])
   const brokenCount = withWeight.filter(h => h.unrealizedPlPct < -50).length
 
-  /* Risk Score + transparent driver breakdown (v5.0.9 meter). The three
-     weighted terms sum to the score, so the user sees exactly why it's N. */
-  const { risk, riskImpacts } = useMemo(() => {
+  /* Risk Score + level (v5.1 arc gauge). Drivers are shown as plain facts —
+     no "+22 / +14" impact decomposition (the owner found it noise). */
+  const risk = useMemo(() => {
     const maxWeight    = Math.max(0, ...withWeight.map(h => h.portfolioWeight))
     const brokenWeight = withWeight.reduce((s, h) => h.unrealizedPlPct < -50 ? s + h.portfolioWeight : s, 0)
-    const r = computeRiskScore({ maxWeight, speculativeWeight, brokenWeight })
-    return {
-      risk: { ...r, maxWeight },
-      riskImpacts: {
-        concentration: Math.round(0.40 * r.factors.concentration),
-        speculative:   Math.round(0.35 * r.factors.speculative),
-        drawdown:      Math.round(0.25 * r.factors.drawdown),
-      },
-    }
+    return { ...computeRiskScore({ maxWeight, speculativeWeight, brokenWeight }), maxWeight }
   }, [withWeight, speculativeWeight])
-  const riskTone = risk.level === 'low' ? 'positive' : risk.level === 'high' ? 'negative' : 'neutral'
 
   /* Stars for the Starfield allocation view — one star per holding */
   const allocStars = useMemo(() =>
@@ -318,18 +332,48 @@ export default function DashboardPage() {
     }),
   [withWeight, t])
 
-  /* Holdings Preview — top 5 by weight, with total-return % + action (v5.0.9) */
-  const topHoldings = useMemo(() =>
-    topPositions.slice(0, 5).map(h => {
-      const cost = h.avgCost * h.quantity
-      return {
-        id: h.id, symbol: h.symbol, symbolNormalized: h.symbolNormalized, name: h.name, currency: h.currency,
-        weight: h.portfolioWeight,
-        totalReturnPct: cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0,
-        action: classifyAction({ symbol: h.symbol, name: h.name, assetType: h.assetType, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight }),
-      }
-    }),
-  [topPositions])
+  /* Hero — best position by total return % (replaces "largest", v5.1) */
+  const bestPosition = useMemo(() => {
+    if (!withWeight.length) return undefined
+    return withWeight
+      .map(h => {
+        const cost = h.avgCost * h.quantity
+        return { ...h, totalReturnPct: cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0 }
+      })
+      .sort((a, b) => b.totalReturnPct - a.totalReturnPct)[0]
+  }, [withWeight])
+
+  /* Portfolio Health — win rate + average & extreme returns (v5.1) */
+  const health = useMemo(() => {
+    const gains  = withWeight.filter(h => h.unrealizedPlPct > 0).map(h => h.unrealizedPlPct)
+    const losses = withWeight.filter(h => h.unrealizedPlPct < 0).map(h => h.unrealizedPlPct)
+    const mean   = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0)
+    const decided = gains.length + losses.length
+    return {
+      winRate:     decided ? (gains.length / decided) * 100 : 0,
+      avgGain:     mean(gains),
+      avgLoss:     mean(losses),
+      largestGain: gains.length  ? Math.max(...gains)  : 0,
+      largestLoss: losses.length ? Math.min(...losses) : 0,
+    }
+  }, [withWeight])
+
+  /* My Holdings — full simplified list (v5.1): weight · value · total return ·
+     today's move · action. Sorted by weight; each row links to the Hub. */
+  const holdingsFull = useMemo(() =>
+    [...withWeight]
+      .sort((a, b) => b.portfolioWeight - a.portfolioWeight)
+      .map(h => {
+        const cost = h.avgCost * h.quantity
+        const prev = h.marketValue - h.todayPl
+        return {
+          ...h,
+          totalReturnPct: cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0,
+          todayPct:       prev > 0 ? (h.todayPl / prev) * 100 : 0,
+          action: classifyAction({ symbol: h.symbol, name: h.name, assetType: h.assetType, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight }),
+        }
+      }),
+  [withWeight])
 
   /* Winners & Losers board — top 3 / bottom 3 by total (unrealized) return % */
   const board = useMemo(() => {
@@ -466,9 +510,9 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Hero (Portfolio Value) full-width + a row of 5 KPI cards (v5.0.9) */}
+      {/* Hero (compact portfolio summary) + a row of 4 KPI cards (v5.1) */}
       <div className="dash-overview--v9">
-        <div className={`hero-card ${
+        <div className={`hero-card hero-card--compact ${
           todayTone === 'positive' ? 'hero-card-positive-tint' :
           todayTone === 'negative' ? 'hero-card-negative-tint' : ''
         }`}>
@@ -503,13 +547,13 @@ export default function DashboardPage() {
             <span>{fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)} {t('word_today')}</span>
           </div>
 
-          {/* Compact intelligence row — fills the hero efficiently */}
-          <div className="hero-intel">
+          {/* Compact intelligence row — Best / Today Winner / Today Loser / Open·Closed */}
+          <div className="hero-intel hero-intel--4">
             <div className="hero-intel-cell">
-              <span className="hero-intel-label">{t('hero_largest')}</span>
+              <span className="hero-intel-label">{t('hero_best')}</span>
               <span className="hero-intel-value">
-                {largest
-                  ? <>{largest.symbol}{' '}<span className="text-tertiary">{fmt.pct(largest.portfolioWeight, 1)}</span></>
+                {bestPosition
+                  ? <>{bestPosition.symbol}{' '}<span className={bestPosition.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(bestPosition.totalReturnPct, 1)}</span></>
                   : t('hero_none')}
               </span>
             </div>
@@ -529,16 +573,28 @@ export default function DashboardPage() {
                   : t('hero_none')}
               </span>
             </div>
+            <div className="hero-intel-cell">
+              <span className="hero-intel-label">{t('positions_label')}</span>
+              <span className="hero-intel-value">
+                {holdings.length} <span className="text-tertiary">{t('holdings_sum_open')}</span>
+                {closedCount > 0 && <> · {closedCount} <span className="text-tertiary">{t('holdings_sum_closed')}</span></>}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="dash-kpis">
+        <div className="dash-kpis dash-kpis--4">
           <StatCard
             label={t('dash_today_pl')}
             icon={<TrendingUp size={15} />}
-            value={fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)}
+            value={
+              <span className="kpi-inline">
+                {fmt.moneySigned(toDisplay(todayPlUsd), primaryCurrency)}
+                <DeltaBadge value={todayPct} variant="pill" />
+              </span>
+            }
             tone={todayTone}
-            sub={<DeltaBadge value={todayPct} variant="pill" />}
+            sub={<span className="text-tertiary">{t('dash_today_sub')}</span>}
           />
           <StatCard
             label={t('dash_total_pl')}
@@ -561,98 +617,89 @@ export default function DashboardPage() {
             tone={unrealizedUsd > 0 ? 'positive' : unrealizedUsd < 0 ? 'negative' : 'neutral'}
             sub={<DeltaBadge value={costUsd > 0 ? (unrealizedUsd / costUsd) * 100 : 0} variant="pill" />}
           />
-          <StatCard
-            label={t('dash_risk_score')}
-            icon={<Gauge size={15} />}
-            value={<>{risk.score}<span className="text-quaternary" style={{ fontSize: 14 }}>/100</span></>}
-            tone={riskTone}
-            sub={<span className="text-tertiary">{t(`risk_${risk.level}`)}</span>}
-          />
         </div>
       </div>
 
-      {/* Review Queue (v5.0.8) — typed action items (EXIT / REDUCE / REVIEW),
-          one-line reason, deep-link to the Hub, 7-day Dismiss (local only). */}
-      <div className="dash-review" style={{ marginBottom: 18 }}>
-        <Panel>
+      {/* Row 2 — Action Center (glass cards) | Risk Assessment (arc gauge) */}
+      <div className="grid-2" style={{ marginBottom: 18 }}>
+        <Panel className="ac-panel">
           <PanelHead title={t('dash_action_center')} meta={t('dash_review_sub')} />
           <PanelBody>
             {reviewQueue.length ? (
-              <div className="rq2-list">
-                {reviewQueue.map(item => {
-                  const reason =
-                    item.type === 'REVIEW' ? t('rq_review_reason')
-                    : item.type === 'WATCH'  ? t('rq_watch_reason')
-                    : item.unrealizedPlPct < 0 ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) })
-                    : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) })
-                  const k = item.type.toLowerCase()
-                  return (
-                    <div key={item.symbolNormalized} className={`rq2-item rq2-item--${k}`}>
-                      <span className="rq2-type">{t(`rq_type_${k}`)}</span>
-                      <Link href={`/holdings/${encodeURIComponent(item.symbolNormalized)}`} className="rq2-main">
-                        <span className="rq2-sym">{item.symbol}</span>
-                        <span className="rq2-reason">{reason}</span>
-                      </Link>
-                      <Link href={`/holdings/${encodeURIComponent(item.symbolNormalized)}`} className="rq2-cta">
-                        {t(`rq_btn_${k}`)}<ArrowRight size={12} />
-                      </Link>
-                      <button
-                        type="button"
-                        className="rq2-dismiss"
-                        onClick={() => dismissReview(item.symbolNormalized)}
-                        title={t('rq_dismiss')}
-                        aria-label={t('rq_dismiss')}
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
+              <>
+                <div className="ac-grid">
+                  {reviewQueue.slice(0, 4).map(item => {
+                    const reason =
+                      item.type === 'REVIEW' ? t('rq_review_reason')
+                      : item.type === 'WATCH'  ? t('rq_watch_reason')
+                      : item.unrealizedPlPct < 0 ? t('rq_down', { pct: fmt.pct(Math.abs(item.unrealizedPlPct), 0) })
+                      : t('rq_weight', { pct: fmt.pct(item.portfolioWeight, 0) })
+                    const k = item.type.toLowerCase()
+                    return (
+                      <div key={item.symbolNormalized} className={`ac-card ac-card--${k}`}>
+                        <button
+                          type="button"
+                          className="ac-x"
+                          onClick={() => dismissReview(item.symbolNormalized)}
+                          title={t('rq_dismiss')}
+                          aria-label={t('rq_dismiss')}
+                        >
+                          <X size={12} />
+                        </button>
+                        <span className="ac-type">{t(`rq_type_${k}`)}</span>
+                        <span className="ac-sym">{item.symbol}</span>
+                        <span className="ac-reason">{reason}</span>
+                        <Link href={`/holdings/${encodeURIComponent(item.symbolNormalized)}`} className="ac-cta">
+                          {t('word_view')}<ArrowRight size={11} />
+                        </Link>
+                      </div>
+                    )
+                  })}
+                </div>
+                {reviewQueue.length > 4 && (
+                  <Link href="/holdings" className="ac-more">
+                    {t('rq_more', { n: reviewQueue.length - 4 })}<ArrowRight size={12} />
+                  </Link>
+                )}
+              </>
             ) : (
               <div className="attention-clear">{t('rq_clear')}</div>
             )}
           </PanelBody>
         </Panel>
-      </div>
 
-      {/* Risk Assessment (meter + transparent breakdown) + Sector Allocation */}
-      <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel>
           <PanelHead title={t('dash_risk')} meta={t('dash_risk_meta')} />
           <PanelBody>
-            <div className="riskm-head">
-              <span className="riskm-score">{risk.score}<span className="riskm-max">/100</span></span>
-              <span className={`riskm-level riskm-level--${risk.level}`}>{t(`risk_${risk.level}`)}</span>
-            </div>
-            <div className="riskm-track">
-              <div className={`riskm-fill riskm-fill--${risk.level}`} style={{ width: `${Math.min(100, Math.max(3, risk.score))}%` }} />
-            </div>
-            <div className="riskm-drivers">
-              <div className="riskm-driver">
-                <span className="riskm-d-label">{t('dash_snap_largest')}</span>
-                <span className="riskm-d-val">{largest ? `${largest.symbol} ${fmt.pct(risk.maxWeight, 1)}` : '—'}</span>
-                <span className="riskm-d-impact">+{riskImpacts.concentration}</span>
+            <div className="riskg">
+              <div className="riskg-arc">
+                <RiskArc score={risk.score} level={risk.level as RiskLevel} />
+                <div className="riskg-center">
+                  <span className="riskg-score">{risk.score}</span>
+                  <span className={`riskg-level riskg-level--${risk.level}`}>{t(`risk_${risk.level}`)}</span>
+                </div>
               </div>
-              <div className="riskm-driver">
-                <span className="riskm-d-label">{t('dash_snap_speculative')}</span>
-                <span className="riskm-d-val">{fmt.pct(speculativeWeight, 1)}</span>
-                <span className="riskm-d-impact">+{riskImpacts.speculative}</span>
-              </div>
-              <div className="riskm-driver">
-                <span className="riskm-d-label">{t('dash_snap_deepred')}</span>
-                <span className="riskm-d-val">{t('dash_snap_deepred_n', { n: brokenCount })}</span>
-                <span className="riskm-d-impact">+{riskImpacts.drawdown}</span>
-              </div>
-              <div className="riskm-driver riskm-driver--total">
-                <span className="riskm-d-label">{t('risk_total')}</span>
-                <span className="riskm-d-val" />
-                <span className="riskm-d-impact">{risk.score}</span>
+              <div className="riskg-drivers">
+                <div className="riskg-driver">
+                  <span className="riskg-d-label">{t('dash_snap_largest')}</span>
+                  <span className="riskg-d-val">{largest ? `${largest.symbol} ${fmt.pct(risk.maxWeight, 1)}` : '—'}</span>
+                </div>
+                <div className="riskg-driver">
+                  <span className="riskg-d-label">{t('dash_snap_speculative')}</span>
+                  <span className="riskg-d-val">{fmt.pct(speculativeWeight, 1)}</span>
+                </div>
+                <div className="riskg-driver">
+                  <span className="riskg-d-label">{t('dash_snap_deepred')}</span>
+                  <span className="riskg-d-val">{t('dash_snap_deepred_n', { n: brokenCount })}</span>
+                </div>
               </div>
             </div>
           </PanelBody>
         </Panel>
+      </div>
 
+      {/* Row 3 — Sector Allocation | Portfolio Health (replaces P/L Distribution) */}
+      <div className="grid-2" style={{ marginBottom: 18 }}>
         <Panel className="panel--fill">
           <PanelHead
             title={t('dash_sector_alloc')}
@@ -673,37 +720,54 @@ export default function DashboardPage() {
             <AllocationViews slices={sectorSlices} centerValue={fmt.compact(combined, 'USD')} stars={allocStars} total={combined} view={allocView} />
           </PanelBody>
         </Panel>
-      </div>
 
-      {/* P/L Distribution — summary counts above the histogram */}
-      <div style={{ marginBottom: 18 }}>
-        <Panel className="dash-histogram">
-          <PanelHead title={t('dash_pl_distribution')} meta={t('dash_pl_distribution_meta')} />
+        <Panel>
+          <PanelHead title={t('dash_portfolio_health')} meta={t('dash_health_meta')} />
           <PanelBody>
-            <div className="pl-summary">
-              <div className="pl-sum"><span className="pl-sum-n text-positive">{plSummary.green}</span><span className="pl-sum-l">{t('pl_green')}</span></div>
-              <div className="pl-sum"><span className="pl-sum-n text-negative">{plSummary.red}</span><span className="pl-sum-l">{t('pl_red')}</span></div>
-              <div className="pl-sum"><span className="pl-sum-n text-positive">{plSummary.bigWin}</span><span className="pl-sum-l">{t('pl_big_win')}</span></div>
-              <div className="pl-sum"><span className="pl-sum-n text-negative">{plSummary.bigLose}</span><span className="pl-sum-l">{t('pl_big_lose')}</span></div>
+            <div className="ph-chips">
+              <div className="ph-chip"><span className="ph-chip-ico">🟢</span><span className="ph-chip-n text-positive">{plSummary.green}</span><span className="ph-chip-l">{t('ph_winners')}</span></div>
+              <div className="ph-chip"><span className="ph-chip-ico">🔴</span><span className="ph-chip-n text-negative">{plSummary.red}</span><span className="ph-chip-l">{t('ph_losers')}</span></div>
+              <div className="ph-chip"><span className="ph-chip-ico">🔥</span><span className="ph-chip-n text-positive">{plSummary.bigWin}</span><span className="ph-chip-l">{t('ph_above50')}</span></div>
+              <div className="ph-chip"><span className="ph-chip-ico">☠️</span><span className="ph-chip-n text-negative">{plSummary.bigLose}</span><span className="ph-chip-l">{t('ph_below50')}</span></div>
             </div>
-            <PlHistogram items={withWeight.map(h => ({ unrealizedPlPct: h.unrealizedPlPct }))} />
+            <div className="ph-winrate">
+              <div className="ph-winrate-head">
+                <span className="ph-winrate-label">{t('ph_win_rate')}</span>
+                <span className="ph-winrate-val">{fmt.pct(health.winRate, 0)}</span>
+              </div>
+              <div className="ph-winrate-track">
+                <div className="ph-winrate-fill" style={{ width: `${Math.min(100, Math.max(2, health.winRate))}%` }} />
+              </div>
+            </div>
+            <div className="ph-stats">
+              <div className="ph-stat"><span className="ph-stat-l">{t('ph_avg_gain')}</span><span className="ph-stat-v text-positive">{fmt.pctSigned(health.avgGain, 1)}</span></div>
+              <div className="ph-stat"><span className="ph-stat-l">{t('ph_avg_loss')}</span><span className="ph-stat-v text-negative">{fmt.pctSigned(health.avgLoss, 1)}</span></div>
+              <div className="ph-stat"><span className="ph-stat-l">{t('ph_largest_gain')}</span><span className="ph-stat-v text-positive">{fmt.pctSigned(health.largestGain, 1)}</span></div>
+              <div className="ph-stat"><span className="ph-stat-l">{t('ph_largest_loss')}</span><span className="ph-stat-v text-negative">{fmt.pctSigned(health.largestLoss, 1)}</span></div>
+            </div>
+            <div className="ph-histo">
+              <PlHistogram items={withWeight.map(h => ({ unrealizedPlPct: h.unrealizedPlPct }))} />
+            </div>
           </PanelBody>
         </Panel>
       </div>
 
-      {/* Winners & Losers board (ranked by total return %) */}
+      {/* Row 4 — Top Winners | Top Losers (medal cards w/ weight + value) */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
-        {([['dash_top_winners', board.winners, 'text-positive'], ['dash_top_losers', board.losers, 'text-negative']] as const).map(([titleKey, rows, tone]) => (
+        {([['dash_top_winners', board.winners, 'win'], ['dash_top_losers', board.losers, 'lose']] as const).map(([titleKey, rows, kind]) => (
           <Panel key={titleKey}>
             <PanelHead title={t(titleKey)} />
             <PanelBody>
               {rows.length ? (
-                <div className="board-list">
+                <div className="medal-list">
                   {rows.map((h, i) => (
-                    <Link key={h.id} href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="board-row">
-                      <span className="board-rank">{i + 1}</span>
-                      <span className="board-sym">{h.symbol}</span>
-                      <span className={`board-pct ${tone}`}>{fmt.pctSigned(h.unrealizedPlPct, 1)}</span>
+                    <Link key={h.id} href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className={`medal-card medal-card--${kind}`}>
+                      <span className="medal-rank">{kind === 'win' ? (['🥇', '🥈', '🥉'][i] ?? '🏅') : '☠️'}</span>
+                      <span className="medal-main">
+                        <span className="medal-sym">{h.symbol}</span>
+                        <span className="medal-meta">{t('col_weight')} {fmt.pct(h.portfolioWeight, 1)} · {fmt.compact(toDisplay(h.usdValue), primaryCurrency)}</span>
+                      </span>
+                      <span className={`medal-pct ${kind === 'win' ? 'text-positive' : 'text-negative'}`}>{fmt.pctSigned(h.unrealizedPlPct, 1)}</span>
                     </Link>
                   ))}
                 </div>
@@ -713,10 +777,11 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Holdings Preview — top 5 by weight + action, link to the full page */}
+      {/* Row 5 — My Holdings (full simplified list; row → position detail) */}
       <Panel>
         <PanelHead
           title={t('dash_my_holdings')}
+          meta={`${holdings.length} ${t('positions_label')}`}
           actions={
             <Link href="/holdings" className="btn btn-ghost btn-sm">
               {t('dash_view_all')}<ArrowRight size={12} />
@@ -725,27 +790,31 @@ export default function DashboardPage() {
         />
         <PanelBody flush>
           <div style={{ overflowX: 'auto' }}>
-            <table className="data-table top-holdings-table">
+            <table className="data-table dash-holdings-table">
               <thead>
                 <tr>
                   <th>{t('col_symbol')}</th>
                   <th className="num">{t('col_weight')}</th>
+                  <th className="num">{t('col_value')}</th>
                   <th className="num">{t('holdings_total_return')}</th>
+                  <th className="num">{t('col_today')}</th>
                   <th>{t('col_action')}</th>
                 </tr>
               </thead>
               <tbody>
-                {topHoldings.map(h => (
-                  <tr key={h.id}>
+                {holdingsFull.map(h => (
+                  <tr
+                    key={h.id}
+                    className="dash-hold-row"
+                    onClick={() => router.push(`/holdings/${encodeURIComponent(h.symbolNormalized)}`)}
+                  >
                     <td>
-                      <Link href={`/holdings/${encodeURIComponent(h.symbolNormalized)}`} className="holdings-sym-link">
-                        <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={24} />
-                      </Link>
+                      <SymCell symbol={h.symbol} name={stockName(h.symbol, h.name, lang)} currency={h.currency} logoSize={24} />
                     </td>
-                    <td className="num text-tabular text-tertiary">{fmt.pct(h.weight, 1)}</td>
-                    <td className="num">
-                      <span className={h.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(h.totalReturnPct, 1)}</span>
-                    </td>
+                    <td className="num text-tabular text-tertiary">{fmt.pct(h.portfolioWeight, 1)}</td>
+                    <td className="num text-tabular">{fmt.money(toDisplay(h.usdValue), primaryCurrency)}</td>
+                    <td className="num"><span className={h.totalReturnPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(h.totalReturnPct, 1)}</span></td>
+                    <td className="num"><span className={h.todayPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(h.todayPct, 1)}</span></td>
                     <td><span className={`badge badge--${ACTION_TONE[h.action]}`}>{t(`tax_${h.action}`)}</span></td>
                   </tr>
                 ))}
