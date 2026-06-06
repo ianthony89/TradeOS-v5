@@ -2099,6 +2099,50 @@ a { color: inherit; text-decoration: none; }
 .dash-holdings-table th:nth-child(7), .dash-holdings-table td:nth-child(7) { width: 126px; }
 
 /* ─────────────────────────────────────────────────────────────
+   v5.1.4 — POLISH ONLY (layout locked, no structural change)
+   ───────────────────────────────────────────────────────────── */
+
+/* 1. Best Position — more prominent (the hero's #2 story beat) */
+.hero-best-label { font-size: 11px; }
+.hero-best-sym   { font-size: 26px; }
+.hero-best-figs > :first-child { font-size: 19px; }
+.hero-best-amt   { font-size: 14px; }
+
+/* 2a. Action context — never truncate "Largest position" (wrap instead) */
+.ac-row-ctx { white-space: normal; overflow: visible; text-overflow: clip; }
+/* 2b. View Position — quiet by default, blue only on hover */
+.ac-row-cta { color: var(--text-tertiary); opacity: 1; }
+.ac-row:hover .ac-row-cta { color: var(--accent); }
+
+/* 3. Risk gauge glow — softer (−40%): micro-glow, not neon */
+.riskg-fill { filter: drop-shadow(0 0 3px currentColor); }
+
+/* 4. Sector — desaturate a touch more (keep the size) */
+.sector-recede .donut-wrap svg { filter: saturate(0.5); }
+
+/* 5. Portfolio Health — 4 narrative numbers (Win Rate · Avg Winner · Avg Loser · Deep Red) */
+.ph-big { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+@media (max-width: 640px) { .ph-big { grid-template-columns: 1fr 1fr; gap: 14px; } }
+.ph-b   { display: flex; flex-direction: column; gap: 4px; }
+.ph-b-v { font-size: 25px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.ph-b-l { font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--text-tertiary); }
+.ph-histo { margin-top: 4px; opacity: 0.85; }
+
+/* 6. Winners / Losers — compact (halve the height, kill empty space) */
+.medal-list { gap: 6px; }
+.medal-card { padding: 8px 12px; gap: 10px; }
+.medal-rank { width: 22px; height: 22px; font-size: 12px; }
+.medal-sym  { font-size: 14px; }
+.medal-meta { font-size: 11px; }
+.medal-pct  { font-size: 16px; }
+
+/* 7. Holdings — scrollable (keeps the full list, stops it eating the page) */
+.dash-hold-scroll { max-height: 466px; overflow-y: auto; }
+
+/* 8. Dark Tier-3 — separate via a VISIBLE BORDER, not a darker fill */
+.panel--tier3 { border-color: var(--border-default); }
+
+/* ─────────────────────────────────────────────────────────────
    Util
    ───────────────────────────────────────────────────────────── */
 .text-tabular { font-variant-numeric: tabular-nums; }

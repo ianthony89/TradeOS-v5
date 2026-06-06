@@ -777,26 +777,11 @@ export default function DashboardPage() {
         <Panel className="panel--tier3">
           <PanelHead title={t('dash_portfolio_health')} meta={t('dash_health_meta')} />
           <PanelBody>
-            <div className="ph-chips">
-              <div className="ph-chip"><span className="ph-chip-n text-positive">{plSummary.green}</span><span className="ph-chip-l">{t('ph_winners')}</span></div>
-              <div className="ph-chip"><span className="ph-chip-n text-negative">{plSummary.red}</span><span className="ph-chip-l">{t('ph_losers')}</span></div>
-              <div className="ph-chip"><span className="ph-chip-n text-positive">{plSummary.bigWin}</span><span className="ph-chip-l">{t('ph_above50')}</span></div>
-              <div className="ph-chip"><span className="ph-chip-n text-negative">{plSummary.bigLose}</span><span className="ph-chip-l">{t('ph_below50')}</span></div>
-            </div>
-            <div className="ph-winrate">
-              <div className="ph-winrate-head">
-                <span className="ph-winrate-label">{t('ph_win_rate')}</span>
-                <span className="ph-winrate-val">{fmt.pct(health.winRate, 0)}</span>
-              </div>
-              <div className="ph-winrate-track">
-                <div className="ph-winrate-fill" style={{ width: `${Math.min(100, Math.max(2, health.winRate))}%` }} />
-              </div>
-            </div>
-            <div className="ph-stats">
-              <div className="ph-stat"><span className="ph-stat-l">{t('ph_avg_gain')}</span><span className="ph-stat-v text-positive">{fmt.pctSigned(health.avgGain, 1)}</span></div>
-              <div className="ph-stat"><span className="ph-stat-l">{t('ph_avg_loss')}</span><span className="ph-stat-v text-negative">{fmt.pctSigned(health.avgLoss, 1)}</span></div>
-              <div className="ph-stat"><span className="ph-stat-l">{t('ph_largest_gain')}</span><span className="ph-stat-v text-positive">{fmt.pctSigned(health.largestGain, 1)}</span></div>
-              <div className="ph-stat"><span className="ph-stat-l">{t('ph_largest_loss')}</span><span className="ph-stat-v text-negative">{fmt.pctSigned(health.largestLoss, 1)}</span></div>
+            <div className="ph-big">
+              <div className="ph-b"><span className="ph-b-v">{fmt.pct(health.winRate, 0)}</span><span className="ph-b-l">{t('ph_win_rate')}</span></div>
+              <div className="ph-b"><span className="ph-b-v text-positive">{fmt.pctSigned(health.avgGain, 0)}</span><span className="ph-b-l">{t('ph_avg_winner')}</span></div>
+              <div className="ph-b"><span className="ph-b-v text-negative">{fmt.pctSigned(health.avgLoss, 0)}</span><span className="ph-b-l">{t('ph_avg_loser')}</span></div>
+              <div className="ph-b"><span className="ph-b-v text-negative">{plSummary.bigLose}</span><span className="ph-b-l">{t('ph_below50')}</span></div>
             </div>
             <div className="ph-histo">
               <PlHistogram items={withWeight.map(h => ({ unrealizedPlPct: h.unrealizedPlPct }))} />
@@ -842,7 +827,7 @@ export default function DashboardPage() {
           }
         />
         <PanelBody flush>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="dash-hold-scroll" style={{ overflowX: 'auto' }}>
             <table className="data-table dash-holdings-table">
               <thead>
                 <tr>
