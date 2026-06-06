@@ -1994,6 +1994,61 @@ a { color: inherit; text-decoration: none; }
 .sector-recede .donut-center-value { font-size: 19px; }
 
 /* ─────────────────────────────────────────────────────────────
+   v5.1.2 P1.2 — subtract & structure (reduce noise · strengthen main/sub)
+   ───────────────────────────────────────────────────────────── */
+
+/* Command header — hero + KPI form ONE clean equal-height rectangle */
+.dash-cmd > .hero-card { display: flex; flex-direction: column; height: 100%; }
+.dash-cmd .hero-grid { flex: 1 1 auto; align-items: center; }
+
+/* Realized KPI — small neutral "{n} closed" so the card isn't bare */
+.kpi-count { font-size: 11px; font-weight: 700; color: var(--text-tertiary); background: var(--surface-2); padding: 2px 8px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+
+/* Action Center — horizontal priority list (one read per row, big symbol) */
+.ac-list { display: flex; flex-direction: column; }
+.ac-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: 14px; padding: 12px 2px; }
+.ac-row + .ac-row { border-top: 1px solid var(--hairline); }
+.ac-row-pill { display: inline-flex; justify-content: center; min-width: 56px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #fff; padding: 3px 8px; border-radius: 999px; background: var(--text-tertiary); }
+.ac-row--exit   .ac-row-pill { background: var(--negative); }
+.ac-row--reduce .ac-row-pill { background: var(--warning); }
+.ac-row--review .ac-row-pill { background: var(--accent); }
+.ac-row-main { display: flex; align-items: baseline; gap: 10px; min-width: 0; text-decoration: none; }
+.ac-row-sym  { font-size: 16px; font-weight: 800; color: var(--text-primary); flex: 0 0 auto; }
+.ac-row-lead { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.ac-row--exit   .ac-row-lead { color: var(--negative); }
+.ac-row--reduce .ac-row-lead { color: var(--warning); }
+.ac-row--review .ac-row-lead, .ac-row--watch .ac-row-lead { color: var(--text-secondary); }
+.ac-row-ctx { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-row-cta { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: var(--accent); text-decoration: none; opacity: 0.85; white-space: nowrap; }
+.ac-row:hover .ac-row-cta { opacity: 1; }
+.ac-row-x { display: inline-grid; place-items: center; width: 24px; height: 24px; border: none; background: none; border-radius: var(--radius); color: var(--text-quaternary); cursor: pointer; opacity: 0; transition: opacity var(--dur-fast), color var(--dur-fast), background var(--dur-fast); }
+.ac-row:hover .ac-row-x { opacity: 1; }
+.ac-row-x:hover { color: var(--text-secondary); background: var(--surface-2); }
+@media (max-width: 640px) {
+  .ac-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .ac-row-ctx, .ac-row-x { display: none; }
+}
+
+/* Portfolio Health — clean numeric chips (no emoji) */
+.ph-chip-n { font-size: 23px; }
+
+/* Risk drivers — bigger, more readable sentences */
+.riskd-head { font-size: 12px; }
+.riskd-item { font-size: 13.5px; line-height: 1.5; }
+
+/* Sector — un-over-correct: a real (if quieter) donut */
+.sector-recede .donut-wrap svg { width: 206px; height: 206px; }
+.sector-recede .donut-center-value { font-size: 21px; }
+
+/* Winners/Losers — numbered rank chips (no emoji) */
+.medal-rank { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.medal-rank--win  { color: var(--positive); background: color-mix(in srgb, var(--positive) 16%, transparent); }
+.medal-rank--lose { color: var(--negative); background: color-mix(in srgb, var(--negative) 14%, transparent); }
+
+/* Holdings — breathing room so Today / Action don't collide */
+.dash-holdings-table th.dash-hold-act, .dash-holdings-table td.dash-hold-act { padding-left: 28px; text-align: left; white-space: nowrap; }
+
+/* ─────────────────────────────────────────────────────────────
    Util
    ───────────────────────────────────────────────────────────── */
 .text-tabular { font-variant-numeric: tabular-nums; }
