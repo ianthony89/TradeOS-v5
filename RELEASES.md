@@ -4,6 +4,22 @@ _Newest first. Each version is tagged in git._
 
 ---
 
+## v5.1.0 — Dashboard Premium Polish · 🟡 IN REVIEW (not yet tagged)
+
+_Not a tagged release yet — this is the **live state on `main`** (commit `5f56276`, rounds P1 → P1.4), pending the owner's "Freeze" sign-off. Presentation-only; the Phase 2 architecture stays frozen. Tags as `v5.1.0` + re-freezes on sign-off._
+
+A visual overhaul of the Dashboard into a **decision command center** — skin only (`dashboard/page.tsx` + `globals.css` + `dictionary.ts`; no backend / API / DB / migration):
+
+- **Command header** — Hero (left) + KPI **2×2** (right) in one equal-height band. Hero = Holdings Value + USD/MYR toggle + **Best Position** (total return % + total P/L $) + a compact Today Winner/Loser · Open/Closed strip. KPIs: Today's P&L (visual lead) · Total · Realized (+ "{n} closed") · Unrealized, each with a one-line helper.
+- **Action Center** — urgency-sorted (EXIT→REDUCE→REVIEW→WATCH; biggest holding first within a tier) **horizontal priority list**: big SYMBOL + lead metric + muted "{pct} weight · Largest position" + View Position + 7-day Dismiss. **Facts only** — no fabricated judgment (thesis / AI-confidence / trend reserved for Phase 3).
+- **Risk Assessment** — single-hue Apple semicircle gauge (one colour = one state) + natural-language drivers ("AIXI accounts for 27% of portfolio value"…). No impact numbers, no trend (no stored history).
+- **Sector** (desaturated donut) · **Portfolio Health** (Win Rate · Avg Winner · Avg Loser · Deep Red + histogram) · **Top Winners/Losers** (compact medal cards) · **My Holdings** (scrollable full list: Symbol · Weight · Value · Total Return % · Unrealized $ · Today · Action; row → Hub).
+- **Theme-aware 3-tier hierarchy** via elevation tokens (`--bg-elevated` / glass / `--bg-sunken`) — survives **dark mode** (shadows don't). Tier 1 = Hero + Action; Tier 2 = Risk; Tier 3 = Sector / Health / Winners / Holdings.
+
+> Layout is now **locked** — remaining work is polish, not rewrite. Round trail + commit hashes in [`AGENTS.md`](./AGENTS.md) § 2.
+
+---
+
 ## v5.0.9 — 2026-06-05
 
 **Dashboard Final Architecture** — supersedes the v5.0.8 morning-check-in pass and rebuilds the Dashboard as a true **5-second portfolio command center**, then **freezes it**. Frontend only — no backend, API, DB, or migration changes.

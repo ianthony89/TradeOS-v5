@@ -1,10 +1,10 @@
 # TradeOS v5 — Roadmap
 
-_Status as of 2026-06-05 · last tagged release **`v5.0.9`** · **`v5.1.0` Dashboard Premium Polish — in review (no tag yet)** (see [`RELEASES.md`](./RELEASES.md))._
+_Status as of 2026-06-06 · last tagged release **`v5.0.9`** · **`v5.1.0` Dashboard Premium Polish — IN REVIEW, not tagged (live = `5f56276`, rounds P1 → P1.4)** (see [`RELEASES.md`](./RELEASES.md))._
 
 > **Phase 2 architecture = FROZEN. Dashboard presentation layer = Premium Polish Window (`v5.1.x`, temporarily open).**
-> The decision architecture — Position Hub / Journal / Planner / the intelligence engine (`position-intel`, `review-status`, `taxonomy`) — is **frozen and untouched**. Only the Dashboard's *skin* is open: visual hierarchy (3 tiers), compact hero (Best Position primary), Apple-material Action Center, single-hue risk gauge, natural-language risk drivers. **No tag, no release version, not frozen** until the owner signs off on the visual pass — then the Dashboard re-freezes.
-> Next direction after sign-off: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
+> The decision architecture — Position Hub / Journal / Planner / the intelligence engine (`position-intel`, `review-status`, `taxonomy`, `risk-score`) — is **frozen and untouched**. Only the Dashboard's *skin* is open: command header (Hero + KPI 2×2), Best Position, urgency-sorted **facts-only** Action Center, single-hue Apple risk gauge + natural-language drivers, Portfolio Health (4 narrative numbers), scrollable Holdings, and a **theme-aware 3-tier hierarchy via elevation tokens (not shadow — the dark-mode fix)**. **The layout is now LOCKED — remaining work is polish, not rewrite.** Files: `dashboard/page.tsx`, `globals.css`, `dictionary.ts` only.
+> **No tag, not frozen** until the owner signs off — then it tags `v5.1.0` and re-freezes. Next direction after that: **Phase 3 — AI Analysis Engine** (why a position moved · is the thesis broken · Hold/Reduce/Exit · does it fit the owner's trading rules). Not started — awaiting owner go.
 
 > **⚠ Migration 008 must be applied in Supabase** (`holdings.exit_price` + `exit_date`, added in v5.0.5 for the Closed-Positions "Since Exit %"). The app is resilient without it — those fields show "—" until applied.
 
