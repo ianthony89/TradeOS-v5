@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { RefreshCw, Upload, TrendingUp, Wallet, Coins, BadgeDollarSign, Repeat, X, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useHoldingsStore } from '@/stores/holdings'
+import { useHoldingsStore, type Holding } from '@/stores/holdings'
 import { useMarketStore, selectActiveFxRate } from '@/stores/market'
 import { useI18n }        from '@/lib/i18n/context'
 import { fmt }            from '@/lib/utils/format'
@@ -32,6 +32,16 @@ import { computeRiskScore } from '@/lib/portfolio/risk-score'
 function usdEquiv(amt: number, currency: string, fx: number): number {
   const r = fx > 0 ? fx : 4   // guard: never divide by a zero/blank FX
   return currency === 'MYR' ? amt / r : amt
+}
+
+function positionTotalReturnPct(h: Pick<Holding, 'avgCost' | 'quantity' | 'unrealizedPl' | 'realizedPl'>): number {
+  const cost = h.avgCost * h.quantity
+  return cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0
+}
+
+function todayMovePct(h: Pick<Holding, 'marketValue' | 'todayPl'>): number {
+  const prev = h.marketValue - h.todayPl
+  return prev > 0 ? (h.todayPl / prev) * 100 : 0
 }
 
 /* Review Queue dismiss — local only (no backend), hidden for 7 days. */
@@ -95,7 +105,7 @@ function fillTmpl(tmpl: string, vals: Record<string, string>) {
 
 export default function DashboardPage() {
   const { t, lang } = useI18n()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router   = useRouter()
   const {
     holdings, setHoldings,
@@ -116,6 +126,12 @@ export default function DashboardPage() {
   const [intelMap, setIntelMap] = useState<Map<string, import('@/lib/portfolio/position-intel').PositionIntel>>(new Map())
   const [dismissed, setDismissed] = useState<Record<string, number>>({})   // Action Center dismiss (7d, localStorage)
   const [closedCount, setClosedCount] = useState(0)                        // exited positions — shown in the hero (v5.1)
+  const holdingsRef = useRef<typeof holdings>([])
+  const refreshingRef = useRef(false)
+
+  useEffect(() => {
+    holdingsRef.current = holdings
+  }, [holdings])
 
   /* Reusable holdings loader (also called after a dashboard import).
      Returns the freshly loaded rows so callers can summarize them. */
@@ -208,11 +224,13 @@ export default function DashboardPage() {
   }, [])
 
   /* Refresh quotes — also stamps the sync indicator */
-  const refreshQuotes = useCallback(async () => {
-    if (!holdings.length || quoteRefreshing) return
+  const refreshQuotes = useCallback(async (rows?: typeof holdings) => {
+    const target = rows ?? holdingsRef.current
+    if (!target.length || refreshingRef.current) return
+    refreshingRef.current = true
     setRefreshing(true)
     try {
-      const symbols = holdings.map(h => h.symbolNormalized)
+      const symbols = target.map(h => h.symbolNormalized)
       const res  = await fetch('/api/quotes', {
         method:  'POST',
         headers: { 'content-type': 'application/json' },
@@ -224,15 +242,18 @@ export default function DashboardPage() {
         setQuotesUpdated(new Date())
       }
     } catch { /* swallow */ }
-    finally { setRefreshing(false) }
-  }, [holdings, quoteRefreshing, setRefreshing, updateQuotes, setQuotesUpdated])
+    finally {
+      refreshingRef.current = false
+      setRefreshing(false)
+    }
+  }, [setRefreshing, updateQuotes, setQuotesUpdated])
 
   useEffect(() => {
     if (!holdings.length) return
-    refreshQuotes()
-    const id = setInterval(refreshQuotes, 30 * 60 * 1000)
+    refreshQuotes(holdings)
+    const id = setInterval(() => refreshQuotes(), 30 * 60 * 1000)
     return () => clearInterval(id)
-  }, [holdings.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [holdings, refreshQuotes])
 
   /* ── Live recompute layer (the fix for "Refresh doesn't move numbers") ──
      When a fresh quote exists for a holding, recompute its monetary fields
@@ -328,7 +349,7 @@ export default function DashboardPage() {
   /* Ticker strip — one chip per holding */
   const tickerItems = useMemo(() =>
     live.filter(h => h.currentPrice > 0)
-      .map(h => ({ symbol: h.symbol, price: h.currentPrice, changePct: h.unrealizedPlPct, currency: h.currency })),
+      .map(h => ({ symbol: h.symbol, price: h.currentPrice, changePct: todayMovePct(h), currency: h.currency })),
   [live])
 
   /* Hero — largest position */
@@ -363,10 +384,7 @@ export default function DashboardPage() {
   const bestPosition = useMemo(() => {
     if (!withWeight.length) return undefined
     return withWeight
-      .map(h => {
-        const cost = h.avgCost * h.quantity
-        return { ...h, totalReturnPct: cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0 }
-      })
+      .map(h => ({ ...h, totalReturnPct: positionTotalReturnPct(h) }))
       .sort((a, b) => b.totalReturnPct - a.totalReturnPct)[0]
   }, [withWeight])
 
@@ -391,23 +409,23 @@ export default function DashboardPage() {
     [...withWeight]
       .sort((a, b) => b.portfolioWeight - a.portfolioWeight)
       .map(h => {
-        const cost = h.avgCost * h.quantity
-        const prev = h.marketValue - h.todayPl
         return {
           ...h,
-          totalReturnPct: cost > 0 ? ((h.unrealizedPl + h.realizedPl) / cost) * 100 : 0,
-          todayPct:       prev > 0 ? (h.todayPl / prev) * 100 : 0,
+          totalReturnPct: positionTotalReturnPct(h),
+          todayPct:       todayMovePct(h),
           action: classifyAction({ symbol: h.symbol, name: h.name, assetType: h.assetType, unrealizedPlPct: h.unrealizedPlPct, portfolioWeight: h.portfolioWeight }),
         }
       }),
   [withWeight])
 
-  /* Winners & Losers board — top 3 / bottom 3 by total (unrealized) return % */
+  /* Winners & Losers board — top 3 / bottom 3 by total return % */
   const board = useMemo(() => {
-    const sorted = [...withWeight].sort((a, b) => b.unrealizedPlPct - a.unrealizedPlPct)
+    const sorted = withWeight
+      .map(h => ({ ...h, totalReturnPct: positionTotalReturnPct(h) }))
+      .sort((a, b) => b.totalReturnPct - a.totalReturnPct)
     return {
-      winners: sorted.filter(h => h.unrealizedPlPct > 0).slice(0, 3),
-      losers:  sorted.filter(h => h.unrealizedPlPct < 0).slice(-3).reverse(),
+      winners: sorted.filter(h => h.totalReturnPct > 0).slice(0, 3),
+      losers:  sorted.filter(h => h.totalReturnPct < 0).slice(-3).reverse(),
     }
   }, [withWeight])
 
@@ -505,7 +523,7 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
-            onClick={refreshQuotes}
+            onClick={() => refreshQuotes()}
             disabled={quoteRefreshing}
             className="btn btn-ghost btn-sm"
           >
@@ -515,7 +533,7 @@ export default function DashboardPage() {
           <ImportCsvButton
             onImported={async (n) => {
               const rows  = await loadHoldings()
-              refreshQuotes()
+              await refreshQuotes(rows)
               const usd   = rows.filter(r => r.currency === 'USD').length
               const myr   = rows.filter(r => r.currency === 'MYR').length
               const count = rows.length || n
@@ -805,7 +823,7 @@ export default function DashboardPage() {
                         <span className="medal-sym">{h.symbol}</span>
                         <span className="medal-meta">{t('col_weight')} {fmt.pct(h.portfolioWeight, 1)} · {fmt.compact(toDisplay(h.usdValue), primaryCurrency)}</span>
                       </span>
-                      <span className={`medal-pct ${kind === 'win' ? 'text-positive' : 'text-negative'}`}>{fmt.pctSigned(h.unrealizedPlPct, 1)}</span>
+                      <span className={`medal-pct ${kind === 'win' ? 'text-positive' : 'text-negative'}`}>{fmt.pctSigned(h.totalReturnPct, 1)}</span>
                     </Link>
                   ))}
                 </div>
