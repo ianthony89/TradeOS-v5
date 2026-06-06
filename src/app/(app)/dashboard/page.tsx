@@ -65,18 +65,18 @@ function RiskArc({ score, level }: { score: number; level: RiskLevel }) {
   const arc = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
   const gid = `riskgrad-${level}`
   return (
-    <svg className={`riskg-svg riskg-svg--${level}`} viewBox="0 0 164 100" aria-hidden="true">
+    <svg className={`riskg-svg riskg-svg--${level}`} viewBox="0 0 170 104" aria-hidden="true">
       <defs>
         <linearGradient id={gid} gradientUnits="userSpaceOnUse" x1={cx - r} y1="0" x2={cx + r} y2="0">
-          <stop offset="0" stopColor="currentColor" stopOpacity="0.4" />
+          <stop offset="0" stopColor="currentColor" stopOpacity="0.45" />
           <stop offset="1" stopColor="currentColor" stopOpacity="1" />
         </linearGradient>
       </defs>
-      <path d={arc} fill="none" stroke="var(--border-strong)" strokeWidth="12" strokeLinecap="round" opacity="0.55" />
-      <path d={arc} fill="none" stroke={`url(#${gid})`} strokeWidth="12" strokeLinecap="round"
+      <path d={arc} fill="none" stroke="var(--border-default)" strokeWidth="16" strokeLinecap="round" opacity="0.4" />
+      <path className="riskg-fill" d={arc} fill="none" stroke={`url(#${gid})`} strokeWidth="16" strokeLinecap="round"
             strokeDasharray={`${len * f} ${len}`} />
-      <circle cx={ex} cy={ey} r="6"   fill="currentColor" opacity="0.18" />
-      <circle cx={ex} cy={ey} r="3.5" fill="currentColor" />
+      <circle cx={ex} cy={ey} r="9" fill="currentColor" opacity="0.16" />
+      <circle cx={ex} cy={ey} r="5" fill="currentColor" />
     </svg>
   )
 }
@@ -299,6 +299,18 @@ export default function DashboardPage() {
   const topPositions = useMemo(() =>
     [...withWeight].sort((a, b) => b.portfolioWeight - a.portfolioWeight).slice(0, 6),
   [withWeight])
+
+  /* Today's movers — best & worst by TODAY's % change (penny-filtered) */
+  const { todayWinner, todayLoser } = useMemo(() => {
+    const eligible = withWeight.filter(h => h.usdValue >= 100 || h.portfolioWeight >= 1)
+    if (!eligible.length) return { todayWinner: undefined, todayLoser: undefined }
+    const scored = eligible.map(h => {
+      const prev = h.marketValue - h.todayPl
+      return { ...h, todayPct: prev > 0 ? (h.todayPl / prev) * 100 : 0 }
+    })
+    const sorted = [...scored].sort((a, b) => b.todayPct - a.todayPct)
+    return { todayWinner: sorted[0], todayLoser: sorted[sorted.length - 1] }
+  }, [withWeight])
 
   /* Sector donut slices */
   const sectorSlices = useMemo<DonutSlice[]>(() => {
@@ -564,6 +576,34 @@ export default function DashboardPage() {
               ) : <span className="hero-best-sym">{t('hero_none')}</span>}
             </div>
           </div>
+
+          {/* Compact intelligence strip — restored to fill the hero (v5.1.3) */}
+          <div className="hero-strip">
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('hero_today_winner')}</span>
+              <span className="hero-strip-value">
+                {todayWinner
+                  ? <>{todayWinner.symbol}{' '}<span className={todayWinner.todayPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(todayWinner.todayPct, 1)}</span></>
+                  : t('hero_none')}
+              </span>
+            </div>
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('hero_today_loser')}</span>
+              <span className="hero-strip-value">
+                {todayLoser
+                  ? <>{todayLoser.symbol}{' '}<span className={todayLoser.todayPct >= 0 ? 'text-positive' : 'text-negative'}>{fmt.pctSigned(todayLoser.todayPct, 1)}</span></>
+                  : t('hero_none')}
+              </span>
+            </div>
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('holdings_sum_open')}</span>
+              <span className="hero-strip-value">{holdings.length}</span>
+            </div>
+            <div className="hero-strip-cell">
+              <span className="hero-strip-label">{t('holdings_sum_closed')}</span>
+              <span className="hero-strip-value">{closedCount}</span>
+            </div>
+          </div>
         </div>
 
         <div className="dash-kpis cmd-kpis">
@@ -713,7 +753,7 @@ export default function DashboardPage() {
 
       {/* Row 3 — Sector Allocation | Portfolio Health (replaces P/L Distribution) */}
       <div className="grid-2" style={{ marginBottom: 18 }}>
-        <Panel className="panel--fill sector-recede">
+        <Panel className="panel--fill sector-recede panel--tier3">
           <PanelHead
             title={t('dash_sector_alloc')}
             meta={t('meta_by_market_value')}
@@ -734,7 +774,7 @@ export default function DashboardPage() {
           </PanelBody>
         </Panel>
 
-        <Panel>
+        <Panel className="panel--tier3">
           <PanelHead title={t('dash_portfolio_health')} meta={t('dash_health_meta')} />
           <PanelBody>
             <div className="ph-chips">
