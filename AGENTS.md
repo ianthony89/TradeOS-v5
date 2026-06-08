@@ -15,6 +15,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This file is read by every AI assistant (Claude, ChatGPT, Codex) at session start.
 Calibration target: **95%+ alignment** between AI assumptions and Anthony's product intent.
 
+### Standing agent ecosystem
+
+For multi-agent work, read [`.agents/README.md`](./.agents/README.md) after this contract, then read the relevant role file:
+Scribe (context) · Ramanujan (Dashboard) · Ada (AI research) · Tesla (Design/UIUX) · Fermat (QC).
+Scribe should update [`.agents/session-brief.md`](./.agents/session-brief.md) at the start and handoff points of substantial work.
+
 ---
 
 ## § 1. About Anthony
